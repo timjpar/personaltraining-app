@@ -1,0 +1,96 @@
+// Personal training app — data model
+// SQLite for local dev; swap datasource provider to postgres to deploy.
+// Note: SQLite has no enum support, so role/status/type are String fields
+// with app-level constants (see src/lib/constants.ts).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("CLIENT") // TRAINER | CLIENT
+  createdAt    DateTime @default(now())
+
+  // A client belongs to one trainer (self-relation).
+  trainerId String?
+  trainer   User?   @relation("TrainerClients", fields: [trainerId], references: [id])
+  clients   User[]  @relation("TrainerClients")
+
+  workoutsAsClient  Workout[] @relation("ClientWorkouts")
+  workoutsAsTrainer Workout[] @relation("TrainerWorkouts")
+
+  feedItemsAsTrainer FeedItem[] @relation("TrainerFeed")
+  feedItemsAsClient  FeedItem[] @relation("ClientFeed")
+}
+
+model Workout {
+  id            String    @id @default(cuid())
+  title         String
+  notes         String?
+  scheduledDate DateTime
+  status        String    @default("ASSIGNED") // ASSIGNED | COMPLETED
+  completedAt   DateTime?
+  rpe           Int? // session rating of perceived exertion, 1-10
+  clientComment String?
+  createdAt     DateTime  @default(now())
+
+  clientId String
+  client   User   @relation("ClientWorkouts", fields: [clientId], references: [id], onDelete: Cascade)
+
+  trainerId String
+  trainer   User   @relation("TrainerWorkouts", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  exercises Exercise[]
+  feedItems FeedItem[]
+
+  @@index([clientId, scheduledDate])
+}
+
+model Exercise {
+  id        String  @id @default(cuid())
+  workoutId String
+  workout   Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  // Prescription (what the trainer programs). Free-form strings so coaches can
+  // write ranges and notation like "8-10", "60%", tempo "30X1", rest "90s".
+  name  String
+  sets  String?
+  reps  String?
+  load  String?
+  tempo String?
+  rest  String?
+  notes String?
+  order Int     @default(0)
+
+  // Client-logged actuals.
+  resultReps String?
+  resultLoad String?
+  done       Boolean @default(false)
+}
+
+model FeedItem {
+  id        String   @id @default(cuid())
+  type      String   @default("WORKOUT_COMPLETED")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  trainerId String
+  trainer   User   @relation("TrainerFeed", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   User   @relation("ClientFeed", fields: [clientId], references: [id], onDelete: Cascade)
+
+  workoutId String
+  workout   Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  @@index([trainerId, read])
+}

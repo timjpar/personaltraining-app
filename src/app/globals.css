@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* ---- Chalkline design tokens ---------------------------------------------
+   Concept: "The Programming Sheet." A light, precise document surface where
+   training is written; prescription metrics are set in mono, tabular figures.
+   One signature accent (jade) carries action + completion; amber is reserved
+   only for effort/RPE. Not cream+serif, not dark+acid, not broadsheet rules. */
+@theme {
+  --color-paper: #eaeeec; /* cool light page */
+  --color-card: #ffffff;
+  --color-ink: #14181a; /* primary text (never a page background) */
+  --color-ink-soft: #58636a; /* secondary text */
+  --color-line: #d9e0dd; /* hairlines / borders */
+  --color-steel: #172422; /* dark chrome: top bar, footer */
+  --color-steel-soft: #2b3a37;
+
+  --color-jade: #0e8a6c; /* primary action + completed */
+  --color-jade-strong: #0a6a53;
+  --color-jade-wash: #e2f0ea; /* tint fills */
+
+  --color-amber: #cf8322; /* effort / RPE only */
+  --color-amber-wash: #f6ecda;
+
+  --color-flag: #c2513a; /* destructive / overdue */
+
+  --font-display: var(--ff-display);
+  --font-body: var(--ff-body);
+  --font-mono: var(--ff-mono);
+
+  --radius-card: 14px;
+  --radius-sm: 8px;
+
+  --shadow-card: 0 1px 2px rgba(20, 24, 26, 0.04), 0 6px 20px rgba(20, 24, 26, 0.05);
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  /* Visible keyboard focus everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--color-jade);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: var(--color-jade);
+    color: #fff;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Mono micro-label used on the prescription strip and eyebrows. */
+  .eyebrow {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* Tabular mono for programmed/logged numbers. */
+  .metric {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Faint graph-paper field for the auth/hero surface only. */
+  .gridfield {
+    background-image:
+      linear-gradient(to right, rgba(23, 36, 34, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(23, 36, 34, 0.05) 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+}
