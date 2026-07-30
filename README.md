@@ -22,16 +22,20 @@ dashboard the moment it happens. Modeled on the CoachRx workflow.
 
 - [Next.js 16](https://nextjs.org) (App Router) + React 19 + TypeScript
 - [Tailwind CSS v4](https://tailwindcss.com)
-- [Prisma 7](https://www.prisma.io) with the `better-sqlite3` driver adapter
+- [Prisma 7](https://www.prisma.io) with the `pg` driver adapter → Postgres
 - Email/password auth: `bcryptjs` hashing + a signed JWT session cookie (`jose`)
 
 ## Getting started
 
+You need a Postgres database — the same engine in development and production, so
+what works locally is what deploys. A free hosted database (Neon, Supabase,
+Vercel Postgres) is the quickest route; a local Postgres works just as well.
+
 ```bash
 npm install
-cp .env.example .env      # then set AUTH_SECRET (see below)
-npx prisma migrate dev    # creates the SQLite database
-npm run db:seed           # optional: demo trainer + clients + workouts
+cp .env.example .env       # then fill in DATABASE_URL and AUTH_SECRET
+npx prisma migrate deploy  # create the tables
+npm run db:seed            # optional: demo trainer + clients + workouts
 npm run dev
 ```
 
@@ -42,6 +46,9 @@ Generate a session secret for `.env`:
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```
+
+Use `npx prisma migrate dev` instead of `migrate deploy` when you're changing
+`schema.prisma` and want a new migration generated.
 
 ### Demo accounts (after `npm run db:seed`)
 
@@ -60,12 +67,25 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 - `src/app/(client)/` — today, workout logging, history
 - `src/components/` — UI kit and the prescription-card / builder / log-form pieces
 
-## Going live later
+## Deploying
 
-Local dev uses SQLite. To deploy (e.g. Vercel):
+The app needs a Node.js server and a Postgres database. Nothing is written to
+disk, so it runs fine on serverless platforms.
 
-1. Change the `datasource` provider in `prisma/schema.prisma` to `postgresql`
-   and swap the adapter in `src/lib/db.ts` for a Postgres driver adapter.
-2. Set `DATABASE_URL` (a hosted Postgres URL) and `AUTH_SECRET` as environment
-   variables.
-3. Run `prisma migrate deploy` against the new database.
+1. **Create a Postgres database.** On Vercel: Storage → Create → Postgres (Neon).
+   Any provider works.
+2. **Set environment variables** on the host, for every environment that serves
+   traffic (on Vercel: Production, Preview, and Development):
+   - `DATABASE_URL` — the **pooled** connection string
+   - `AUTH_SECRET` — a long random string (see above). Without it every request
+     that touches a session fails.
+3. **Create the tables** against the production database:
+
+   ```bash
+   DATABASE_URL="<your production url>" npx prisma migrate deploy
+   ```
+
+4. Deploy. `npm run build` runs `prisma generate` via `postinstall`.
+
+Seeding is optional in production and will create the demo accounts listed
+above — skip it, or change those passwords, on anything public.

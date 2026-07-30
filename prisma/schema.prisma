@@ -1,7 +1,7 @@
 // Personal training app — data model
-// SQLite for local dev; swap datasource provider to postgres to deploy.
-// Note: SQLite has no enum support, so role/status/type are String fields
-// with app-level constants (see src/lib/constants.ts).
+// Postgres everywhere: the same provider locally and in production, so what
+// works in dev is what deploys. Note: role/status/type stay String fields with
+// app-level constants (see src/lib/constants.ts) rather than native enums.
 
 generator client {
   provider = "prisma-client"
@@ -9,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model User {

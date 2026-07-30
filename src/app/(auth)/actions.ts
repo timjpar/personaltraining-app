@@ -47,15 +47,37 @@ export async function register(
     return { error: "An account with that email already exists." };
   }
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      passwordHash: await hashPassword(password),
-      role: ROLES.TRAINER,
-    },
-  });
+  // The check above and the insert below aren't atomic, so two simultaneous
+  // signups for one email can both get past it. Let the unique index settle it
+  // and report the loser the same way, rather than surfacing a 500.
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash: await hashPassword(password),
+        role: ROLES.TRAINER,
+      },
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return { error: "An account with that email already exists." };
+    }
+    throw err;
+  }
 
+  // Kept outside the try: redirect() signals by throwing, and catching it here
+  // would swallow the navigation.
   await setSession(user);
   redirect("/dashboard");
+}
+
+function isUniqueViolation(err: unknown) {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "P2002"
+  );
 }

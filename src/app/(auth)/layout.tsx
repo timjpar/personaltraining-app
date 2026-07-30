@@ -1,11 +1,22 @@
+import { redirect } from "next/navigation";
 import { Wordmark } from "@/components/Wordmark";
 import { PrescriptionCard } from "@/components/PrescriptionCard";
+import { getCurrentUser } from "@/lib/auth";
+import { ROLES } from "@/lib/constants";
 
-export default function AuthLayout({
+export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Send genuinely signed-in visitors to their own area. This looks the account
+  // up rather than trusting the cookie, so a session for a deleted account falls
+  // through to the form instead of bouncing — signing in replaces the cookie.
+  const user = await getCurrentUser();
+  if (user) {
+    redirect(user.role === ROLES.TRAINER ? "/dashboard" : "/my");
+  }
+
   return (
     <div className="grid min-h-svh lg:grid-cols-[1.05fr_1fr]">
       {/* Left: the thesis — a live program sheet closing the loop. */}

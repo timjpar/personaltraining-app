@@ -11,7 +11,7 @@ function isPublic(pathname: string) {
   );
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = await verifySession(token);
@@ -24,10 +24,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // The auth pages stay reachable even with a session cookie. The cookie only
+  // proves the token was signed by us, not that the account still exists, so
+  // bouncing signed-in visitors away from /login here would trap anyone holding
+  // a stale cookie in a redirect loop: the page checks the database, finds no
+  // user, and sends them straight back. That check belongs in the (auth) layout,
+  // which can actually look the account up.
+  if (isPublic(pathname)) return NextResponse.next();
+
   const home = session.role === ROLES.TRAINER ? "/dashboard" : "/my";
 
-  // Signed in but on an auth page or the root: send to the role's home.
-  if (isPublic(pathname) || pathname === "/") {
+  // Signed in and on the root: send to the role's home.
+  if (pathname === "/") {
     const url = req.nextUrl.clone();
     url.pathname = home;
     return NextResponse.redirect(url);
