@@ -4,7 +4,12 @@ import { requireClient } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { completeWorkout } from "@/app/(client)/my/actions";
 import { Container, PageHeading, Card, Badge } from "@/components/ui";
-import { PrescriptionCard, exerciseMetrics } from "@/components/PrescriptionCard";
+import {
+  PrescriptionCard,
+  SectionHeading,
+  exerciseMetrics,
+} from "@/components/PrescriptionCard";
+import { groupBySection, usesSections } from "@/lib/workout-form";
 import { RpeMeter } from "@/components/RpeMeter";
 import { WorkoutLogForm } from "@/components/WorkoutLogForm";
 import { formatDate, relativeTime } from "@/lib/format";
@@ -27,6 +32,7 @@ export default async function ClientWorkoutPage({
   if (!workout) notFound();
 
   const isCompleted = workout.status === "COMPLETED";
+  const showSections = usesSections(workout.exercises);
 
   return (
     <Container className="max-w-3xl">
@@ -90,36 +96,47 @@ export default async function ClientWorkoutPage({
             ) : null}
           </Card>
 
-          <ul className="flex flex-col gap-3">
-            {workout.exercises.map((ex) => (
-              <li key={ex.id}>
-                <PrescriptionCard
-                  index={ex.order}
-                  name={ex.name}
-                  metrics={exerciseMetrics(ex)}
-                  notes={ex.notes}
-                  logged={ex.done}
-                  footer={
-                    ex.resultReps || ex.resultLoad ? (
-                      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-[var(--radius-sm)] bg-jade-wash/60 px-3.5 py-2.5">
-                        <span className="eyebrow text-jade-strong">You logged</span>
-                        {ex.resultReps ? (
-                          <span className="metric text-sm text-ink">
-                            {ex.resultReps} reps
-                          </span>
-                        ) : null}
-                        {ex.resultLoad ? (
-                          <span className="metric text-sm text-ink">
-                            @ {ex.resultLoad}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : null
-                  }
-                />
-              </li>
+          <div className="flex flex-col gap-6">
+            {groupBySection(workout.exercises).map((group) => (
+              <div key={group.section}>
+                {showSections ? (
+                  <SectionHeading label={group.label} count={group.rows.length} />
+                ) : null}
+                <ul className="flex flex-col gap-3">
+                  {group.rows.map((ex) => (
+                    <li key={ex.id}>
+                      <PrescriptionCard
+                        index={ex.order}
+                        name={ex.name}
+                        metrics={exerciseMetrics(ex)}
+                        notes={ex.notes}
+                        logged={ex.done}
+                        footer={
+                          ex.resultReps || ex.resultLoad ? (
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-[var(--radius-sm)] bg-jade-wash/60 px-3.5 py-2.5">
+                              <span className="eyebrow text-jade-strong">
+                                You logged
+                              </span>
+                              {ex.resultReps ? (
+                                <span className="metric text-sm text-ink">
+                                  {ex.resultReps} reps
+                                </span>
+                              ) : null}
+                              {ex.resultLoad ? (
+                                <span className="metric text-sm text-ink">
+                                  @ {ex.resultLoad}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       ) : (
         <div className="mt-6">

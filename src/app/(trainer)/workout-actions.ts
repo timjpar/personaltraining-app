@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { parseWorkoutForm } from "@/lib/workout-form";
+import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
 
 export type WorkoutFormState = { error?: string };
 
@@ -34,6 +35,8 @@ export async function createWorkout(
       exercises: { create: data.exercises },
     },
   });
+
+  await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/dashboard");
@@ -68,6 +71,8 @@ export async function updateWorkout(
       },
     }),
   ]);
+
+  await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
 
   revalidatePath(`/workouts/${workoutId}`);
   revalidatePath(`/clients/${workout.clientId}`);

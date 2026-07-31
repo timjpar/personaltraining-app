@@ -4,6 +4,7 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { normalizeExerciseName } from "../src/lib/exercise-presets";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -75,10 +76,15 @@ async function main() {
       trainerId: trainer.id,
       exercises: {
         create: [
-          { order: 1, name: "Back Squat", sets: "4", reps: "5", load: "70%", tempo: "31X1", rest: "2:30", notes: "Leave one rep in the tank on the top set." },
-          { order: 2, name: "Romanian Deadlift", sets: "3", reps: "8", load: "RPE 7", rest: "2:00" },
-          { order: 3, name: "Walking Lunge", sets: "3", reps: "10/leg", load: "2x20kg", rest: "90s" },
-          { order: 4, name: "Hanging Knee Raise", sets: "3", reps: "12", tempo: "20X0", rest: "60s" },
+          { order: 1, section: "WARMUP", name: "Bike Easy", sets: "1", reps: "5 min" },
+          { order: 2, section: "WARMUP", name: "World's Greatest Stretch", sets: "2", reps: "5/side" },
+          { order: 3, section: "WARMUP", name: "Banded Monster Walk", sets: "2", reps: "10/way" },
+          { order: 4, name: "Back Squat", sets: "4", reps: "5", load: "70%", tempo: "31X1", rest: "2:30", notes: "Leave one rep in the tank on the top set." },
+          { order: 5, name: "Romanian Deadlift", sets: "3", reps: "8", load: "RPE 7", rest: "2:00" },
+          { order: 6, name: "Walking Lunge", sets: "3", reps: "10/leg", load: "2x20kg", rest: "90s" },
+          { order: 7, name: "Hanging Knee Raise", sets: "3", reps: "12", tempo: "20X0", rest: "60s" },
+          { order: 8, section: "COOLDOWN", name: "Couch Stretch", sets: "2", reps: "60s/side" },
+          { order: 9, section: "COOLDOWN", name: "Foam Roll Quads", sets: "1", reps: "2 min" },
         ],
       },
     },
@@ -100,7 +106,7 @@ async function main() {
         create: [
           { order: 1, name: "Bench Press", sets: "4", reps: "6", load: "72.5%", tempo: "21X1", rest: "2:30", resultReps: "6,6,6,5", resultLoad: "65kg", done: true },
           { order: 2, name: "Chin-Up", sets: "3", reps: "8", load: "bodyweight", rest: "2:00", resultReps: "8,8,7", done: true },
-          { order: 3, name: "DB Shoulder Press", sets: "3", reps: "10", load: "18kg", rest: "90s", resultReps: "10,10,10", resultLoad: "18kg", done: true },
+          { order: 3, name: "Dumbbell Shoulder Press", sets: "3", reps: "10", load: "18kg", rest: "90s", resultReps: "10,10,10", resultLoad: "18kg", done: true },
         ],
       },
     },
@@ -127,7 +133,7 @@ async function main() {
         create: [
           { order: 1, name: "Goblet Squat", sets: "3", reps: "12", load: "24kg", rest: "90s" },
           { order: 2, name: "Push-Up", sets: "3", reps: "AMRAP", rest: "90s", notes: "Stop 2 reps shy of failure." },
-          { order: 3, name: "DB Row", sets: "3", reps: "10/side", load: "22kg", rest: "90s" },
+          { order: 3, name: "Dumbbell Row", sets: "3", reps: "10/side", load: "22kg", rest: "90s" },
         ],
       },
     },
@@ -148,9 +154,12 @@ async function main() {
       trainerId: trainer.id,
       exercises: {
         create: [
-          { order: 1, name: "Back Squat", sets: "4", reps: "5", load: "70%", tempo: "31X1", rest: "2:30" },
-          { order: 2, name: "Romanian Deadlift", sets: "3", reps: "8", load: "RPE 7", rest: "2:00" },
-          { order: 3, name: "Walking Lunge", sets: "3", reps: "10/leg", rest: "90s" },
+          { order: 1, section: "WARMUP", name: "Bike Easy", sets: "1", reps: "5 min" },
+          { order: 2, section: "WARMUP", name: "Banded Glute Bridge", sets: "2", reps: "12" },
+          { order: 3, name: "Back Squat", sets: "4", reps: "5", load: "70%", tempo: "31X1", rest: "2:30" },
+          { order: 4, name: "Romanian Deadlift", sets: "3", reps: "8", load: "RPE 7", rest: "2:00" },
+          { order: 5, name: "Walking Lunge", sets: "3", reps: "10/leg", rest: "90s" },
+          { order: 6, section: "COOLDOWN", name: "Couch Stretch", sets: "2", reps: "60s/side" },
         ],
       },
     },
@@ -165,7 +174,7 @@ async function main() {
         create: [
           { order: 1, name: "Bench Press", sets: "4", reps: "6", load: "72.5%", tempo: "21X1", rest: "2:30" },
           { order: 2, name: "Chin-Up", sets: "3", reps: "8", load: "bodyweight", rest: "2:00" },
-          { order: 3, name: "DB Shoulder Press", sets: "3", reps: "10", rest: "90s" },
+          { order: 3, name: "Dumbbell Shoulder Press", sets: "3", reps: "10", rest: "90s" },
         ],
       },
     },
@@ -179,10 +188,38 @@ async function main() {
         create: [
           { order: 1, name: "Goblet Squat", sets: "3", reps: "12", rest: "90s" },
           { order: 2, name: "Push-Up", sets: "3", reps: "AMRAP", rest: "90s" },
-          { order: 3, name: "DB Row", sets: "3", reps: "10/side", rest: "90s" },
+          { order: 3, name: "Dumbbell Row", sets: "3", reps: "10/side", rest: "90s" },
         ],
       },
     },
+  });
+
+  // --- The trainer's exercise catalog ---
+  // Normally written automatically as sessions are saved; seeded here so the
+  // picker's "Recent" and "My exercises" groups aren't empty on a fresh clone.
+  await prisma.trainerExercise.deleteMany({ where: { trainerId: trainer.id } });
+  await prisma.trainerExercise.createMany({
+    data: [
+      // Presets that the seeded sessions use — these feed "Recent" only.
+      "Back Squat",
+      "Romanian Deadlift",
+      "Walking Lunge",
+      "Bench Press",
+      "Chin-Up",
+      "Dumbbell Shoulder Press",
+      "Goblet Squat",
+      "Bike Easy",
+      "Couch Stretch",
+      // Not in the shipped list, so these are what "My exercises" shows.
+      "Belt Squat March",
+      "Alex's Hip Airplane",
+    ].map((name, i) => ({
+      trainerId: trainer.id,
+      name,
+      nameKey: normalizeExerciseName(name),
+      // Stagger so "Recent" has a believable order rather than ties.
+      lastUsedAt: new Date(Date.now() - i * 60_000),
+    })),
   });
 
   await prisma.program.create({

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getPickerCatalog } from "@/lib/exercise-catalog";
 import { Container, PageHeading } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { createWorkout } from "@/app/(trainer)/workout-actions";
@@ -15,10 +16,13 @@ export default async function NewWorkoutPage({
   const { id } = await params;
   const trainer = await requireTrainer();
 
-  const client = await prisma.user.findFirst({
-    where: { id, trainerId: trainer.id, role: "CLIENT" },
-    select: { id: true, name: true },
-  });
+  const [client, catalog] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id, trainerId: trainer.id, role: "CLIENT" },
+      select: { id: true, name: true },
+    }),
+    getPickerCatalog(trainer.id),
+  ]);
   if (!client) notFound();
 
   return (
@@ -41,6 +45,7 @@ export default async function NewWorkoutPage({
           action={createWorkout.bind(null, client.id)}
           submitLabel="Assign workout"
           cancelHref={`/clients/${client.id}`}
+          catalog={catalog}
           initial={{ scheduledDate: toDateInput(new Date()) }}
         />
       </div>

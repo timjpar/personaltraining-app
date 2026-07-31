@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getPickerCatalog } from "@/lib/exercise-catalog";
 import { Container, PageHeading } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { updateWorkout } from "@/app/(trainer)/workout-actions";
@@ -24,6 +25,8 @@ export default async function EditWorkoutPage({
   });
   if (!workout) notFound();
 
+  const catalog = await getPickerCatalog(trainer.id);
+
   return (
     <Container className="max-w-3xl">
       <Link
@@ -44,6 +47,7 @@ export default async function EditWorkoutPage({
           action={updateWorkout.bind(null, workout.id)}
           submitLabel="Save changes"
           cancelHref={`/workouts/${workout.id}`}
+          catalog={catalog}
           initial={{
             title: workout.title,
             notes: workout.notes,
@@ -57,6 +61,7 @@ export default async function EditWorkoutPage({
               tempo: ex.tempo,
               rest: ex.rest,
               notes: ex.notes,
+              section: ex.section,
             })),
           }}
         />

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getPickerCatalog } from "@/lib/exercise-catalog";
 import { Container, PageHeading } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { updateTemplate } from "../../actions";
@@ -19,6 +20,8 @@ export default async function EditTemplatePage({
     include: { exercises: { orderBy: { order: "asc" } } },
   });
   if (!template) notFound();
+
+  const catalog = await getPickerCatalog(trainer.id);
 
   return (
     <Container className="max-w-3xl">
@@ -41,6 +44,7 @@ export default async function EditTemplatePage({
           submitLabel="Save changes"
           cancelHref={`/library/${template.id}`}
           showDate={false}
+          catalog={catalog}
           initial={{
             title: template.title,
             notes: template.notes,
@@ -53,6 +57,7 @@ export default async function EditTemplatePage({
               tempo: e.tempo,
               rest: e.rest,
               notes: e.notes,
+              section: e.section,
             })),
           }}
         />

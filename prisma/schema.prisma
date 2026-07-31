@@ -34,6 +34,7 @@ model User {
   // Reusable, client-agnostic building blocks a trainer owns.
   templates          WorkoutTemplate[] @relation("TrainerTemplates")
   programs           Program[]         @relation("TrainerPrograms")
+  exerciseNames      TrainerExercise[] @relation("TrainerExercises")
   nutritionTemplates NutritionPlan[]   @relation("TrainerNutrition")
   // Nutrition plans assigned down to this user (as a client).
   nutritionPlans     NutritionPlan[]   @relation("ClientNutrition")
@@ -77,6 +78,10 @@ model Exercise {
   rest  String?
   notes String?
   order Int     @default(0)
+  // WARMUP | MAIN | COOLDOWN. A grouping label only — `order` stays global
+  // 1..N across the whole session, so anything that reorders rows has to
+  // renumber the workout, not one section.
+  section String @default("MAIN")
 
   // Client-logged actuals.
   resultReps String?
@@ -127,14 +132,15 @@ model TemplateExercise {
   templateId String
   template   WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  name  String
-  sets  String?
-  reps  String?
-  load  String?
-  tempo String?
-  rest  String?
-  notes String?
-  order Int     @default(0)
+  name    String
+  sets    String?
+  reps    String?
+  load    String?
+  tempo   String?
+  rest    String?
+  notes   String?
+  order   Int     @default(0)
+  section String  @default("MAIN") // mirrors Exercise.section
 }
 
 // A multi-week block. Assigning it materializes each slot into a dated Workout.
@@ -167,6 +173,30 @@ model ProgramSlot {
   day  Int // 1-7
 
   @@unique([programId, week, day])
+}
+
+// Every exercise name this trainer has actually programmed — preset or not.
+// Written automatically when a workout or template is saved. Powers the
+// picker's "Recent" list and, for names that aren't in the shipped preset
+// catalogue, the trainer's "My exercises". Whether a row counts as custom is
+// computed at read time rather than stored, so promoting a name into the
+// preset list later moves it out of everyone's "My exercises" on its own.
+//
+// Names on Exercise/TemplateExercise stay denormalized strings with no foreign
+// key to here, so deleting a row never touches programming already written.
+model TrainerExercise {
+  id String @id @default(cuid())
+
+  trainerId String
+  trainer   User   @relation("TrainerExercises", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  name       String // display form, as first typed
+  nameKey    String // lowercased, whitespace-collapsed — the dedupe key
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@unique([trainerId, nameKey])
+  @@index([trainerId, lastUsedAt])
 }
 
 // One nutrition plan model serves both roles: clientId null = a library template

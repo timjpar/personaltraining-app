@@ -23,6 +23,18 @@ export function MetricStrip({ metrics }: { metrics: Metric[] }) {
   );
 }
 
+// Divider above a warm-up / main / cool-down block. Only rendered when a
+// session actually uses sections — see sectionGroups() callers.
+export function SectionHeading({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="mb-2 flex items-center gap-2.5">
+      <span className="eyebrow text-ink-soft">{label}</span>
+      <span className="metric text-xs text-ink-soft/60">{count}</span>
+      <span className="h-px flex-1 bg-line" />
+    </div>
+  );
+}
+
 export function exerciseMetrics(ex: {
   sets?: string | null;
   reps?: string | null;

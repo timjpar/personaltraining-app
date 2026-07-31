@@ -17,7 +17,14 @@ export default async function LibraryPage() {
       <PageHeading
         eyebrow="Workout library"
         title="Workouts"
-        action={<ButtonLink href="/library/new">New workout</ButtonLink>}
+        action={
+          <div className="flex items-center gap-2">
+            <ButtonLink href="/exercises" variant="outline">
+              My exercises
+            </ButtonLink>
+            <ButtonLink href="/library/new">New workout</ButtonLink>
+          </div>
+        }
       >
         Reusable sessions you build once and drop onto any client — no client
         required to save one.

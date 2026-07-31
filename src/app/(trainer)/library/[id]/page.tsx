@@ -8,11 +8,16 @@ import {
   ButtonLink,
   EmptyState,
 } from "@/components/ui";
-import { PrescriptionCard, exerciseMetrics } from "@/components/PrescriptionCard";
+import {
+  PrescriptionCard,
+  SectionHeading,
+  exerciseMetrics,
+} from "@/components/PrescriptionCard";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
 import { AssignClients } from "@/components/AssignClients";
 import { deleteTemplate, assignTemplate } from "../actions";
 import { toDateInput } from "@/lib/format";
+import { groupBySection, usesSections } from "@/lib/workout-form";
 
 export default async function TemplatePage({
   params,
@@ -27,6 +32,8 @@ export default async function TemplatePage({
     include: { exercises: { orderBy: { order: "asc" } } },
   });
   if (!template) notFound();
+
+  const showSections = usesSections(template.exercises);
 
   const clients = await prisma.user.findMany({
     where: { trainerId: trainer.id, role: "CLIENT" },
@@ -73,18 +80,27 @@ export default async function TemplatePage({
         </p>
       ) : null}
 
-      <ul className="mt-4 flex flex-col gap-3">
-        {template.exercises.map((ex) => (
-          <li key={ex.id}>
-            <PrescriptionCard
-              index={ex.order}
-              name={ex.name}
-              metrics={exerciseMetrics(ex)}
-              notes={ex.notes}
-            />
-          </li>
+      <div className="mt-4 flex flex-col gap-6">
+        {groupBySection(template.exercises).map((group) => (
+          <div key={group.section}>
+            {showSections ? (
+              <SectionHeading label={group.label} count={group.rows.length} />
+            ) : null}
+            <ul className="flex flex-col gap-3">
+              {group.rows.map((ex) => (
+                <li key={ex.id}>
+                  <PrescriptionCard
+                    index={ex.order}
+                    name={ex.name}
+                    metrics={exerciseMetrics(ex)}
+                    notes={ex.notes}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
 
       <div className="mt-9">
         <h2 className="mb-1 font-display text-lg font-semibold text-ink">
