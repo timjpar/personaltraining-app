@@ -45,7 +45,10 @@ export async function proxy(req: NextRequest) {
   const trainerArea =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/clients") ||
-    pathname.startsWith("/workouts");
+    pathname.startsWith("/workouts") ||
+    pathname.startsWith("/library") ||
+    pathname.startsWith("/programs") ||
+    pathname.startsWith("/nutrition");
   const clientArea = pathname.startsWith("/my");
 
   if (session.role === ROLES.CLIENT && trainerArea) {

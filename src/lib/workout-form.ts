@@ -20,20 +20,21 @@ export type ParsedWorkout = {
   exercises: ParsedExercise[];
 };
 
-export function parseWorkoutForm(
+// The prescription (title + notes + exercise rows) shared by dated workouts and
+// date-less templates. Returns an error string if the shape is unusable.
+export type ParsedPrescription = {
+  title: string;
+  notes: string | null;
+  exercises: ParsedExercise[];
+};
+
+export function parsePrescription(
   formData: FormData,
-): { data?: ParsedWorkout; error?: string } {
+): { data?: ParsedPrescription; error?: string } {
   const title = String(formData.get("title") ?? "").trim();
-  const dateStr = String(formData.get("scheduledDate") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   if (!title) return { error: "Give the session a title." };
-  if (!dateStr) return { error: "Pick a date for the session." };
-
-  const scheduledDate = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(scheduledDate.getTime())) {
-    return { error: "That date doesn't look right." };
-  }
 
   const field = (id: string, name: string) => {
     const v = String(formData.get(`ex_${id}_${name}`) ?? "").trim();
@@ -65,5 +66,22 @@ export function parseWorkoutForm(
     return { error: "Add at least one exercise." };
   }
 
-  return { data: { title, notes, scheduledDate, exercises } };
+  return { data: { title, notes, exercises } };
+}
+
+export function parseWorkoutForm(
+  formData: FormData,
+): { data?: ParsedWorkout; error?: string } {
+  const { data, error } = parsePrescription(formData);
+  if (error || !data) return { error };
+
+  const dateStr = String(formData.get("scheduledDate") ?? "").trim();
+  if (!dateStr) return { error: "Pick a date for the session." };
+
+  const scheduledDate = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(scheduledDate.getTime())) {
+    return { error: "That date doesn't look right." };
+  }
+
+  return { data: { ...data, scheduledDate } };
 }

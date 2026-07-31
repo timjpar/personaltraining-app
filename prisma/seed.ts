@@ -133,10 +133,132 @@ async function main() {
     },
   });
 
+  // --- Reusable library: workout templates, a program, a nutrition plan ---
+  // Idempotent reset of the trainer's library (leaves assigned client copies).
+  await prisma.program.deleteMany({ where: { trainerId: trainer.id } });
+  await prisma.workoutTemplate.deleteMany({ where: { trainerId: trainer.id } });
+  await prisma.nutritionPlan.deleteMany({
+    where: { trainerId: trainer.id, clientId: null },
+  });
+
+  const lower = await prisma.workoutTemplate.create({
+    data: {
+      title: "Lower Body A",
+      notes: "Strength focus. Warm up thoroughly.",
+      trainerId: trainer.id,
+      exercises: {
+        create: [
+          { order: 1, name: "Back Squat", sets: "4", reps: "5", load: "70%", tempo: "31X1", rest: "2:30" },
+          { order: 2, name: "Romanian Deadlift", sets: "3", reps: "8", load: "RPE 7", rest: "2:00" },
+          { order: 3, name: "Walking Lunge", sets: "3", reps: "10/leg", rest: "90s" },
+        ],
+      },
+    },
+  });
+
+  const upper = await prisma.workoutTemplate.create({
+    data: {
+      title: "Upper Body A",
+      notes: "Press focus.",
+      trainerId: trainer.id,
+      exercises: {
+        create: [
+          { order: 1, name: "Bench Press", sets: "4", reps: "6", load: "72.5%", tempo: "21X1", rest: "2:30" },
+          { order: 2, name: "Chin-Up", sets: "3", reps: "8", load: "bodyweight", rest: "2:00" },
+          { order: 3, name: "DB Shoulder Press", sets: "3", reps: "10", rest: "90s" },
+        ],
+      },
+    },
+  });
+
+  const fullBody = await prisma.workoutTemplate.create({
+    data: {
+      title: "Full Body Primer",
+      trainerId: trainer.id,
+      exercises: {
+        create: [
+          { order: 1, name: "Goblet Squat", sets: "3", reps: "12", rest: "90s" },
+          { order: 2, name: "Push-Up", sets: "3", reps: "AMRAP", rest: "90s" },
+          { order: 3, name: "DB Row", sets: "3", reps: "10/side", rest: "90s" },
+        ],
+      },
+    },
+  });
+
+  await prisma.program.create({
+    data: {
+      title: "2-Week Base",
+      notes: "Alternating lower/upper with a full-body primer on Fridays.",
+      weeks: 2,
+      trainerId: trainer.id,
+      slots: {
+        create: [
+          { week: 1, day: 1, templateId: lower.id },
+          { week: 1, day: 3, templateId: upper.id },
+          { week: 1, day: 5, templateId: fullBody.id },
+          { week: 2, day: 1, templateId: lower.id },
+          { week: 2, day: 3, templateId: upper.id },
+          { week: 2, day: 5, templateId: fullBody.id },
+        ],
+      },
+    },
+  });
+
+  await prisma.nutritionPlan.create({
+    data: {
+      title: "Cut · 2,000 kcal",
+      notes: "Hit protein first. Veg with every meal. Water 3L/day.",
+      targetCalories: 2000,
+      targetProtein: 170,
+      targetCarbs: 180,
+      targetFat: 60,
+      trainerId: trainer.id,
+      clientId: null,
+      meals: {
+        create: [
+          {
+            name: "Breakfast",
+            order: 1,
+            foods: {
+              create: [
+                { order: 1, name: "Greek yogurt", quantity: "200 g", calories: 130, protein: 20, carbs: 8, fat: 0 },
+                { order: 2, name: "Berries", quantity: "1 cup", calories: 80, protein: 1, carbs: 20, fat: 0 },
+                { order: 3, name: "Almonds", quantity: "20 g", calories: 120, protein: 4, carbs: 4, fat: 11 },
+              ],
+            },
+          },
+          {
+            name: "Lunch",
+            order: 2,
+            foods: {
+              create: [
+                { order: 1, name: "Chicken breast", quantity: "180 g", calories: 300, protein: 56, carbs: 0, fat: 7 },
+                { order: 2, name: "Rice", quantity: "1 cup cooked", calories: 205, protein: 4, carbs: 45, fat: 0 },
+                { order: 3, name: "Mixed veg", quantity: "2 cups", calories: 80, protein: 4, carbs: 16, fat: 1 },
+              ],
+            },
+          },
+          {
+            name: "Dinner",
+            order: 3,
+            foods: {
+              create: [
+                { order: 1, name: "Salmon", quantity: "150 g", calories: 280, protein: 34, carbs: 0, fat: 16 },
+                { order: 2, name: "Potato", quantity: "200 g", calories: 160, protein: 4, carbs: 36, fat: 0 },
+                { order: 3, name: "Salad + olive oil", quantity: "1 bowl", calories: 120, protein: 2, carbs: 8, fat: 10 },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+
   console.log("Seeded:");
   console.log("  Trainer  alex@chalkline.dev / trainpass123");
   console.log("  Client   maria@example.com / clientpass123");
   console.log("  Client   jordan@example.com / clientpass123");
+  console.log("  Library  3 workouts · 1 program · 1 nutrition plan");
 }
 
 main()

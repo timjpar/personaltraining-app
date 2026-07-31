@@ -44,3 +44,18 @@ export function toDateInput(d: Date | string) {
   const off = date.getTimezoneOffset();
   return new Date(date.getTime() - off * 60000).toISOString().slice(0, 10);
 }
+
+// Parse a yyyy-mm-dd value (from <input type="date">) into a local-midnight
+// Date, or null if it's missing/unparseable.
+export function parseDateInput(value: unknown): Date | null {
+  const s = String(value ?? "").trim();
+  if (!s) return null;
+  const date = new Date(`${s}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}

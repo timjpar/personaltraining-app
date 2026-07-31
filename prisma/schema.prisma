@@ -30,6 +30,13 @@ model User {
 
   feedItemsAsTrainer FeedItem[] @relation("TrainerFeed")
   feedItemsAsClient  FeedItem[] @relation("ClientFeed")
+
+  // Reusable, client-agnostic building blocks a trainer owns.
+  templates          WorkoutTemplate[] @relation("TrainerTemplates")
+  programs           Program[]         @relation("TrainerPrograms")
+  nutritionTemplates NutritionPlan[]   @relation("TrainerNutrition")
+  // Nutrition plans assigned down to this user (as a client).
+  nutritionPlans     NutritionPlan[]   @relation("ClientNutrition")
 }
 
 model Workout {
@@ -93,4 +100,126 @@ model FeedItem {
   workout   Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
 
   @@index([trainerId, read])
+}
+
+// A reusable, client-agnostic workout the trainer builds once and can drop onto
+// any client (or slot into a program). Assigning one copies its rows into a real
+// Workout — templates themselves are never scheduled or logged.
+model WorkoutTemplate {
+  id        String   @id @default(cuid())
+  title     String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trainerId String
+  trainer   User   @relation("TrainerTemplates", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  exercises TemplateExercise[]
+  slots     ProgramSlot[]
+
+  @@index([trainerId])
+}
+
+// Mirrors the prescription half of Exercise (no client-logged actuals).
+model TemplateExercise {
+  id         String          @id @default(cuid())
+  templateId String
+  template   WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  name  String
+  sets  String?
+  reps  String?
+  load  String?
+  tempo String?
+  rest  String?
+  notes String?
+  order Int     @default(0)
+}
+
+// A multi-week block. Assigning it materializes each slot into a dated Workout.
+model Program {
+  id        String   @id @default(cuid())
+  title     String
+  notes     String?
+  weeks     Int      @default(4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trainerId String
+  trainer   User   @relation("TrainerPrograms", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  slots ProgramSlot[]
+
+  @@index([trainerId])
+}
+
+// "On week W, day D, do this saved workout." Rest days simply have no slot.
+model ProgramSlot {
+  id        String  @id @default(cuid())
+  programId String
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  templateId String
+  template   WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  week Int
+  day  Int // 1-7
+
+  @@unique([programId, week, day])
+}
+
+// One nutrition plan model serves both roles: clientId null = a library template
+// the trainer reuses; clientId set = a snapshot assigned to that client.
+model NutritionPlan {
+  id    String  @id @default(cuid())
+  title String
+  notes String?
+
+  // Optional daily targets, shown alongside the summed food totals.
+  targetCalories Int?
+  targetProtein  Int?
+  targetCarbs    Int?
+  targetFat      Int?
+
+  assignedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  trainerId String
+  trainer   User   @relation("TrainerNutrition", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  clientId String?
+  client   User?   @relation("ClientNutrition", fields: [clientId], references: [id], onDelete: Cascade)
+
+  meals Meal[]
+
+  @@index([trainerId])
+  @@index([clientId])
+}
+
+model Meal {
+  id     String        @id @default(cuid())
+  planId String
+  plan   NutritionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  name  String // "Breakfast"
+  notes String?
+  order Int     @default(0)
+
+  foods Food[]
+}
+
+model Food {
+  id     String @id @default(cuid())
+  mealId String
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  name     String
+  quantity String? // "1 cup", "150 g"
+  calories Int?
+  protein  Int?
+  carbs    Int?
+  fat      Int?
+  order    Int     @default(0)
 }

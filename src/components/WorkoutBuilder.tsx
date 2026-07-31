@@ -32,22 +32,29 @@ const METRICS: { key: keyof BuilderExercise; label: string; placeholder: string 
   { key: "rest", label: "Rest", placeholder: "90s" },
 ];
 
+// Rows added after mount get a random id (client-only, so no hydration concern).
 const newRow = (): BuilderExercise => ({ id: crypto.randomUUID() });
+// The single fallback row rendered on the server uses a deterministic id so the
+// server and client markup match on first paint.
+const seedRow = (): BuilderExercise => ({ id: "row-1" });
 
 export function WorkoutBuilder({
   action,
   submitLabel,
   cancelHref,
   initial,
+  showDate = true,
 }: {
   action: (state: WorkoutFormState, formData: FormData) => Promise<WorkoutFormState>;
   submitLabel: string;
   cancelHref: string;
   initial?: Initial;
+  // Templates have no date; hide the field and skip the requirement.
+  showDate?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [rows, setRows] = useState<BuilderExercise[]>(
-    initial?.exercises?.length ? initial.exercises : [newRow()],
+    initial?.exercises?.length ? initial.exercises : [seedRow()],
   );
 
   const addRow = () => setRows((r) => [...r, newRow()]);
@@ -70,15 +77,17 @@ export function WorkoutBuilder({
             />
           </Field>
         </div>
-        <Field label="Date" htmlFor="scheduledDate">
-          <Input
-            id="scheduledDate"
-            name="scheduledDate"
-            type="date"
-            defaultValue={initial?.scheduledDate ?? ""}
-            required
-          />
-        </Field>
+        {showDate ? (
+          <Field label="Date" htmlFor="scheduledDate">
+            <Input
+              id="scheduledDate"
+              name="scheduledDate"
+              type="date"
+              defaultValue={initial?.scheduledDate ?? ""}
+              required
+            />
+          </Field>
+        ) : null}
         <div className="sm:col-span-2">
           <Field label="Notes for the athlete" htmlFor="notes">
             <Textarea

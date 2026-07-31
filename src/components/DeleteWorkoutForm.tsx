@@ -4,20 +4,24 @@ import { buttonClass } from "@/components/ui";
 
 export function DeleteWorkoutForm({
   action,
+  confirmMessage = "Delete this workout? This can't be undone.",
+  label = "Delete",
 }: {
   action: (formData: FormData) => void | Promise<void>;
+  confirmMessage?: string;
+  label?: string;
 }) {
   return (
     <form
       action={action}
       onSubmit={(e) => {
-        if (!confirm("Delete this workout? This can't be undone.")) {
+        if (!confirm(confirmMessage)) {
           e.preventDefault();
         }
       }}
     >
       <button type="submit" className={buttonClass("danger", "sm")}>
-        Delete
+        {label}
       </button>
     </form>
   );
