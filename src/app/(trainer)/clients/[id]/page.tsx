@@ -11,7 +11,9 @@ import {
   ButtonLink,
   EmptyState,
 } from "@/components/ui";
-import { formatDate } from "@/lib/format";
+import { AssignSavedWorkout } from "@/components/AssignSavedWorkout";
+import { assignTemplateToClient } from "@/app/(trainer)/library/actions";
+import { formatDate, toDateInput } from "@/lib/format";
 
 function WorkoutRow({
   id,
@@ -69,6 +71,12 @@ export default async function ClientDetailPage({
 
   if (!client) notFound();
 
+  const templates = await prisma.workoutTemplate.findMany({
+    where: { trainerId: trainer.id },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, title: true },
+  });
+
   const upcoming = client.workoutsAsClient
     .filter((w) => w.status !== "COMPLETED")
     .sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime());
@@ -103,6 +111,30 @@ export default async function ClientDetailPage({
           </span>
         </PageHeading>
       </div>
+
+      {templates.length > 0 ? (
+        <Card className="mt-6 p-4 sm:p-5">
+          <h2 className="mb-1 font-display text-base font-semibold text-ink">
+            Assign a saved workout
+          </h2>
+          <p className="mb-3 text-sm text-ink-soft">
+            Drop one of your saved workouts onto {client.name.split(/\s+/)[0]}
+            &rsquo;s calendar, or{" "}
+            <Link
+              href={`/clients/${client.id}/workouts/new`}
+              className="text-jade-strong hover:underline"
+            >
+              build a one-off
+            </Link>
+            .
+          </p>
+          <AssignSavedWorkout
+            action={assignTemplateToClient.bind(null, client.id)}
+            templates={templates}
+            defaultDate={toDateInput(new Date())}
+          />
+        </Card>
+      ) : null}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <section>

@@ -21,6 +21,12 @@ export default async function ClientHomePage() {
     include: { _count: { select: { exercises: true } } },
   });
 
+  const nutritionPlan = await prisma.nutritionPlan.findFirst({
+    where: { clientId: client.id },
+    orderBy: { assignedAt: "desc" },
+    select: { title: true, targetCalories: true },
+  });
+
   const upcoming = workouts.filter((w) => w.status !== "COMPLETED");
   const recentlyCompleted = workouts
     .filter((w) => w.status === "COMPLETED")
@@ -39,6 +45,27 @@ export default async function ClientHomePage() {
           ? "Here's what's on your plan."
           : "You're all caught up."}
       </PageHeading>
+
+      {nutritionPlan ? (
+        <Link
+          href="/my/nutrition"
+          className="mt-6 flex items-center gap-4 rounded-[var(--radius-card)] border border-line bg-card px-4 py-3.5 shadow-[var(--shadow-card)] transition-colors hover:bg-paper"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="eyebrow text-ink-soft/70">Nutrition plan</p>
+            <p className="mt-0.5 truncate text-sm font-medium text-ink">
+              {nutritionPlan.title}
+              {nutritionPlan.targetCalories != null ? (
+                <span className="metric text-ink-soft">
+                  {" "}
+                  · {nutritionPlan.targetCalories} kcal
+                </span>
+              ) : null}
+            </p>
+          </div>
+          <span className="text-ink-soft">›</span>
+        </Link>
+      ) : null}
 
       {next ? (
         <section className="mt-7">

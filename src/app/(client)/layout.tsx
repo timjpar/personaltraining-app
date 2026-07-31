@@ -15,6 +15,7 @@ export default async function ClientLayout({
         roleLabel="Athlete"
         navItems={[
           { href: "/my", label: "Today" },
+          { href: "/my/nutrition", label: "Nutrition" },
           { href: "/my/history", label: "History" },
         ]}
       />

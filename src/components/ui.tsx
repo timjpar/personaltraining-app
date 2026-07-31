@@ -111,6 +111,10 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   );
 }
 
+export function Select({ className, ...props }: ComponentProps<"select">) {
+  return <select className={cn(inputBase, "cursor-pointer pr-8", className)} {...props} />;
+}
+
 export function Badge({
   tone = "neutral",
   className,
