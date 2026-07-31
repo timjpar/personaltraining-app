@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { requireTrainer } from "@/lib/auth";
+import { getPickerCatalog } from "@/lib/exercise-catalog";
 import { Container, PageHeading } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { createTemplate } from "../actions";
 
 export default async function NewTemplatePage() {
-  await requireTrainer();
+  const trainer = await requireTrainer();
+  const catalog = await getPickerCatalog(trainer.id);
 
   return (
     <Container className="max-w-3xl">
@@ -26,6 +28,7 @@ export default async function NewTemplatePage() {
           submitLabel="Save workout"
           cancelHref="/library"
           showDate={false}
+          catalog={catalog}
         />
       </div>
     </Container>

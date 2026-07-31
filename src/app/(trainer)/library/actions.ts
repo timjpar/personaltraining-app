@@ -4,36 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
-import { parsePrescription } from "@/lib/workout-form";
+import { parsePrescription, exerciseRowsFrom } from "@/lib/workout-form";
 import { parseDateInput } from "@/lib/format";
+import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
 import type { AssignState } from "@/components/AssignClients";
 
 export type TemplateFormState = { error?: string };
-
-// Copy a template's prescription rows into the shape Workout.exercises wants.
-function exerciseRowsFrom(
-  exercises: {
-    name: string;
-    sets: string | null;
-    reps: string | null;
-    load: string | null;
-    tempo: string | null;
-    rest: string | null;
-    notes: string | null;
-    order: number;
-  }[],
-) {
-  return exercises.map((e) => ({
-    name: e.name,
-    sets: e.sets,
-    reps: e.reps,
-    load: e.load,
-    tempo: e.tempo,
-    rest: e.rest,
-    notes: e.notes,
-    order: e.order,
-  }));
-}
 
 export async function createTemplate(
   _prev: TemplateFormState,
@@ -52,6 +28,8 @@ export async function createTemplate(
       exercises: { create: data.exercises },
     },
   });
+
+  await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
 
   revalidatePath("/library");
   redirect(`/library/${template.id}`);
@@ -84,6 +62,10 @@ export async function updateTemplate(
       },
     }),
   ]);
+
+  // Outside the transaction on purpose: the catalog is a convenience index, and
+  // it must never be able to roll back a saved session.
+  await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
 
   revalidatePath("/library");
   revalidatePath(`/library/${templateId}`);

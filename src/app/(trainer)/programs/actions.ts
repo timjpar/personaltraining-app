@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { DAYS_PER_WEEK } from "@/lib/constants";
 import { parseDateInput, addDays } from "@/lib/format";
+import { exerciseRowsFrom } from "@/lib/workout-form";
 import type { AssignState } from "@/components/AssignClients";
 
 export type ProgramFormState = { error?: string };
@@ -181,18 +182,7 @@ export async function assignProgram(
             status: "ASSIGNED",
             clientId: c.id,
             trainerId: trainer.id,
-            exercises: {
-              create: slot.template.exercises.map((e) => ({
-                name: e.name,
-                sets: e.sets,
-                reps: e.reps,
-                load: e.load,
-                tempo: e.tempo,
-                rest: e.rest,
-                notes: e.notes,
-                order: e.order,
-              })),
-            },
+            exercises: { create: exerciseRowsFrom(slot.template.exercises) },
           },
         }),
       );

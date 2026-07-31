@@ -17,6 +17,39 @@ export const FEED_TYPE = {
   WORKOUT_COMPLETED: "WORKOUT_COMPLETED",
 } as const;
 
+// Where an exercise sits in the session. A grouping label, not an ordering key:
+// `order` stays global 1..N across the whole workout (see workout-form.ts).
+export const EXERCISE_SECTIONS = {
+  WARMUP: "WARMUP",
+  MAIN: "MAIN",
+  COOLDOWN: "COOLDOWN",
+} as const;
+export type ExerciseSection =
+  (typeof EXERCISE_SECTIONS)[keyof typeof EXERCISE_SECTIONS];
+
+// Fixed top-to-bottom order. Never sort the section strings themselves —
+// alphabetically that gives COOLDOWN < MAIN < WARMUP, i.e. cool-downs first.
+export const SECTION_ORDER = [
+  "WARMUP",
+  "MAIN",
+  "COOLDOWN",
+] as const satisfies readonly ExerciseSection[];
+
+export const SECTION_LABELS: Record<ExerciseSection, string> = {
+  WARMUP: "Warm-up",
+  MAIN: "Main work",
+  COOLDOWN: "Cool-down",
+};
+
+// Anything unrecognised (a legacy row, a tampered form field) reads as MAIN, so
+// display code can index SECTION_LABELS without a runtime crash.
+export function toExerciseSection(value: unknown): ExerciseSection {
+  const s = String(value ?? "");
+  return (SECTION_ORDER as readonly string[]).includes(s)
+    ? (s as ExerciseSection)
+    : EXERCISE_SECTIONS.MAIN;
+}
+
 // Program structure. Days are 1..7 offsets *within* a week, not calendar
 // weekdays — the real dates are computed from the assignment's start date.
 export const DAYS_PER_WEEK = 7;

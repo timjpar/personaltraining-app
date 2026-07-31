@@ -47,6 +47,7 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/clients") ||
     pathname.startsWith("/workouts") ||
     pathname.startsWith("/library") ||
+    pathname.startsWith("/exercises") ||
     pathname.startsWith("/programs") ||
     pathname.startsWith("/nutrition");
   const clientArea = pathname.startsWith("/my");

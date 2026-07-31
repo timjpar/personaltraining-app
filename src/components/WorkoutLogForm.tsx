@@ -4,10 +4,12 @@ import { useActionState, useState } from "react";
 import type { CompleteState } from "@/app/(client)/my/actions";
 import {
   PrescriptionCard,
+  SectionHeading,
   exerciseMetrics,
 } from "@/components/PrescriptionCard";
 import { Card, Textarea, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { groupBySection, usesSections } from "@/lib/workout-form";
 
 type LogExercise = {
   id: string;
@@ -19,6 +21,7 @@ type LogExercise = {
   tempo: string | null;
   rest: string | null;
   notes: string | null;
+  section: string;
 };
 
 function RpePicker() {
@@ -64,6 +67,7 @@ export function WorkoutLogForm({
   exercises: LogExercise[];
 }) {
   const [state, formAction, pending] = useActionState(action, {});
+  const showSections = usesSections(exercises);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -75,47 +79,56 @@ export function WorkoutLogForm({
         </p>
       ) : null}
 
-      <ul className="flex flex-col gap-3">
-        {exercises.map((ex) => (
-          <li key={ex.id}>
-            <PrescriptionCard
-              index={ex.order}
-              name={ex.name}
-              metrics={exerciseMetrics(ex)}
-              notes={ex.notes}
-              footer={
-                <div className="flex flex-wrap items-end gap-3 border-t border-line pt-3.5">
-                  <label className="flex flex-1 flex-col gap-1">
-                    <span className="eyebrow text-ink-soft/70">Reps done</span>
-                    <input
-                      name={`res_${ex.id}_reps`}
-                      placeholder={ex.reps ?? "—"}
-                      className="metric w-full rounded-[var(--radius-sm)] border border-line bg-paper px-2.5 py-2 text-sm text-ink focus-visible:border-jade focus-visible:outline-none"
-                    />
-                  </label>
-                  <label className="flex flex-1 flex-col gap-1">
-                    <span className="eyebrow text-ink-soft/70">Load used</span>
-                    <input
-                      name={`res_${ex.id}_load`}
-                      placeholder={ex.load ?? "—"}
-                      className="metric w-full rounded-[var(--radius-sm)] border border-line bg-paper px-2.5 py-2 text-sm text-ink focus-visible:border-jade focus-visible:outline-none"
-                    />
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 py-2">
-                    <input
-                      type="checkbox"
-                      name={`res_${ex.id}_done`}
-                      defaultChecked
-                      className="h-4.5 w-4.5 accent-jade"
-                    />
-                    <span className="text-sm text-ink">Done</span>
-                  </label>
-                </div>
-              }
-            />
-          </li>
+      <div className="flex flex-col gap-6">
+        {groupBySection(exercises).map((group) => (
+          <div key={group.section}>
+            {showSections ? (
+              <SectionHeading label={group.label} count={group.rows.length} />
+            ) : null}
+            <ul className="flex flex-col gap-3">
+              {group.rows.map((ex) => (
+                <li key={ex.id}>
+                  <PrescriptionCard
+                    index={ex.order}
+                    name={ex.name}
+                    metrics={exerciseMetrics(ex)}
+                    notes={ex.notes}
+                    footer={
+                      <div className="flex flex-wrap items-end gap-3 border-t border-line pt-3.5">
+                        <label className="flex flex-1 flex-col gap-1">
+                          <span className="eyebrow text-ink-soft/70">Reps done</span>
+                          <input
+                            name={`res_${ex.id}_reps`}
+                            placeholder={ex.reps ?? "—"}
+                            className="metric w-full rounded-[var(--radius-sm)] border border-line bg-paper px-2.5 py-2 text-sm text-ink focus-visible:border-jade focus-visible:outline-none"
+                          />
+                        </label>
+                        <label className="flex flex-1 flex-col gap-1">
+                          <span className="eyebrow text-ink-soft/70">Load used</span>
+                          <input
+                            name={`res_${ex.id}_load`}
+                            placeholder={ex.load ?? "—"}
+                            className="metric w-full rounded-[var(--radius-sm)] border border-line bg-paper px-2.5 py-2 text-sm text-ink focus-visible:border-jade focus-visible:outline-none"
+                          />
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-2 py-2">
+                          <input
+                            type="checkbox"
+                            name={`res_${ex.id}_done`}
+                            defaultChecked
+                            className="h-4.5 w-4.5 accent-jade"
+                          />
+                          <span className="text-sm text-ink">Done</span>
+                        </label>
+                      </div>
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
 
       <Card className="p-5">
         <h2 className="font-display text-base font-semibold text-ink">
