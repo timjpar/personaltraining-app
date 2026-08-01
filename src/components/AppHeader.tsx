@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "./Wordmark";
 import { logout } from "./logout-action";
+import { AppearanceControl } from "./AppearanceControl";
 import { cn } from "@/lib/cn";
+import type { Theme, Accent } from "@/lib/theme";
 
 export type NavItem = { href: string; label: string; badge?: number };
 
@@ -12,10 +14,16 @@ export function AppHeader({
   name,
   roleLabel,
   navItems,
+  theme,
+  accent,
+  themeChosen,
 }: {
   name: string;
   roleLabel: string;
   navItems: NavItem[];
+  theme: Theme;
+  accent: Accent;
+  themeChosen: boolean;
 }) {
   const pathname = usePathname();
 
@@ -38,7 +46,10 @@ export function AppHeader({
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-sm font-medium transition-colors",
                 activeHref === item.href
-                  ? "bg-ink text-white"
+                  // text-paper, not text-white: both tokens invert with the
+                  // theme, so this stays legible in dark mode where `ink` is
+                  // the light colour.
+                  ? "bg-ink text-paper"
                   : "text-ink-soft hover:bg-card hover:text-ink",
               )}
             >
@@ -48,7 +59,7 @@ export function AppHeader({
                   className={cn(
                     "metric grid h-4.5 min-w-4.5 place-items-center rounded-full px-1 text-[0.625rem] font-semibold",
                     activeHref === item.href
-                      ? "bg-white/20 text-white"
+                      ? "bg-paper/20 text-paper"
                       : "bg-jade text-white",
                   )}
                 >
@@ -60,6 +71,11 @@ export function AppHeader({
         </nav>
 
         <div className="ml-auto flex items-center gap-3 sm:gap-4">
+          <AppearanceControl
+            theme={theme}
+            accent={accent}
+            firstRun={!themeChosen}
+          />
           <div className="hidden text-right leading-tight sm:block">
             <p className="text-sm font-medium text-ink">{name}</p>
             <p className="eyebrow text-ink-soft">{roleLabel}</p>

@@ -1,5 +1,6 @@
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getThemePrefs } from "@/lib/theme-server";
 import { AppHeader } from "@/components/AppHeader";
 
 export default async function TrainerLayout({
@@ -11,6 +12,7 @@ export default async function TrainerLayout({
   const unread = await prisma.feedItem.count({
     where: { trainerId: user.id, read: false },
   });
+  const { theme, accent, chosen } = await getThemePrefs();
 
   return (
     <div className="min-h-svh">
@@ -24,6 +26,9 @@ export default async function TrainerLayout({
           { href: "/programs", label: "Programs" },
           { href: "/nutrition", label: "Nutrition" },
         ]}
+        theme={theme}
+        accent={accent}
+        themeChosen={chosen}
       />
       <main>{children}</main>
     </div>
