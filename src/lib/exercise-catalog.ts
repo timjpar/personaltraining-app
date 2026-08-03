@@ -37,7 +37,10 @@ export async function getPickerCatalog(
   };
 }
 
-export type ExerciseMedia = { url: string; kind: "UPLOAD" | "LINK" };
+// Just the URL the trainer pasted. Which platform it is, and whether it can be
+// embedded at all, is derived at render by parseVideoUrl — so nothing here goes
+// stale when that parser learns a new format.
+export type ExerciseMedia = { url: string };
 
 // Resolves the trainer's own demo media for a whole session in one query,
 // keyed by normalized name. Callers do a Map lookup per exercise rather than
@@ -51,18 +54,10 @@ export async function getExerciseMedia(
 
   const rows = await prisma.trainerExercise.findMany({
     where: { trainerId, nameKey: { in: keys }, mediaUrl: { not: null } },
-    select: { nameKey: true, mediaUrl: true, mediaKind: true },
+    select: { nameKey: true, mediaUrl: true },
   });
 
-  return new Map(
-    rows.map((r) => [
-      r.nameKey,
-      {
-        url: r.mediaUrl as string,
-        kind: r.mediaKind === "UPLOAD" ? "UPLOAD" : "LINK",
-      } satisfies ExerciseMedia,
-    ]),
-  );
+  return new Map(rows.map((r) => [r.nameKey, { url: r.mediaUrl as string }]));
 }
 
 // Records every name a trainer just programmed, presets included — that's what

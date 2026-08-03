@@ -9,6 +9,8 @@ import {
   exerciseMetrics,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
+import { getExerciseMedia } from "@/lib/exercise-catalog";
+import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { RpeMeter } from "@/components/RpeMeter";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
 import { deleteWorkout } from "@/app/(trainer)/workout-actions";
@@ -33,6 +35,13 @@ export default async function WorkoutReviewPage({
 
   const isCompleted = workout.status === "COMPLETED";
   const showSections = usesSections(workout.exercises);
+
+  // The coach sees their own attached demos here too — otherwise there's
+  // nowhere to check that a link actually plays before a client meets it.
+  const media = await getExerciseMedia(
+    trainer.id,
+    workout.exercises.map((e) => e.name),
+  );
 
   // Opening a completed session clears its unread flag on the feed.
   if (isCompleted) {
@@ -121,6 +130,10 @@ export default async function WorkoutReviewPage({
                     name={ex.name}
                     metrics={exerciseMetrics(ex)}
                     notes={ex.notes}
+                    demo={(() => {
+                      const own = media.get(normalizeExerciseName(ex.name));
+                      return own ? { own: true, url: own.url } : undefined;
+                    })()}
                     logged={isCompleted && ex.done}
                     footer={
                       isCompleted && (ex.resultReps || ex.resultLoad) ? (

@@ -1,51 +1,32 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { del } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { normalizeExerciseName, PRESET_SLUGS } from "@/lib/exercise-presets";
+import { parseVideoUrl } from "@/lib/video-embed";
 
 export type ExerciseFormState = { error?: string };
 export type MediaFormState = { error?: string; ok?: string };
 
-// Deletes the underlying blob when we're the ones who put it there. Never
-// touches LINK media — that URL belongs to someone else.
-async function releaseBlob(row: { mediaUrl: string | null; mediaKind: string | null }) {
-  if (row.mediaKind !== "UPLOAD" || !row.mediaUrl) return;
-  try {
-    await del(row.mediaUrl);
-  } catch (err) {
-    // An orphaned blob costs a little storage; failing the user's action over
-    // it would cost them their change.
-    console.error("Failed to delete blob", err);
-  }
-}
-
 // Media can attach to any exercise, including a preset the trainer has never
 // programmed — so the catalog row is created on demand.
+//
+// We only ever store the URL the trainer pasted. Nothing is copied or hosted,
+// so removing media is a field update with nothing to clean up.
 async function upsertMedia(
   trainerId: string,
   name: string,
-  media: { url: string; kind: "UPLOAD" | "LINK" } | null,
+  media: { url: string; kind: string } | null,
 ) {
   const nameKey = normalizeExerciseName(name);
-  const existing = await prisma.trainerExercise.findUnique({
-    where: { trainerId_nameKey: { trainerId, nameKey } },
-  });
-
-  // Replacing or clearing media frees the blob we previously owned.
-  if (existing) await releaseBlob(existing);
-
   const data = { mediaUrl: media?.url ?? null, mediaKind: media?.kind ?? null };
 
-  if (existing) {
-    await prisma.trainerExercise.update({ where: { id: existing.id }, data });
-  } else {
-    await prisma.trainerExercise.create({
-      data: { trainerId, name: name.trim(), nameKey, ...data },
-    });
-  }
+  await prisma.trainerExercise.upsert({
+    where: { trainerId_nameKey: { trainerId, nameKey } },
+    update: data,
+    create: { trainerId, name: name.trim(), nameKey, ...data },
+  });
 }
 
 export async function setExerciseMediaLink(
@@ -69,35 +50,30 @@ export async function setExerciseMediaLink(
     return { error: "Links must start with https://" };
   }
 
-  await upsertMedia(trainer.id, name, { url: parsed.toString(), kind: "LINK" });
+  // Recorded for the label on the manage list. Playback always re-derives from
+  // the URL, so a link saved before the parser understood its format starts
+  // embedding the moment the parser learns it.
+  const { provider, embedUrl, label } = parseVideoUrl(parsed.toString());
+
+  await upsertMedia(trainer.id, name, { url: parsed.toString(), kind: provider });
 
   revalidatePath("/exercises");
-  return { ok: `Linked a demo for “${name}”.` };
-}
-
-// Called after the browser has already sent the file straight to Blob storage.
-export async function attachUploadedMedia(name: string, url: string) {
-  const trainer = await requireTrainer();
-  if (!name.trim() || !url) return;
-
-  await upsertMedia(trainer.id, name, { url, kind: "UPLOAD" });
-
-  revalidatePath("/exercises");
+  return {
+    ok: embedUrl
+      ? `Added a ${label} demo for “${name}”.`
+      : `Linked a demo for “${name}”. That URL can't be embedded, so clients get a link out.`,
+  };
 }
 
 export async function removeExerciseMedia(id: string) {
   const trainer = await requireTrainer();
 
-  const row = await prisma.trainerExercise.findFirst({
+  // Only ever a URL — nothing hosted, so nothing to clean up.
+  const { count } = await prisma.trainerExercise.updateMany({
     where: { id, trainerId: trainer.id },
-  });
-  if (!row) return;
-
-  await releaseBlob(row);
-  await prisma.trainerExercise.update({
-    where: { id: row.id },
     data: { mediaUrl: null, mediaKind: null },
   });
+  if (count === 0) return;
 
   revalidatePath("/exercises");
 }
