@@ -26,6 +26,9 @@ type BuilderExercise = {
   rest?: string | null;
   notes?: string | null;
   section?: string | null;
+  // Which optional metrics this row is currently showing. Each is added and
+  // removed on its own — a row can carry Weight without Rest.
+  extras?: OptionalKey[];
 };
 
 type Initial = {
@@ -37,6 +40,8 @@ type Initial = {
 
 type Rows = Record<ExerciseSection, BuilderExercise[]>;
 
+type OptionalKey = "weight" | "load" | "tempo" | "rest";
+
 type MetricDef = { key: keyof BuilderExercise; label: string; placeholder: string };
 
 // Sets and reps are on every row. Everything else is opt-in — most sessions
@@ -47,20 +52,20 @@ const CORE_METRICS: MetricDef[] = [
   { key: "reps", label: "Reps", placeholder: "8-10" },
 ];
 
-const OPTIONAL_METRICS: MetricDef[] = [
+const OPTIONAL_METRICS: { key: OptionalKey; label: string; placeholder: string }[] = [
   { key: "weight", label: "Weight", placeholder: "100kg" },
   { key: "load", label: "Load", placeholder: "70%" },
   { key: "tempo", label: "Tempo", placeholder: "30X1" },
   { key: "rest", label: "Rest", placeholder: "90s" },
 ];
 
-// A row that already carries any optional value opens expanded, so editing an
-// existing session never hides programming behind a closed disclosure.
-const hasOptional = (row: BuilderExercise) =>
-  OPTIONAL_METRICS.some((m) => {
+// On an existing session, show exactly the optional metrics that carry a value —
+// so editing never hides programming, and never shows four empty boxes either.
+const initialExtras = (row: BuilderExercise): OptionalKey[] =>
+  OPTIONAL_METRICS.filter((m) => {
     const v = row[m.key];
     return typeof v === "string" && v.trim() !== "";
-  });
+  }).map((m) => m.key);
 
 const ADD_LABEL: Record<ExerciseSection, string> = {
   WARMUP: "+ Add warm-up",
@@ -69,7 +74,7 @@ const ADD_LABEL: Record<ExerciseSection, string> = {
 };
 
 // Rows added after mount get a random id (client-only, so no hydration concern).
-const newRow = (): BuilderExercise => ({ id: crypto.randomUUID() });
+const newRow = (): BuilderExercise => ({ id: crypto.randomUUID(), extras: [] });
 
 // The single fallback row rendered on the server uses a deterministic id so the
 // server and client markup match on first paint. Only the main section gets
@@ -78,11 +83,11 @@ const seedRows = (initial?: Initial): Rows => {
   const rows: Rows = { WARMUP: [], MAIN: [], COOLDOWN: [] };
   if (initial?.exercises?.length) {
     for (const ex of initial.exercises) {
-      rows[toExerciseSection(ex.section)].push(ex);
+      rows[toExerciseSection(ex.section)].push({ ...ex, extras: initialExtras(ex) });
     }
   }
   if (SECTION_ORDER.every((s) => rows[s].length === 0)) {
-    rows.MAIN.push({ id: "row-1" });
+    rows.MAIN.push({ id: "row-1", extras: [] });
   }
   return rows;
 };
@@ -117,6 +122,26 @@ export function WorkoutBuilder({
   // not, which is the guarantee the single-row builder had before.
   const removeRow = (section: ExerciseSection, id: string) =>
     setRows((r) => (total > 1 ? { ...r, [section]: r[section].filter((x) => x.id !== id) } : r));
+
+  // Adding and removing an optional metric is per-row and per-metric, so a row
+  // can carry Weight and nothing else. Removing unmounts the input, which both
+  // clears the value and means the parser reads it as absent — no risk of a
+  // hidden field quietly submitting a value the coach can't see.
+  const toggleExtra = (section: ExerciseSection, id: string, key: OptionalKey, on: boolean) =>
+    setRows((r) => ({
+      ...r,
+      [section]: r[section].map((row) => {
+        if (row.id !== id) return row;
+        const extras = row.extras ?? [];
+        return {
+          ...row,
+          extras: on ? [...extras, key] : extras.filter((k) => k !== key),
+          // Drop the stored value too, so re-adding starts empty rather than
+          // resurrecting what was there before.
+          ...(on ? {} : { [key]: null }),
+        };
+      }),
+    }));
 
   // Visible numbering runs 01..N across the three sections, matching the global
   // `order` the server assigns — so the builder and the detail page agree.
@@ -234,33 +259,74 @@ export function WorkoutBuilder({
                           ))}
                         </div>
 
-                        {/* Native <details>: works with no JavaScript and is
-                            keyboard accessible for free, which keeps the
-                            builder's progressive-enhancement property. */}
-                        <details open={hasOptional(row)} className="group mt-2.5">
-                          <summary className="eyebrow inline-flex cursor-pointer list-none items-center gap-1.5 text-ink-soft transition-colors hover:text-ink [&::-webkit-details-marker]:hidden">
-                            <span
-                              aria-hidden
-                              className="transition-transform group-open:rotate-45"
-                            >
-                              +
-                            </span>
-                            Weight, load, tempo &amp; rest
-                          </summary>
-                          <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                            {OPTIONAL_METRICS.map((m) => (
-                              <label key={m.key} className="flex flex-col gap-1">
-                                <span className="eyebrow text-ink-soft/70">{m.label}</span>
-                                <Input
-                                  name={`ex_${row.id}_${m.key}`}
-                                  defaultValue={(row[m.key] as string) ?? ""}
-                                  placeholder={m.placeholder}
-                                  className={cn("metric px-2.5 py-2 text-sm")}
-                                />
-                              </label>
-                            ))}
-                          </div>
-                        </details>
+                        {(() => {
+                          const extras = row.extras ?? [];
+                          const shown = OPTIONAL_METRICS.filter((m) => extras.includes(m.key));
+                          const available = OPTIONAL_METRICS.filter(
+                            (m) => !extras.includes(m.key),
+                          );
+                          return (
+                            <>
+                              {shown.length > 0 ? (
+                                <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                                  {shown.map((m) => (
+                                    <label key={m.key} className="flex flex-col gap-1">
+                                      <span className="flex items-center justify-between gap-1">
+                                        <span className="eyebrow text-ink-soft/70">
+                                          {m.label}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            toggleExtra(section, row.id, m.key, false)
+                                          }
+                                          aria-label={`Remove ${m.label} from exercise ${n}`}
+                                          className="text-ink-soft/60 transition-colors hover:text-flag"
+                                        >
+                                          <svg
+                                            width="11"
+                                            height="11"
+                                            viewBox="0 0 20 20"
+                                            fill="none"
+                                            aria-hidden
+                                          >
+                                            <path
+                                              d="M5 5l10 10M15 5L5 15"
+                                              stroke="currentColor"
+                                              strokeWidth="2.2"
+                                              strokeLinecap="round"
+                                            />
+                                          </svg>
+                                        </button>
+                                      </span>
+                                      <Input
+                                        name={`ex_${row.id}_${m.key}`}
+                                        defaultValue={(row[m.key] as string) ?? ""}
+                                        placeholder={m.placeholder}
+                                        className={cn("metric px-2.5 py-2 text-sm")}
+                                      />
+                                    </label>
+                                  ))}
+                                </div>
+                              ) : null}
+
+                              {available.length > 0 ? (
+                                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                                  {available.map((m) => (
+                                    <button
+                                      key={m.key}
+                                      type="button"
+                                      onClick={() => toggleExtra(section, row.id, m.key, true)}
+                                      className="eyebrow rounded-full border border-line px-2.5 py-1 text-ink-soft transition-colors hover:border-jade hover:text-ink"
+                                    >
+                                      + {m.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </>
+                          );
+                        })()}
 
                         <Input
                           name={`ex_${row.id}_notes`}
