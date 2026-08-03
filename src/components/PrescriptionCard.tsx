@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui";
+import { VideoEmbed } from "@/components/VideoEmbed";
 
 export type Metric = { label: string; value?: string | null };
 
@@ -54,32 +55,20 @@ export function exerciseMetrics(ex: {
   ];
 }
 
-// How to show a movement demo. VIDEO is the trainer's own upload and plays
-// inline; LINK is a URL they pasted; SEARCH is the generic YouTube fallback.
-export type Demo = { kind: "VIDEO" | "LINK" | "SEARCH"; url: string };
+// A movement demo. `own` is a link the trainer attached, which embeds in-app;
+// otherwise it's the generic YouTube search fallback, which can only link out.
+export type Demo = { own: boolean; url: string };
 
 function DemoMedia({ demo, name }: { demo: Demo; name: string }) {
-  if (demo.kind === "VIDEO") {
-    return (
-      <video
-        controls
-        playsInline
-        // A nine-exercise session must not fetch nine videos on load.
-        preload="none"
-        src={demo.url}
-        className="mt-3 w-full max-w-sm rounded-[var(--radius-sm)] border border-line"
-        aria-label={`${name} demonstration`}
-      />
-    );
-  }
+  if (demo.own) return <VideoEmbed url={demo.url} name={name} />;
   return (
     <a
       href={demo.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 inline-flex items-center gap-1 text-sm text-jade-strong hover:underline"
+      className="mt-2 inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink hover:underline"
     >
-      Watch demo ↗
+      Search for a demo ↗
     </a>
   );
 }

@@ -46,8 +46,8 @@ export default async function ClientWorkoutPage({
   );
   const demoFor = (name: string): Demo => {
     const own = media.get(normalizeExerciseName(name));
-    if (own) return { kind: own.kind === "UPLOAD" ? "VIDEO" : "LINK", url: own.url };
-    return { kind: "SEARCH", url: demoSearchUrl(name) };
+    if (own) return { own: true, url: own.url };
+    return { own: false, url: demoSearchUrl(name) };
   };
 
   return (

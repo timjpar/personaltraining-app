@@ -18,6 +18,8 @@ import { AssignClients } from "@/components/AssignClients";
 import { deleteTemplate, assignTemplate } from "../actions";
 import { toDateInput } from "@/lib/format";
 import { groupBySection, usesSections } from "@/lib/workout-form";
+import { getExerciseMedia } from "@/lib/exercise-catalog";
+import { normalizeExerciseName } from "@/lib/exercise-presets";
 
 export default async function TemplatePage({
   params,
@@ -34,6 +36,11 @@ export default async function TemplatePage({
   if (!template) notFound();
 
   const showSections = usesSections(template.exercises);
+
+  const media = await getExerciseMedia(
+    trainer.id,
+    template.exercises.map((e) => e.name),
+  );
 
   const clients = await prisma.user.findMany({
     where: { trainerId: trainer.id, role: "CLIENT" },
@@ -94,6 +101,10 @@ export default async function TemplatePage({
                     name={ex.name}
                     metrics={exerciseMetrics(ex)}
                     notes={ex.notes}
+                    demo={(() => {
+                      const own = media.get(normalizeExerciseName(ex.name));
+                      return own ? { own: true, url: own.url } : undefined;
+                    })()}
                   />
                 </li>
               ))}
