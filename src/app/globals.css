@@ -1,27 +1,38 @@
 @import "tailwindcss";
 
 /* ---- Chalkline design tokens ---------------------------------------------
-   Concept: "The Programming Sheet." A light, precise document surface where
-   training is written; prescription metrics are set in mono, tabular figures.
-   One signature accent (jade) carries action + completion; amber is reserved
-   only for effort/RPE. Not cream+serif, not dark+acid, not broadsheet rules. */
+   Concept: "The Programming Sheet." A precise document surface where training
+   is written; prescription metrics are set in mono, tabular figures. One
+   signature accent carries action + completion; amber is reserved only for
+   effort/RPE.
+
+   THEMING. Components only ever use semantic tokens (bg-card, text-ink,
+   border-line), never raw colors — so a whole theme is just a redefinition of
+   these variables. Dark is the default and lives here on :root; light is an
+   override further down, keyed on <html data-theme="light">. The attribute is
+   set server-side in app/layout.tsx from a cookie, so there is no flash.
+
+   NAMING WART: the accent slot is still called `jade` because ~20 files use
+   bg-jade / text-jade-strong / bg-jade-wash. When a different scheme is
+   selected, these hold that scheme's color — "jade" means "the accent", not
+   the hue. Renaming to `accent` would be a mechanical but very wide diff. */
 @theme {
-  --color-paper: #eaeeec; /* cool light page */
-  --color-card: #ffffff;
-  --color-ink: #14181a; /* primary text (never a page background) */
-  --color-ink-soft: #58636a; /* secondary text */
-  --color-line: #d9e0dd; /* hairlines / borders */
-  --color-steel: #172422; /* dark chrome: top bar, footer */
-  --color-steel-soft: #2b3a37;
+  --color-paper: #101413; /* page */
+  --color-card: #171d1b;
+  --color-ink: #e9efec; /* primary text */
+  --color-ink-soft: #93a09b; /* secondary text */
+  --color-line: #2a3532; /* hairlines / borders */
+  --color-steel: #0b100f; /* chrome: top bar, footer */
+  --color-steel-soft: #172422;
 
-  --color-jade: #0e8a6c; /* primary action + completed */
-  --color-jade-strong: #0a6a53;
-  --color-jade-wash: #e2f0ea; /* tint fills */
+  --color-jade: #2fa886; /* accent slot: action + completed */
+  --color-jade-strong: #49c1a0;
+  --color-jade-wash: #14322c; /* tint fills */
 
-  --color-amber: #cf8322; /* effort / RPE only */
-  --color-amber-wash: #f6ecda;
+  --color-amber: #dda15e; /* effort / RPE only */
+  --color-amber-wash: #33260f;
 
-  --color-flag: #c2513a; /* destructive / overdue */
+  --color-flag: #e0705a; /* destructive / overdue */
 
   --font-display: var(--ff-display);
   --font-body: var(--ff-body);
@@ -30,7 +41,81 @@
   --radius-card: 14px;
   --radius-sm: 8px;
 
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.28);
+}
+
+/* ---- Light ---------------------------------------------------------------
+   The original palette. `:root[data-theme=…]` is specificity 0,2,0 so it beats
+   the 0,1,0 `:root` block Tailwind emits from @theme regardless of order. */
+:root[data-theme="light"] {
+  --color-paper: #eaeeec;
+  --color-card: #ffffff;
+  --color-ink: #14181a;
+  --color-ink-soft: #58636a;
+  --color-line: #d9e0dd;
+  --color-steel: #172422;
+  --color-steel-soft: #2b3a37;
+
+  --color-jade: #0e8a6c;
+  --color-jade-strong: #0a6a53;
+  --color-jade-wash: #e2f0ea;
+
+  --color-amber: #cf8322;
+  --color-amber-wash: #f6ecda;
+
+  --color-flag: #c2513a;
+
   --shadow-card: 0 1px 2px rgba(20, 24, 26, 0.04), 0 6px 20px rgba(20, 24, 26, 0.05);
+}
+
+/* ---- Accent schemes ------------------------------------------------------
+   Only the accent triplet changes; surfaces and text stay put. Each scheme
+   needs both a dark and a light value — a hue readable on #101413 is usually
+   too pale on #eaeeec, and vice versa. `jade` is the default and needs no
+   block. Selectors are :root[data-accent] (0,2,0) and, for light,
+   :root[data-theme][data-accent] (0,3,0) so light always wins over dark. */
+:root[data-accent="indigo"] {
+  --color-jade: #6d8bff;
+  --color-jade-strong: #8ba3ff;
+  --color-jade-wash: #1b2242;
+}
+:root[data-theme="light"][data-accent="indigo"] {
+  --color-jade: #3b5bdb;
+  --color-jade-strong: #2f49b0;
+  --color-jade-wash: #e6eafb;
+}
+
+:root[data-accent="ember"] {
+  --color-jade: #e8734f;
+  --color-jade-strong: #f28f70;
+  --color-jade-wash: #3a1d14;
+}
+:root[data-theme="light"][data-accent="ember"] {
+  --color-jade: #c2542f;
+  --color-jade-strong: #a24325;
+  --color-jade-wash: #fbe9e2;
+}
+
+:root[data-accent="violet"] {
+  --color-jade: #a78bfa;
+  --color-jade-strong: #bda5fb;
+  --color-jade-wash: #2a1f45;
+}
+:root[data-theme="light"][data-accent="violet"] {
+  --color-jade: #6d4bd0;
+  --color-jade-strong: #5738ad;
+  --color-jade-wash: #ede7fb;
+}
+
+:root[data-accent="slate"] {
+  --color-jade: #94a7b1;
+  --color-jade-strong: #b1c0c8;
+  --color-jade-wash: #1e272c;
+}
+:root[data-theme="light"][data-accent="slate"] {
+  --color-jade: #4a5b64;
+  --color-jade-strong: #3a484f;
+  --color-jade-wash: #e7ecee;
 }
 
 @layer base {
