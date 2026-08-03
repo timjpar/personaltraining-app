@@ -3,17 +3,37 @@ import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Container, PageHeading, Card, EmptyState, ButtonLink } from "@/components/ui";
 import { CustomExerciseRow } from "@/components/CustomExerciseRow";
+import { ExerciseMediaManager } from "@/components/ExerciseMediaManager";
+import { getPickerCatalog } from "@/lib/exercise-catalog";
 import { normalizeExerciseName, PRESET_SLUGS, PRESET_NAMES } from "@/lib/exercise-presets";
 import { relativeTime } from "@/lib/format";
 
 export default async function ExercisesPage() {
   const trainer = await requireTrainer();
 
-  const rows = await prisma.trainerExercise.findMany({
-    where: { trainerId: trainer.id },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, lastUsedAt: true },
-  });
+  const [rows, catalog] = await Promise.all([
+    prisma.trainerExercise.findMany({
+      where: { trainerId: trainer.id },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        lastUsedAt: true,
+        mediaUrl: true,
+        mediaKind: true,
+      },
+    }),
+    getPickerCatalog(trainer.id),
+  ]);
+
+  const withMedia = rows
+    .filter((r) => r.mediaUrl)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      mediaUrl: r.mediaUrl as string,
+      mediaKind: r.mediaKind ?? "LINK",
+    }));
 
   // Custom is computed rather than stored, so a name that later ships as a
   // preset leaves this list on its own instead of appearing in both places.
@@ -45,6 +65,14 @@ export default async function ExercisesPage() {
       </div>
 
       <div className="mt-7">
+        <ExerciseMediaManager catalog={catalog} rows={withMedia} />
+      </div>
+
+      <h2 className="mt-9 font-display text-base font-semibold text-ink">
+        Your custom movements
+      </h2>
+
+      <div className="mt-3">
         {custom.length === 0 ? (
           <EmptyState
             title="Nothing custom yet"

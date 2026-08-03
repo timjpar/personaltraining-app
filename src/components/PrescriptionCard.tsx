@@ -38,17 +38,50 @@ export function SectionHeading({ label, count }: { label: string; count: number 
 export function exerciseMetrics(ex: {
   sets?: string | null;
   reps?: string | null;
+  weight?: string | null;
   load?: string | null;
   tempo?: string | null;
   rest?: string | null;
 }): Metric[] {
+  // MetricStrip drops empty values, so unused metrics simply don't render.
   return [
     { label: "Sets", value: ex.sets },
     { label: "Reps", value: ex.reps },
+    { label: "Weight", value: ex.weight },
     { label: "Load", value: ex.load },
     { label: "Tempo", value: ex.tempo },
     { label: "Rest", value: ex.rest },
   ];
+}
+
+// How to show a movement demo. VIDEO is the trainer's own upload and plays
+// inline; LINK is a URL they pasted; SEARCH is the generic YouTube fallback.
+export type Demo = { kind: "VIDEO" | "LINK" | "SEARCH"; url: string };
+
+function DemoMedia({ demo, name }: { demo: Demo; name: string }) {
+  if (demo.kind === "VIDEO") {
+    return (
+      <video
+        controls
+        playsInline
+        // A nine-exercise session must not fetch nine videos on load.
+        preload="none"
+        src={demo.url}
+        className="mt-3 w-full max-w-sm rounded-[var(--radius-sm)] border border-line"
+        aria-label={`${name} demonstration`}
+      />
+    );
+  }
+  return (
+    <a
+      href={demo.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-2 inline-flex items-center gap-1 text-sm text-jade-strong hover:underline"
+    >
+      Watch demo ↗
+    </a>
+  );
 }
 
 export function PrescriptionCard({
@@ -58,6 +91,7 @@ export function PrescriptionCard({
   notes,
   logged,
   footer,
+  demo,
   className,
 }: {
   index: number | string;
@@ -66,6 +100,8 @@ export function PrescriptionCard({
   notes?: string | null;
   logged?: boolean;
   footer?: ReactNode;
+  // Only the client-facing views pass this; trainer pages render unchanged.
+  demo?: Demo;
   className?: string;
 }) {
   return (
@@ -95,6 +131,7 @@ export function PrescriptionCard({
               {notes}
             </p>
           ) : null}
+          {demo ? <DemoMedia demo={demo} name={name} /> : null}
           {footer ? <div className="mt-4">{footer}</div> : null}
         </div>
       </div>

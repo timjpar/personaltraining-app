@@ -8,8 +8,12 @@ import {
   PrescriptionCard,
   SectionHeading,
   exerciseMetrics,
+  type Demo,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
+import { getExerciseMedia } from "@/lib/exercise-catalog";
+import { normalizeExerciseName } from "@/lib/exercise-presets";
+import { demoSearchUrl } from "@/lib/exercise-archetypes";
 import { RpeMeter } from "@/components/RpeMeter";
 import { WorkoutLogForm } from "@/components/WorkoutLogForm";
 import { formatDate, relativeTime } from "@/lib/format";
@@ -33,6 +37,18 @@ export default async function ClientWorkoutPage({
 
   const isCompleted = workout.status === "COMPLETED";
   const showSections = usesSections(workout.exercises);
+
+  // One query for the whole session; the coach's own media beats the generic
+  // YouTube search, which is why this is resolved before rendering.
+  const media = await getExerciseMedia(
+    workout.trainerId,
+    workout.exercises.map((e) => e.name),
+  );
+  const demoFor = (name: string): Demo => {
+    const own = media.get(normalizeExerciseName(name));
+    if (own) return { kind: own.kind === "UPLOAD" ? "VIDEO" : "LINK", url: own.url };
+    return { kind: "SEARCH", url: demoSearchUrl(name) };
+  };
 
   return (
     <Container className="max-w-3xl">
@@ -110,6 +126,7 @@ export default async function ClientWorkoutPage({
                         name={ex.name}
                         metrics={exerciseMetrics(ex)}
                         notes={ex.notes}
+                        demo={demoFor(ex.name)}
                         logged={ex.done}
                         footer={
                           ex.resultReps || ex.resultLoad ? (
@@ -143,7 +160,10 @@ export default async function ClientWorkoutPage({
           <WorkoutLogForm
             action={completeWorkout.bind(null, workout.id)}
             notes={workout.notes}
-            exercises={workout.exercises}
+            exercises={workout.exercises.map((ex) => ({
+              ...ex,
+              demo: demoFor(ex.name),
+            }))}
           />
         </div>
       )}

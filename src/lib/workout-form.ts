@@ -19,6 +19,7 @@ export type ParsedExercise = {
   name: string;
   sets: string | null;
   reps: string | null;
+  weight: string | null;
   load: string | null;
   tempo: string | null;
   rest: string | null;
@@ -82,6 +83,7 @@ export function parsePrescription(
         name,
         sets: field(id, "sets"),
         reps: field(id, "reps"),
+        weight: field(id, "weight"),
         load: field(id, "load"),
         tempo: field(id, "tempo"),
         rest: field(id, "rest"),
@@ -118,6 +120,7 @@ export type PrescriptionRow = {
   name: string;
   sets: string | null;
   reps: string | null;
+  weight: string | null;
   load: string | null;
   tempo: string | null;
   rest: string | null;
@@ -135,6 +138,7 @@ export function exerciseRowsFrom(exercises: PrescriptionRow[]) {
     name: e.name,
     sets: e.sets,
     reps: e.reps,
+    weight: e.weight,
     load: e.load,
     tempo: e.tempo,
     rest: e.rest,

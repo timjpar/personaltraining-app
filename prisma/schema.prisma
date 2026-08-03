@@ -70,14 +70,15 @@ model Exercise {
 
   // Prescription (what the trainer programs). Free-form strings so coaches can
   // write ranges and notation like "8-10", "60%", tempo "30X1", rest "90s".
-  name  String
-  sets  String?
-  reps  String?
-  load  String?
-  tempo String?
-  rest  String?
-  notes String?
-  order Int     @default(0)
+  name   String
+  sets   String?
+  reps   String?
+  weight String? // actual load lifted ("100kg"); `load` stays for %/RPE
+  load   String?
+  tempo  String?
+  rest   String?
+  notes  String?
+  order  Int     @default(0)
   // WARMUP | MAIN | COOLDOWN. A grouping label only — `order` stays global
   // 1..N across the whole session, so anything that reorders rows has to
   // renumber the workout, not one section.
@@ -135,6 +136,7 @@ model TemplateExercise {
   name    String
   sets    String?
   reps    String?
+  weight  String? // mirrors Exercise.weight
   load    String?
   tempo   String?
   rest    String?
@@ -194,6 +196,12 @@ model TrainerExercise {
   nameKey    String // lowercased, whitespace-collapsed — the dedupe key
   createdAt  DateTime @default(now())
   lastUsedAt DateTime @default(now())
+
+  // Trainer-supplied demo media, shown to the client instead of the generic
+  // YouTube search. mediaKind isn't cosmetic: UPLOAD means we own the blob and
+  // must delete it when the media is replaced or removed.
+  mediaUrl  String?
+  mediaKind String? // UPLOAD | LINK
 
   @@unique([trainerId, nameKey])
   @@index([trainerId, lastUsedAt])

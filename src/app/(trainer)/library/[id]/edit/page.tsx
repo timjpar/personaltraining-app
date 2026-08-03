@@ -53,6 +53,7 @@ export default async function EditTemplatePage({
               name: e.name,
               sets: e.sets,
               reps: e.reps,
+              weight: e.weight,
               load: e.load,
               tempo: e.tempo,
               rest: e.rest,
