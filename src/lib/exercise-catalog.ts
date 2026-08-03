@@ -37,6 +37,34 @@ export async function getPickerCatalog(
   };
 }
 
+export type ExerciseMedia = { url: string; kind: "UPLOAD" | "LINK" };
+
+// Resolves the trainer's own demo media for a whole session in one query,
+// keyed by normalized name. Callers do a Map lookup per exercise rather than
+// a query per exercise.
+export async function getExerciseMedia(
+  trainerId: string,
+  names: string[],
+): Promise<Map<string, ExerciseMedia>> {
+  const keys = [...new Set(names.map(normalizeExerciseName).filter(Boolean))];
+  if (keys.length === 0) return new Map();
+
+  const rows = await prisma.trainerExercise.findMany({
+    where: { trainerId, nameKey: { in: keys }, mediaUrl: { not: null } },
+    select: { nameKey: true, mediaUrl: true, mediaKind: true },
+  });
+
+  return new Map(
+    rows.map((r) => [
+      r.nameKey,
+      {
+        url: r.mediaUrl as string,
+        kind: r.mediaKind === "UPLOAD" ? "UPLOAD" : "LINK",
+      } satisfies ExerciseMedia,
+    ]),
+  );
+}
+
 // Records every name a trainer just programmed, presets included — that's what
 // keeps "Recent" honest. Two statements regardless of how long the workout is.
 export async function recordExerciseNames(

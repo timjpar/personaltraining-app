@@ -20,6 +20,7 @@ type BuilderExercise = {
   name?: string | null;
   sets?: string | null;
   reps?: string | null;
+  weight?: string | null;
   load?: string | null;
   tempo?: string | null;
   rest?: string | null;
@@ -36,13 +37,30 @@ type Initial = {
 
 type Rows = Record<ExerciseSection, BuilderExercise[]>;
 
-const METRICS: { key: keyof BuilderExercise; label: string; placeholder: string }[] = [
+type MetricDef = { key: keyof BuilderExercise; label: string; placeholder: string };
+
+// Sets and reps are on every row. Everything else is opt-in — most sessions
+// never need tempo, and five always-present inputs made every row look busier
+// than the programming actually was.
+const CORE_METRICS: MetricDef[] = [
   { key: "sets", label: "Sets", placeholder: "4" },
   { key: "reps", label: "Reps", placeholder: "8-10" },
+];
+
+const OPTIONAL_METRICS: MetricDef[] = [
+  { key: "weight", label: "Weight", placeholder: "100kg" },
   { key: "load", label: "Load", placeholder: "70%" },
   { key: "tempo", label: "Tempo", placeholder: "30X1" },
   { key: "rest", label: "Rest", placeholder: "90s" },
 ];
+
+// A row that already carries any optional value opens expanded, so editing an
+// existing session never hides programming behind a closed disclosure.
+const hasOptional = (row: BuilderExercise) =>
+  OPTIONAL_METRICS.some((m) => {
+    const v = row[m.key];
+    return typeof v === "string" && v.trim() !== "";
+  });
 
 const ADD_LABEL: Record<ExerciseSection, string> = {
   WARMUP: "+ Add warm-up",
@@ -202,8 +220,8 @@ export function WorkoutBuilder({
                           </button>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
-                          {METRICS.map((m) => (
+                        <div className="mt-3 grid grid-cols-2 gap-2.5">
+                          {CORE_METRICS.map((m) => (
                             <label key={m.key} className="flex flex-col gap-1">
                               <span className="eyebrow text-ink-soft/70">{m.label}</span>
                               <Input
@@ -215,6 +233,34 @@ export function WorkoutBuilder({
                             </label>
                           ))}
                         </div>
+
+                        {/* Native <details>: works with no JavaScript and is
+                            keyboard accessible for free, which keeps the
+                            builder's progressive-enhancement property. */}
+                        <details open={hasOptional(row)} className="group mt-2.5">
+                          <summary className="eyebrow inline-flex cursor-pointer list-none items-center gap-1.5 text-ink-soft transition-colors hover:text-ink [&::-webkit-details-marker]:hidden">
+                            <span
+                              aria-hidden
+                              className="transition-transform group-open:rotate-45"
+                            >
+                              +
+                            </span>
+                            Weight, load, tempo &amp; rest
+                          </summary>
+                          <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                            {OPTIONAL_METRICS.map((m) => (
+                              <label key={m.key} className="flex flex-col gap-1">
+                                <span className="eyebrow text-ink-soft/70">{m.label}</span>
+                                <Input
+                                  name={`ex_${row.id}_${m.key}`}
+                                  defaultValue={(row[m.key] as string) ?? ""}
+                                  placeholder={m.placeholder}
+                                  className={cn("metric px-2.5 py-2 text-sm")}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        </details>
 
                         <Input
                           name={`ex_${row.id}_notes`}

@@ -173,6 +173,28 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* ---- Exercise figure flipbook ------------------------------------------
+     Each figure holds 2 pose groups; the animation cross-cuts their opacity so
+     it reads as movement. Deliberately CSS animation rather than SMIL: the
+     prefers-reduced-motion block above neuters CSS animation automatically but
+     would not touch <animate>. With the animation off, the base rules below
+     leave pose 1 visible and pose 2 hidden — a clean static drawing. */
+  .pose-a { opacity: 1; }
+  .pose-b { opacity: 0; }
+
+  .figure-animate .pose-a { animation: pose-a-cycle 1.4s steps(1, end) infinite; }
+  .figure-animate .pose-b { animation: pose-b-cycle 1.4s steps(1, end) infinite; }
+
+  @keyframes pose-a-cycle {
+    0%, 50% { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
+  }
+
+  @keyframes pose-b-cycle {
+    0%, 50% { opacity: 0; }
+    50.01%, 100% { opacity: 1; }
+  }
+
   /* Faint graph-paper field for the auth/hero surface only. */
   .gridfield {
     background-image:

@@ -6,6 +6,7 @@ import {
   PrescriptionCard,
   SectionHeading,
   exerciseMetrics,
+  type Demo,
 } from "@/components/PrescriptionCard";
 import { Card, Textarea, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -17,11 +18,13 @@ type LogExercise = {
   name: string;
   sets: string | null;
   reps: string | null;
+  weight: string | null;
   load: string | null;
   tempo: string | null;
   rest: string | null;
   notes: string | null;
   section: string;
+  demo?: Demo;
 };
 
 function RpePicker() {
@@ -93,6 +96,7 @@ export function WorkoutLogForm({
                     name={ex.name}
                     metrics={exerciseMetrics(ex)}
                     notes={ex.notes}
+                    demo={ex.demo}
                     footer={
                       <div className="flex flex-wrap items-end gap-3 border-t border-line pt-3.5">
                         <label className="flex flex-1 flex-col gap-1">
@@ -107,7 +111,9 @@ export function WorkoutLogForm({
                           <span className="eyebrow text-ink-soft/70">Load used</span>
                           <input
                             name={`res_${ex.id}_load`}
-                            placeholder={ex.load ?? "—"}
+                            // Prefer the prescribed weight: if the coach wrote
+                            // an actual number, that's the more useful prompt.
+                            placeholder={ex.weight ?? ex.load ?? "—"}
                             className="metric w-full rounded-[var(--radius-sm)] border border-line bg-paper px-2.5 py-2 text-sm text-ink focus-visible:border-jade focus-visible:outline-none"
                           />
                         </label>

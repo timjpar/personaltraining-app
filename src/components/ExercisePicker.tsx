@@ -3,6 +3,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Input } from "@/components/ui";
+import { ExerciseFigure } from "@/components/ExerciseFigure";
+import { archetypeFor } from "@/lib/exercise-archetypes";
 import { cn } from "@/lib/cn";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
 import {
@@ -211,10 +213,17 @@ export function ExercisePicker({
                     onMouseEnter={() => setActive(i)}
                     onClick={() => commit(n)}
                     className={cn(
-                      "flex min-h-11 cursor-pointer items-center px-3 py-2.5 text-sm",
+                      "flex min-h-11 cursor-pointer items-center gap-2.5 px-3 py-2.5 text-sm",
                       isActive ? "bg-jade-wash text-jade-strong" : "text-ink",
                     )}
                   >
+                    {/* Only the highlighted row animates — 178 moving figures
+                        would be noise, and the motion doubles as a cue. */}
+                    <ExerciseFigure
+                      archetype={archetypeFor(n)}
+                      animated={isActive}
+                      className={cn("shrink-0", isActive ? "text-jade-strong" : "text-ink-soft")}
+                    />
                     {n}
                   </div>
                 );

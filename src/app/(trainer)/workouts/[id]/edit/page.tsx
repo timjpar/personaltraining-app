@@ -57,6 +57,7 @@ export default async function EditWorkoutPage({
               name: ex.name,
               sets: ex.sets,
               reps: ex.reps,
+              weight: ex.weight,
               load: ex.load,
               tempo: ex.tempo,
               rest: ex.rest,
