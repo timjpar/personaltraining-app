@@ -44,6 +44,7 @@ export async function proxy(req: NextRequest) {
   // Keep each role inside its own area.
   const trainerArea =
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/calendar") ||
     pathname.startsWith("/clients") ||
     pathname.startsWith("/workouts") ||
     pathname.startsWith("/library") ||

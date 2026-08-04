@@ -12,15 +12,8 @@ import {
 } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { relativeTime, formatDateLong } from "@/lib/format";
+import { startOfWeek } from "@/lib/calendar";
 import { markAllRead } from "./actions";
-
-function startOfWeek() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  const day = (d.getDay() + 6) % 7; // Monday = 0
-  d.setDate(d.getDate() - day);
-  return d;
-}
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
@@ -54,7 +47,7 @@ export default async function DashboardPage() {
       where: {
         trainerId: trainer.id,
         status: "COMPLETED",
-        completedAt: { gte: startOfWeek() },
+        completedAt: { gte: startOfWeek(new Date()) },
       },
     }),
   ]);
@@ -64,7 +57,14 @@ export default async function DashboardPage() {
       <PageHeading
         eyebrow={formatDateLong(new Date())}
         title={`Good to see you, ${firstName}`}
-        action={<ButtonLink href="/clients">Clients</ButtonLink>}
+        action={
+          <div className="flex items-center gap-2">
+            <ButtonLink href="/calendar" variant="outline">
+              Calendar
+            </ButtonLink>
+            <ButtonLink href="/clients">Clients</ButtonLink>
+          </div>
+        }
       >
         Here&rsquo;s what your athletes have been up to.
       </PageHeading>

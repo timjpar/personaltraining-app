@@ -14,12 +14,17 @@ if (!connectionString) {
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
+// Local midnight, matching parseDateInput — the date a thing happens on is a
+// date everywhere in the app. Time of day rides along separately, as minutes
+// from midnight.
 function daysFromNow(n: number) {
   const d = new Date();
-  d.setHours(9, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + n);
   return d;
 }
+
+const at = (hours: number, minutes = 0) => hours * 60 + minutes;
 
 async function main() {
   const trainer = await prisma.user.upsert({
@@ -71,6 +76,7 @@ async function main() {
       title: "Lower Body A",
       notes: "Warm up thoroughly. Quality over load today.",
       scheduledDate: daysFromNow(1),
+      startMinute: at(7, 30),
       status: "ASSIGNED",
       clientId: maria.id,
       trainerId: trainer.id,
@@ -96,6 +102,7 @@ async function main() {
       title: "Upper Body A",
       notes: "Press focus.",
       scheduledDate: daysFromNow(-1),
+      startMinute: at(18),
       status: "COMPLETED",
       completedAt: new Date(),
       rpe: 8,
@@ -126,6 +133,8 @@ async function main() {
     data: {
       title: "Full Body Primer",
       scheduledDate: daysFromNow(2),
+      // Left without a time on purpose, so the calendar has an all-day workout
+      // to render alongside the timed ones.
       status: "ASSIGNED",
       clientId: jordan.id,
       trainerId: trainer.id,
@@ -291,11 +300,27 @@ async function main() {
     },
   });
 
+  // Calendar entries that aren't programmed sessions. Deliberately spread out:
+  // one all-day, one over a week ahead, so the month grid exercises both the
+  // untimed-sorts-first path and the range that reaches into the next month's
+  // leading cells.
+  await prisma.calendarEvent.deleteMany({ where: { trainerId: trainer.id } });
+  await prisma.calendarEvent.createMany({
+    data: [
+      { trainerId: trainer.id, clientId: maria.id, title: "Maria — intake consult", kind: "CONSULT", date: daysFromNow(0), startMinute: at(8), endMinute: at(9) },
+      { trainerId: trainer.id, clientId: jordan.id, title: "Jordan — form check", kind: "CHECKIN", date: daysFromNow(2), startMinute: at(17, 30), endMinute: at(18) },
+      { trainerId: trainer.id, clientId: null, title: "Programming block", kind: "PERSONAL", date: daysFromNow(3), startMinute: at(7), endMinute: at(9) },
+      { trainerId: trainer.id, clientId: null, title: "Gym closed — public holiday", kind: "PERSONAL", date: daysFromNow(5) },
+      { trainerId: trainer.id, clientId: maria.id, title: "Maria — 6-week review", kind: "CONSULT", date: daysFromNow(9), startMinute: at(12) },
+    ],
+  });
+
   console.log("Seeded:");
   console.log("  Trainer  alex@chalkline.dev / trainpass123");
   console.log("  Client   maria@example.com / clientpass123");
   console.log("  Client   jordan@example.com / clientpass123");
   console.log("  Library  3 workouts · 1 program · 1 nutrition plan");
+  console.log("  Calendar 3 sessions · 5 events");
 }
 
 main()

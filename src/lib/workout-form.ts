@@ -10,6 +10,7 @@ import {
   SECTION_LABELS,
   type ExerciseSection,
 } from "@/lib/constants";
+import { minutesFromTimeInput } from "@/lib/calendar";
 
 export type ParsedExercise = {
   order: number;
@@ -30,6 +31,9 @@ export type ParsedWorkout = {
   title: string;
   notes: string | null;
   scheduledDate: Date;
+  // Minutes from midnight, or null for a session with no set time. Optional in
+  // the form on purpose: templates and programs create workouts without one.
+  startMinute: number | null;
   exercises: ParsedExercise[];
 };
 
@@ -113,7 +117,15 @@ export function parseWorkoutForm(
     return { error: "That date doesn't look right." };
   }
 
-  return { data: { ...data, scheduledDate } };
+  // A blank or unparseable time is simply no time — never an error. The field
+  // is optional and a session without one still works everywhere.
+  return {
+    data: {
+      ...data,
+      scheduledDate,
+      startMinute: minutesFromTimeInput(formData.get("startTime")),
+    },
+  };
 }
 
 export type PrescriptionRow = {

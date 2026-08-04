@@ -1,5 +1,6 @@
-// Shared constants. SQLite has no enums, so these mirror the String columns
-// used across the Prisma schema.
+// Shared constants. The schema keeps these as plain String columns rather than
+// native Postgres enums, so these are the single source of truth for the values
+// and the labels they display as.
 
 export const ROLES = {
   TRAINER: "TRAINER",
@@ -48,6 +49,39 @@ export function toExerciseSection(value: unknown): ExerciseSection {
   return (SECTION_ORDER as readonly string[]).includes(s)
     ? (s as ExerciseSection)
     : EXERCISE_SECTIONS.MAIN;
+}
+
+// Calendar entries that aren't programmed sessions. Workouts have no kind —
+// they're distinguished by being workouts.
+export const EVENT_KINDS = {
+  SESSION: "SESSION",
+  CONSULT: "CONSULT",
+  CHECKIN: "CHECKIN",
+  PERSONAL: "PERSONAL",
+} as const;
+export type EventKind = (typeof EVENT_KINDS)[keyof typeof EVENT_KINDS];
+
+export const EVENT_KIND_ORDER = [
+  "SESSION",
+  "CONSULT",
+  "CHECKIN",
+  "PERSONAL",
+] as const satisfies readonly EventKind[];
+
+export const EVENT_KIND_LABELS: Record<EventKind, string> = {
+  SESSION: "Session",
+  CONSULT: "Consult",
+  CHECKIN: "Check-in",
+  PERSONAL: "Personal",
+};
+
+// Same contract as toExerciseSection: anything unrecognised reads as SESSION so
+// display code can index EVENT_KIND_LABELS without a runtime crash.
+export function toEventKind(value: unknown): EventKind {
+  const s = String(value ?? "");
+  return (EVENT_KIND_ORDER as readonly string[]).includes(s)
+    ? (s as EventKind)
+    : EVENT_KINDS.SESSION;
 }
 
 // Program structure. Days are 1..7 offsets *within* a week, not calendar

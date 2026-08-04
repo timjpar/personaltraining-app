@@ -34,6 +34,7 @@ type BuilderExercise = {
 type Initial = {
   title?: string;
   scheduledDate?: string; // yyyy-mm-dd
+  startTime?: string; // "HH:MM", blank for a session with no set time
   notes?: string | null;
   exercises?: BuilderExercise[];
 };
@@ -168,15 +169,29 @@ export function WorkoutBuilder({
           </Field>
         </div>
         {showDate ? (
-          <Field label="Date" htmlFor="scheduledDate">
-            <Input
-              id="scheduledDate"
-              name="scheduledDate"
-              type="date"
-              defaultValue={initial?.scheduledDate ?? ""}
-              required
-            />
-          </Field>
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <Field label="Date" htmlFor="scheduledDate">
+              <Input
+                id="scheduledDate"
+                name="scheduledDate"
+                type="date"
+                defaultValue={initial?.scheduledDate ?? ""}
+                required
+              />
+            </Field>
+            {/* Optional — it only decides where the session sits on the
+                calendar. Sessions created from a template or a program have
+                none, and read as all-day. */}
+            <Field label="Time" htmlFor="startTime">
+              <Input
+                id="startTime"
+                name="startTime"
+                type="time"
+                defaultValue={initial?.startTime ?? ""}
+                className="metric"
+              />
+            </Field>
+          </div>
         ) : null}
         <div className="sm:col-span-2">
           <Field label="Notes for the athlete" htmlFor="notes">

@@ -15,6 +15,7 @@ import { RpeMeter } from "@/components/RpeMeter";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
 import { deleteWorkout } from "@/app/(trainer)/workout-actions";
 import { formatDate, relativeTime } from "@/lib/format";
+import { formatTime } from "@/lib/calendar";
 
 export default async function WorkoutReviewPage({
   params,
@@ -65,7 +66,11 @@ export default async function WorkoutReviewPage({
           eyebrow={
             isCompleted
               ? `Completed ${relativeTime(workout.completedAt ?? workout.scheduledDate)}`
-              : `Scheduled ${formatDate(workout.scheduledDate)}`
+              : `Scheduled ${formatDate(workout.scheduledDate)}${
+                  workout.startMinute == null
+                    ? ""
+                    : `, ${formatTime(workout.startMinute)}`
+                }`
           }
           title={workout.title}
           action={
