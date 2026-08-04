@@ -252,7 +252,7 @@ export function WorkoutBuilder({
                             type="button"
                             onClick={() => removeRow(section, row.id)}
                             aria-label={`Remove exercise ${n}`}
-                            className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-ink-soft transition-colors hover:bg-paper hover:text-flag"
+                            className="grid h-11 w-11 shrink-0 place-items-center rounded-[8px] text-ink-soft transition-colors hover:bg-paper hover:text-flag sm:h-9 sm:w-9"
                           >
                             <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden>
                               <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -332,7 +332,7 @@ export function WorkoutBuilder({
                                       key={m.key}
                                       type="button"
                                       onClick={() => toggleExtra(section, row.id, m.key, true)}
-                                      className="eyebrow rounded-full border border-line px-2.5 py-1 text-ink-soft transition-colors hover:border-jade hover:text-ink"
+                                      className="eyebrow inline-flex min-h-9 items-center rounded-full border border-line px-3 text-ink-soft transition-colors hover:border-jade hover:text-ink sm:min-h-0 sm:px-2.5 sm:py-1"
                                     >
                                       + {m.label}
                                     </button>

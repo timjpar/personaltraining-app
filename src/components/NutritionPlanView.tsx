@@ -70,10 +70,17 @@ export function NutritionPlanView({ plan }: { plan: Plan }) {
                   {mealTotals.calories} kcal
                 </span>
               </div>
+              {/* Rows stack on phones. Side by side, the macro string is
+                  rigid and the name is the only thing that can give, so real
+                  foods came out as "Chicken brea…" — and the name is the part
+                  you're scanning for. */}
               <ul className="mt-2 divide-y divide-line">
                 {meal.foods.map((f) => (
-                  <li key={f.id} className="flex items-center gap-3 py-2">
-                    <p className="min-w-0 flex-1 truncate text-sm text-ink">
+                  <li
+                    key={f.id}
+                    className="flex flex-col gap-0.5 py-2 sm:flex-row sm:items-center sm:gap-3"
+                  >
+                    <p className="min-w-0 flex-1 text-sm text-ink sm:truncate">
                       {f.name}
                       {f.quantity ? (
                         <span className="text-ink-soft"> · {f.quantity}</span>

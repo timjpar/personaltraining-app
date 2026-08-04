@@ -4,14 +4,15 @@ import { cn } from "@/lib/cn";
 export function Wordmark({
   light = false,
   href = "/",
-  responsive = false,
 }: {
   light?: boolean;
   href?: string;
-  responsive?: boolean;
 }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-2.5">
+    <Link
+      href={href}
+      className="inline-flex min-h-11 shrink-0 items-center gap-2.5 sm:min-h-0"
+    >
       <span className="grid h-8 w-8 place-items-center rounded-[8px] bg-jade text-white">
         <svg
           width="17"
@@ -33,7 +34,6 @@ export function Wordmark({
         className={cn(
           "font-display text-lg font-semibold tracking-tight",
           light ? "text-white" : "text-ink",
-          responsive && "hidden sm:inline",
         )}
       >
         Chalkline

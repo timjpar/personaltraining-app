@@ -36,9 +36,12 @@ const variants: Record<Variant, string> = {
   danger: "border border-flag/30 text-flag hover:bg-flag/5",
 };
 
+// Heights are the phone-first number first, tightening on `sm:`. 44px is the
+// documented minimum comfortable touch target; a 36px "small" button is fine
+// under a mouse and a miss under a thumb.
 const sizes: Record<Size, string> = {
-  md: "h-11 px-5 text-sm",
-  sm: "h-9 px-3.5 text-[0.8125rem]",
+  md: "h-12 px-5 text-sm sm:h-11",
+  sm: "h-11 px-4 text-[0.8125rem] sm:h-9 sm:px-3.5",
 };
 
 export function buttonClass(variant: Variant = "primary", size: Size = "md") {
@@ -98,8 +101,10 @@ export function Field({
   );
 }
 
+// min-h-12 on phones so a field is as tappable as a button; the 16px floor
+// that stops iOS zooming on focus is enforced globally in globals.css.
 const inputBase =
-  "w-full rounded-[var(--radius-sm)] border border-line bg-card px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus-visible:border-jade focus-visible:outline-none";
+  "w-full min-h-12 rounded-[var(--radius-sm)] border border-line bg-card px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus-visible:border-jade focus-visible:outline-none sm:min-h-0";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(inputBase, className)} {...props} />;

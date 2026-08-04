@@ -15,12 +15,21 @@ import { relativeTime, formatDateLong } from "@/lib/format";
 import { startOfWeek } from "@/lib/calendar";
 import { markAllRead } from "./actions";
 
+// One scoreboard strip on a phone, three separate cards from `sm` up. The
+// mobile shape is deliberate: at 375px a 2-up grid of tall cards orphaned the
+// third one and burned most of a screen before the feed — the thing the
+// trainer actually opened the page to read. Hairline dividers instead of gaps
+// keep it to one band and match the sheet's rule vocabulary.
 function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <Card className="px-5 py-4">
-      <p className="metric text-3xl font-semibold tracking-tight text-ink">{value}</p>
-      <p className="eyebrow mt-1 text-ink-soft">{label}</p>
-    </Card>
+    <div className="px-3 py-3 sm:rounded-[var(--radius-card)] sm:border sm:border-line sm:bg-card sm:px-5 sm:py-4 sm:shadow-[var(--shadow-card)]">
+      <p className="metric text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+        {value}
+      </p>
+      <p className="eyebrow mt-1 leading-tight tracking-[0.1em] text-ink-soft sm:tracking-[0.16em]">
+        {label}
+      </p>
+    </div>
   );
 }
 
@@ -57,8 +66,11 @@ export default async function DashboardPage() {
       <PageHeading
         eyebrow={formatDateLong(new Date())}
         title={`Good to see you, ${firstName}`}
+        // Hidden on phones: both destinations are already one thumb-tap away
+        // in the tab bar, and the pair was costing ~90px directly above the
+        // feed this page exists to show.
         action={
-          <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 sm:flex">
             <ButtonLink href="/calendar" variant="outline">
               Calendar
             </ButtonLink>
@@ -69,10 +81,10 @@ export default async function DashboardPage() {
         Here&rsquo;s what your athletes have been up to.
       </PageHeading>
 
-      <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-[var(--radius-card)] border border-line bg-card shadow-[var(--shadow-card)] sm:mt-7 sm:gap-3 sm:divide-x-0 sm:border-0 sm:bg-transparent sm:shadow-none">
         <StatCard label="Active clients" value={clients.length} />
-        <StatCard label="Completed this week" value={completedThisWeek} />
-        <StatCard label="Awaiting review" value={unread} />
+        <StatCard label="Done this week" value={completedThisWeek} />
+        <StatCard label="To review" value={unread} />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.6fr_1fr]">

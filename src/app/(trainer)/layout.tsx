@@ -20,18 +20,24 @@ export default async function TrainerLayout({
         name={user.name}
         roleLabel="Trainer"
         navItems={[
-          { href: "/dashboard", label: "Dashboard", badge: unread || undefined },
-          { href: "/calendar", label: "Calendar" },
-          { href: "/clients", label: "Clients" },
-          { href: "/library", label: "Workouts" },
-          { href: "/programs", label: "Programs" },
-          { href: "/nutrition", label: "Nutrition" },
+          {
+            href: "/dashboard",
+            label: "Activity",
+            icon: "dashboard",
+            badge: unread || undefined,
+          },
+          { href: "/calendar", label: "Calendar", icon: "calendar" },
+          { href: "/clients", label: "Clients", icon: "clients" },
+          { href: "/library", label: "Workouts", icon: "workouts" },
+          { href: "/programs", label: "Programs", icon: "programs" },
+          { href: "/nutrition", label: "Nutrition", icon: "nutrition" },
         ]}
         theme={theme}
         accent={accent}
         themeChosen={chosen}
       />
-      <main>{children}</main>
+      {/* Clears the fixed tab bar so the last row of any page stays reachable. */}
+      <main className="pb-tabbar sm:pb-0">{children}</main>
     </div>
   );
 }

@@ -54,9 +54,13 @@ export default async function ClientHomePage() {
         >
           <div className="min-w-0 flex-1">
             <p className="eyebrow text-ink-soft/70">Nutrition plan</p>
+            {/* Plan titles routinely already carry the number ("Cut · 2,000
+                kcal"), which rendered as "Cut · 2,000 kcal · 2000 kcal". Only
+                append the target when the title isn't already saying it. */}
             <p className="mt-0.5 truncate text-sm font-medium text-ink">
               {nutritionPlan.title}
-              {nutritionPlan.targetCalories != null ? (
+              {nutritionPlan.targetCalories != null &&
+              !/kcal|calorie/i.test(nutritionPlan.title) ? (
                 <span className="metric text-ink-soft">
                   {" "}
                   · {nutritionPlan.targetCalories} kcal

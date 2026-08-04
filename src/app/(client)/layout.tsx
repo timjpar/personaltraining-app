@@ -16,15 +16,16 @@ export default async function ClientLayout({
         name={user.name}
         roleLabel="Athlete"
         navItems={[
-          { href: "/my", label: "Today" },
-          { href: "/my/nutrition", label: "Nutrition" },
-          { href: "/my/history", label: "History" },
+          { href: "/my", label: "Today", icon: "today" },
+          { href: "/my/nutrition", label: "Nutrition", icon: "nutrition" },
+          { href: "/my/history", label: "History", icon: "history" },
         ]}
         theme={theme}
         accent={accent}
         themeChosen={chosen}
       />
-      <main>{children}</main>
+      {/* Clears the fixed tab bar so the last row of any page stays reachable. */}
+      <main className="pb-tabbar sm:pb-0">{children}</main>
     </div>
   );
 }
