@@ -13,12 +13,27 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         String   @default("CLIENT") // TRAINER | CLIENT
-  createdAt    DateTime @default(now())
+  id String @id @default(cuid())
+
+  email String @unique
+  // Null for accounts that only ever signed in with Google. Every read has to
+  // treat "no password" as a real state, not a broken row.
+  passwordHash String?
+  // Google's `sub` claim — stable for the lifetime of the Google account, and
+  // unlike the email address it never gets reassigned, so it's the identity we
+  // match on once an account is linked.
+  googleId String? @unique
+  name     String
+  role     String   @default("CLIENT") // TRAINER | CLIENT
+  createdAt DateTime @default(now())
+
+  // How this account came to exist. Existing rows all default to SELF, which is
+  // right for everyone who registered but wrong for clients a trainer added —
+  // only new rows are accurate.
+  signupSource String @default("SELF") // SELF | GOOGLE | TRAINER
+  // Denormalised from the newest successful LoginEvent so the admin list can
+  // sort and display "last seen" without a per-row subquery.
+  lastLoginAt DateTime?
 
   // A client belongs to one trainer (self-relation).
   trainerId String?
@@ -43,6 +58,32 @@ model User {
   // client they're about.
   eventsAsTrainer CalendarEvent[] @relation("TrainerEvents")
   eventsAsClient  CalendarEvent[] @relation("ClientEvents")
+
+  logins LoginEvent[] @relation("UserLogins")
+}
+
+// One row per sign-in attempt, successful or not. Read only by the owner admin
+// area — nothing in the app's own flows depends on it, which is why writing it
+// is best-effort (see src/lib/login-log.ts).
+model LoginEvent {
+  id String @id @default(cuid())
+
+  // The address as typed at the prompt, kept even when no account matched: an
+  // attempt against an email we don't know is exactly what's worth seeing.
+  email     String
+  method    String   // PASSWORD | GOOGLE
+  outcome   String   // SUCCESS | NO_ACCOUNT | BAD_PASSWORD | GOOGLE_ONLY | GOOGLE_UNVERIFIED
+  createdAt DateTime @default(now())
+
+  // Null when the attempt never resolved to an account. Nulled rather than
+  // cascaded on delete so the trail outlives the row it points at — `email`
+  // above is what still identifies a deleted account's attempts.
+  userId String?
+  user   User?   @relation("UserLogins", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
 }
 
 model Workout {

@@ -7,7 +7,10 @@ export const SESSION_COOKIE = "pt_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 const ALG = "HS256";
 
-function getSecret() {
+// Also used to sign the short-lived Google sign-in handshake cookie, which has
+// the same requirement: a value the browser holds that we must be able to trust
+// on the way back in.
+export function getSecret() {
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error("AUTH_SECRET is not set");
   return new TextEncoder().encode(secret);

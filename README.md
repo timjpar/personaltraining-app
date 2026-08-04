@@ -10,7 +10,8 @@ dashboard the moment it happens. Modeled on the CoachRx workflow.
 ## Features
 
 - **Real accounts, two roles.** Trainers sign up and create client accounts;
-  everyone gets their own view. Sessions are protected by middleware.
+  everyone gets their own view. Sessions are protected by middleware. Sign in
+  with an email and password, or with Google.
 - **Program builder.** Build a session on a date with any number of exercises,
   each with sets / reps / load / tempo / rest and a coaching note.
 - **Client logging.** Clients see what's assigned, log actual reps and load per
@@ -23,7 +24,8 @@ dashboard the moment it happens. Modeled on the CoachRx workflow.
 - [Next.js 16](https://nextjs.org) (App Router) + React 19 + TypeScript
 - [Tailwind CSS v4](https://tailwindcss.com)
 - [Prisma 7](https://www.prisma.io) with the `pg` driver adapter → Postgres
-- Email/password auth: `bcryptjs` hashing + a signed JWT session cookie (`jose`)
+- Auth: `bcryptjs` password hashing + a signed JWT session cookie (`jose`), and
+  Google OAuth/OIDC spoken directly — no auth framework
 
 ## Getting started
 
@@ -49,6 +51,25 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 
 Use `npx prisma migrate dev` instead of `migrate deploy` when you're changing
 `schema.prisma` and want a new migration generated.
+
+### Google sign-in (optional)
+
+The "Continue with Google" button is always on the sign-in page. Until
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set it says so when pressed,
+and email and password keep working. To turn it on:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/apis/credentials),
+   create an **OAuth 2.0 Client ID** of type *Web application*.
+2. Add an authorised redirect URI for every origin you serve from — the path is
+   always `/api/auth/google/callback`:
+   - `http://localhost:3000/api/auth/google/callback`
+   - `https://your-domain.com/api/auth/google/callback`
+3. Put the client ID and secret in `.env`.
+
+Signing in with a Google account whose (verified) email already exists takes
+over that account rather than creating a second one, so a client whose trainer
+made their account can use Google and stays a client. A brand-new email creates
+a trainer workspace, exactly like `/register`.
 
 ### Demo accounts (after `npm run db:seed`)
 
@@ -79,6 +100,9 @@ disk, so it runs fine on serverless platforms.
    - `DATABASE_URL` — the **pooled** connection string
    - `AUTH_SECRET` — a long random string (see above). Without it every request
      that touches a session fails.
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; only if you want
+     Google sign-in. Add the deployed origin's callback URL to the OAuth client,
+     including preview domains if you sign in on those.
 3. **Create the tables** against the production database:
 
    ```bash
