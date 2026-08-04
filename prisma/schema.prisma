@@ -38,6 +38,11 @@ model User {
   nutritionTemplates NutritionPlan[]   @relation("TrainerNutrition")
   // Nutrition plans assigned down to this user (as a client).
   nutritionPlans     NutritionPlan[]   @relation("ClientNutrition")
+
+  // The trainer's own calendar entries, and the ones that name this user as the
+  // client they're about.
+  eventsAsTrainer CalendarEvent[] @relation("TrainerEvents")
+  eventsAsClient  CalendarEvent[] @relation("ClientEvents")
 }
 
 model Workout {
@@ -51,6 +56,13 @@ model Workout {
   clientComment String?
   createdAt     DateTime  @default(now())
 
+  // Time of day, as minutes from midnight (0-1439). Null means no time was set,
+  // which is every workout written before the calendar existed and every one
+  // created by assigning a template or a program. Deliberately the same shape
+  // and name as CalendarEvent.startMinute so the calendar can merge and sort
+  // both with one comparator.
+  startMinute Int?
+
   clientId String
   client   User   @relation("ClientWorkouts", fields: [clientId], references: [id], onDelete: Cascade)
 
@@ -61,6 +73,9 @@ model Workout {
   feedItems FeedItem[]
 
   @@index([clientId, scheduledDate])
+  // The calendar's month query is trainer-scoped over a date range, so it can't
+  // use the clientId index above.
+  @@index([trainerId, scheduledDate])
 }
 
 model Exercise {
@@ -254,10 +269,50 @@ model Food {
   meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
 
   name     String
-  quantity String? // "1 cup", "150 g"
+  // "1 cup", "150 g" — and, when a preset was scaled, "2 × 1 medium (200 g)".
+  // There is no servings column on purpose: a saved plan is a snapshot handed
+  // to an athlete, not a formula. Storing a multiplier would mean every place
+  // that sums macros has to remember to apply it, and one missed call site is
+  // a silently wrong daily total. The builder recovers the multiplier from this
+  // string instead (see food-presets.ts).
+  quantity String?
   calories Int?
   protein  Int?
   carbs    Int?
   fat      Int?
   order    Int     @default(0)
+}
+
+// A trainer's own calendar entry: consults, check-in calls, admin blocks —
+// anything that isn't a programmed session. Workouts stay in Workout and are
+// never mirrored here; the calendar merges the two at read time.
+model CalendarEvent {
+  id    String  @id @default(cuid())
+  title String
+  notes String?
+
+  // Local-midnight date, exactly like Workout.scheduledDate. The app has no
+  // timezone handling anywhere, so the day a thing happens on is stored as a
+  // date and the time of day as a plain minute count — never as one wall-clock
+  // DateTime, which would slide a 9pm entry onto the next day the moment the
+  // server's zone differs from the trainer's.
+  date        DateTime
+  startMinute Int? // 0-1439; null = an all-day entry
+  endMinute   Int? // null on a timed entry just means no fixed finish
+
+  // SESSION | CONSULT | CHECKIN | PERSONAL, mirrored in src/lib/constants.ts.
+  kind String @default("SESSION")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trainerId String
+  trainer   User   @relation("TrainerEvents", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  // An event can be about a client, or purely the trainer's own time.
+  clientId String?
+  client   User?   @relation("ClientEvents", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([trainerId, date])
+  @@index([clientId])
 }

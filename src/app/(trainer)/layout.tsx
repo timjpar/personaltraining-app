@@ -21,6 +21,7 @@ export default async function TrainerLayout({
         roleLabel="Trainer"
         navItems={[
           { href: "/dashboard", label: "Dashboard", badge: unread || undefined },
+          { href: "/calendar", label: "Calendar" },
           { href: "/clients", label: "Clients" },
           { href: "/library", label: "Workouts" },
           { href: "/programs", label: "Programs" },

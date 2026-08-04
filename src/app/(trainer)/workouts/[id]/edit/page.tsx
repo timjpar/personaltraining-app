@@ -7,6 +7,7 @@ import { Container, PageHeading } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { updateWorkout } from "@/app/(trainer)/workout-actions";
 import { toDateInput } from "@/lib/format";
+import { timeInputFromMinutes } from "@/lib/calendar";
 
 export default async function EditWorkoutPage({
   params,
@@ -52,6 +53,7 @@ export default async function EditWorkoutPage({
             title: workout.title,
             notes: workout.notes,
             scheduledDate: toDateInput(workout.scheduledDate),
+            startTime: timeInputFromMinutes(workout.startMinute),
             exercises: workout.exercises.map((ex) => ({
               id: ex.id,
               name: ex.name,

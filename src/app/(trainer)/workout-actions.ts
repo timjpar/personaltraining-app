@@ -29,6 +29,7 @@ export async function createWorkout(
       title: data.title,
       notes: data.notes,
       scheduledDate: data.scheduledDate,
+      startMinute: data.startMinute,
       status: "ASSIGNED",
       clientId,
       trainerId: trainer.id,
@@ -40,6 +41,7 @@ export async function createWorkout(
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
   redirect(`/clients/${clientId}`);
 }
 
@@ -67,6 +69,7 @@ export async function updateWorkout(
         title: data.title,
         notes: data.notes,
         scheduledDate: data.scheduledDate,
+        startMinute: data.startMinute,
         exercises: { create: data.exercises },
       },
     }),
@@ -76,6 +79,7 @@ export async function updateWorkout(
 
   revalidatePath(`/workouts/${workoutId}`);
   revalidatePath(`/clients/${workout.clientId}`);
+  revalidatePath("/calendar");
   redirect(`/workouts/${workoutId}`);
 }
 
@@ -91,5 +95,6 @@ export async function deleteWorkout(workoutId: string) {
 
   revalidatePath(`/clients/${workout.clientId}`);
   revalidatePath("/dashboard");
+  revalidatePath("/calendar");
   redirect(`/clients/${workout.clientId}`);
 }

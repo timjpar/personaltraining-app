@@ -17,6 +17,7 @@ import { demoSearchUrl } from "@/lib/exercise-archetypes";
 import { RpeMeter } from "@/components/RpeMeter";
 import { WorkoutLogForm } from "@/components/WorkoutLogForm";
 import { formatDate, relativeTime } from "@/lib/format";
+import { formatTime } from "@/lib/calendar";
 
 export default async function ClientWorkoutPage({
   params,
@@ -61,7 +62,11 @@ export default async function ClientWorkoutPage({
           eyebrow={
             isCompleted
               ? `Completed ${relativeTime(workout.completedAt ?? new Date())}`
-              : `Scheduled ${formatDate(workout.scheduledDate)}`
+              : `Scheduled ${formatDate(workout.scheduledDate)}${
+                  workout.startMinute == null
+                    ? ""
+                    : `, ${formatTime(workout.startMinute)}`
+                }`
           }
           title={workout.title}
         />

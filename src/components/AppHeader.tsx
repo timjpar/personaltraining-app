@@ -37,14 +37,17 @@ export function AppHeader({
       <div className="mx-auto flex h-16 w-full max-w-5xl items-center gap-2 px-4 sm:gap-6 sm:px-8">
         <Wordmark responsive />
 
-        <nav className="flex items-center gap-1">
+        {/* Six items don't fit a phone, so the row scrolls sideways rather than
+            wrapping into the header or squashing the labels. The scrollbar is
+            hidden — the overflowing item is the affordance. */}
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               aria-current={activeHref === item.href ? "page" : undefined}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-sm font-medium transition-colors",
+                "inline-flex shrink-0 items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-sm font-medium transition-colors",
                 activeHref === item.href
                   // text-paper, not text-white: both tokens invert with the
                   // theme, so this stays legible in dark mode where `ink` is

@@ -10,6 +10,7 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { formatDate, formatDateLong } from "@/lib/format";
+import { formatTime } from "@/lib/calendar";
 
 export default async function ClientHomePage() {
   const client = await requireClient();
@@ -77,8 +78,12 @@ export default async function ClientHomePage() {
                   {next.title}
                 </h2>
                 <p className="metric mt-1 text-sm text-ink-soft">
-                  {formatDate(next.scheduledDate)} · {next._count.exercises}{" "}
-                  exercise{next._count.exercises === 1 ? "" : "s"}
+                  {formatDate(next.scheduledDate)}
+                  {next.startMinute == null
+                    ? ""
+                    : `, ${formatTime(next.startMinute)}`}{" "}
+                  · {next._count.exercises} exercise
+                  {next._count.exercises === 1 ? "" : "s"}
                 </p>
               </div>
               <Badge>Assigned</Badge>
