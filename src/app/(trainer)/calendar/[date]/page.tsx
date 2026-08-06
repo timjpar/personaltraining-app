@@ -78,7 +78,7 @@ export default async function CalendarDayPage({
     <Container className="max-w-3xl">
       <Link
         href={`/calendar?m=${monthKey(day)}`}
-        className="metric text-xs text-ink-soft hover:text-ink"
+        className="metric -ml-2 inline-flex min-h-11 items-center rounded-[var(--radius-sm)] px-2 text-xs text-ink-soft transition-colors hover:text-ink sm:min-h-0 sm:py-1"
       >
         ‹ {formatMonthLabel(day)}
       </Link>
@@ -159,7 +159,7 @@ export default async function CalendarDayPage({
                   <>
                     <Link
                       href={`/calendar/${dayValue}?edit=${item.id}`}
-                      className="metric text-xs text-ink-soft hover:text-ink"
+                      className="metric inline-flex min-h-11 items-center rounded-[var(--radius-sm)] px-2 text-xs text-ink-soft transition-colors hover:text-ink sm:min-h-0 sm:px-1.5 sm:py-1"
                     >
                       Edit
                     </Link>

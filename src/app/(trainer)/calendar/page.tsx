@@ -69,41 +69,126 @@ export default async function CalendarPage({
     0,
   );
 
+  // Days of *this* month that have something on them, in order. The grid's
+  // leading and trailing cells belong to the neighbouring months, so they are
+  // dropped here — on the grid they give the weeks their shape, but in a list
+  // they would just be someone else's appointments.
+  const agenda = grid
+    .filter((d) => d.getMonth() === month)
+    .map((day) => ({ day, items: byDay.get(toDateInput(day)) ?? [] }))
+    .filter(({ items }) => items.length > 0);
+
   return (
     <Container>
-      <PageHeading
-        eyebrow="Calendar"
-        title={formatMonthLabel(monthStart)}
-        action={
-          <ButtonLink href={`/calendar/${toDateInput(new Date())}`} size="sm">
-            New event
-          </ButtonLink>
-        }
-      >
+      <PageHeading eyebrow="Calendar" title={formatMonthLabel(monthStart)}>
         Workouts you&rsquo;ve programmed, plus everything else on your week.
       </PageHeading>
 
-      <div className="metric mt-5 flex items-center gap-4 text-xs text-ink-soft">
-        <Link
-          href={`/calendar?m=${monthKey(shiftMonth(monthStart, -1))}`}
-          className="hover:text-ink"
-        >
-          ‹ Prev
-        </Link>
-        <Link href="/calendar" className="hover:text-ink">
-          Today
-        </Link>
-        <Link
-          href={`/calendar?m=${monthKey(shiftMonth(monthStart, 1))}`}
-          className="hover:text-ink"
-        >
-          Next ›
-        </Link>
+      {/* Month stepping and "new event" belong on one row — they are both
+          "operate on the month you're looking at", and stacking them cost a
+          third of the screen above the first date on a phone.
+
+          Segmented control rather than three bare words: at 16px tall those
+          were the smallest targets on the page, and stepping months is the
+          thing you do repeatedly here. */}
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <div className="metric inline-flex items-center overflow-hidden rounded-[var(--radius-sm)] border border-line text-xs text-ink-soft">
+          <Link
+            href={`/calendar?m=${monthKey(shiftMonth(monthStart, -1))}`}
+            aria-label="Previous month"
+            className="grid h-10 w-11 place-items-center transition-colors hover:bg-card hover:text-ink sm:h-8"
+          >
+            ‹
+          </Link>
+          <Link
+            href="/calendar"
+            className="grid h-10 place-items-center border-x border-line px-4 transition-colors hover:bg-card hover:text-ink sm:h-8"
+          >
+            Today
+          </Link>
+          <Link
+            href={`/calendar?m=${monthKey(shiftMonth(monthStart, 1))}`}
+            aria-label="Next month"
+            className="grid h-10 w-11 place-items-center transition-colors hover:bg-card hover:text-ink sm:h-8"
+          >
+            ›
+          </Link>
+        </div>
+
+        <ButtonLink href={`/calendar/${toDateInput(new Date())}`} size="sm">
+          New event
+        </ButtonLink>
       </div>
+
+      {/* ---- Agenda (phones) -------------------------------------------------
+          A 7-column month grid at 375px gives each day about 47px, which
+          truncated every title to a letter and an ellipsis ("Fu…", "G…") while
+          padding four empty weeks down the screen. A month grid answers "what
+          shape is my month"; on a phone the question is "what's next", so the
+          phone gets the days that actually have something on them. */}
+      <ol className="mt-3 flex flex-col gap-2 sm:hidden">
+        {agenda.map(({ day, items }) => {
+          const key = toDateInput(day);
+          const today = isToday(day);
+          return (
+            <li key={key}>
+              <Link
+                href={`/calendar/${key}`}
+                className={cn(
+                  "flex gap-3.5 rounded-[var(--radius-card)] border bg-card p-3 transition-colors active:bg-jade-wash/40",
+                  today ? "border-jade" : "border-line",
+                )}
+              >
+                {/* Date block, mono — the same tabular treatment the
+                    prescription numbers get. */}
+                <span
+                  className={cn(
+                    "metric flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[var(--radius-sm)] leading-none",
+                    today
+                      ? "bg-jade text-white"
+                      : "border border-line bg-paper text-ink",
+                  )}
+                >
+                  <span className="text-[0.5625rem] uppercase tracking-[0.14em] opacity-70">
+                    {WEEKDAYS[(day.getDay() + 6) % 7]}
+                  </span>
+                  <span className="mt-1 text-base font-semibold">
+                    {day.getDate()}
+                  </span>
+                </span>
+
+                <span className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+                  {items.map((item) => (
+                    <Chip key={`${item.source}-${item.id}`} item={item} />
+                  ))}
+                </span>
+
+                <span className="self-center text-ink-soft">›</span>
+              </Link>
+            </li>
+          );
+        })}
+
+        {agenda.length === 0 ? (
+          <li className="rounded-[var(--radius-card)] border border-line bg-card px-4 py-10 text-center">
+            <p className="text-sm text-ink-soft">
+              Nothing scheduled in {formatMonthLabel(monthStart)}.
+            </p>
+            <ButtonLink
+              href={`/calendar/${toDateInput(new Date())}`}
+              size="sm"
+              variant="outline"
+              className="mt-4"
+            >
+              Add an event
+            </ButtonLink>
+          </li>
+        ) : null}
+      </ol>
 
       {/* gap-px over a line-coloured container draws the hairline separators,
           so no cell needs a border of its own and nothing doubles up. */}
-      <div className="mt-3 grid grid-cols-7 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line">
+      <div className="mt-3 hidden grid-cols-7 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line sm:grid">
         {WEEKDAYS.map((d) => (
           <div key={d} className="bg-card px-2 py-1.5">
             <span className="eyebrow text-ink-soft/70">{d}</span>
@@ -156,8 +241,9 @@ export default async function CalendarPage({
         })}
       </div>
 
+      {/* The agenda carries its own empty state, so this is the grid's. */}
       {inMonthCount === 0 ? (
-        <p className="mt-4 text-sm text-ink-soft">
+        <p className="mt-4 hidden text-sm text-ink-soft sm:block">
           Nothing scheduled in {formatMonthLabel(monthStart)}.
         </p>
       ) : null}

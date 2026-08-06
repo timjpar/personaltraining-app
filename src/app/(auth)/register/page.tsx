@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RegisterForm } from "./RegisterForm";
+import { GoogleButton, OrDivider } from "@/components/GoogleButton";
 
 export default function RegisterPage() {
   return (
@@ -12,7 +13,12 @@ export default function RegisterPage() {
         you&rsquo;re in.
       </p>
 
-      <div className="mt-8">
+      <div className="mt-8 flex flex-col gap-5">
+        {/* Same route as on /login — Google itself decides whether this is a
+            new account or an existing one. */}
+        <GoogleButton label="Continue with Google" />
+        <OrDivider />
+
         <RegisterForm />
       </div>
 

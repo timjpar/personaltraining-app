@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import { getThemePrefs } from "@/lib/theme-server";
 import "./globals.css";
@@ -26,6 +26,17 @@ export const metadata: Metadata = {
   title: "Chalkline — coaching that closes the loop",
   description:
     "Program training for your clients, watch them log it, and know the moment they finish.",
+};
+
+// `viewport-fit=cover` is what makes env(safe-area-inset-*) resolve to real
+// numbers; without it the fixed tab bar sits under the iPhone home indicator.
+// No maximumScale/userScalable here on purpose — pinch-zoom stays available,
+// and the 16px input floor in globals.css is what stops the unwanted
+// auto-zoom, rather than banning zoom outright.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

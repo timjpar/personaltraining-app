@@ -53,11 +53,16 @@ export default async function ClientWorkoutPage({
 
   return (
     <Container className="max-w-3xl">
-      <Link href="/my" className="metric text-xs text-ink-soft hover:text-ink">
+      {/* -ml-2 keeps the glyph optically flush with the heading below while
+          the padding gives the link a real target to hit. */}
+      <Link
+        href="/my"
+        className="metric -ml-2 inline-flex min-h-11 items-center gap-1 rounded-[var(--radius-sm)] px-2 text-xs text-ink-soft transition-colors hover:text-ink sm:min-h-0 sm:py-1"
+      >
         ‹ Today
       </Link>
 
-      <div className="mt-3">
+      <div className="mt-1 sm:mt-3">
         <PageHeading
           eyebrow={
             isCompleted

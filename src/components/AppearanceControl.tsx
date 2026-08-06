@@ -70,7 +70,7 @@ export function AppearanceControl({
         onClick={() => setOpen(true)}
         aria-label="Appearance"
         title="Appearance"
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-ink-soft transition-colors hover:bg-card hover:text-ink"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-[8px] text-ink-soft transition-colors hover:bg-card hover:text-ink sm:h-8 sm:w-8"
       >
         {/* Half-filled circle — the conventional light/dark glyph. */}
         <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>

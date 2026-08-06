@@ -29,7 +29,7 @@ export default async function NewWorkoutPage({
     <Container className="max-w-3xl">
       <Link
         href={`/clients/${client.id}`}
-        className="metric text-xs text-ink-soft hover:text-ink"
+        className="metric -ml-2 inline-flex min-h-11 items-center rounded-[var(--radius-sm)] px-2 text-xs text-ink-soft transition-colors hover:text-ink sm:min-h-0 sm:py-1"
       >
         ‹ {client.name}
       </Link>

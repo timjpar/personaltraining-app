@@ -18,6 +18,72 @@ export const FEED_TYPE = {
   WORKOUT_COMPLETED: "WORKOUT_COMPLETED",
 } as const;
 
+// How an account came to exist. SELF is the default on the column, so it's also
+// what every row predating the audit log reads as.
+export const SIGNUP_SOURCE = {
+  SELF: "SELF",
+  GOOGLE: "GOOGLE",
+  TRAINER: "TRAINER",
+} as const;
+export type SignupSource = (typeof SIGNUP_SOURCE)[keyof typeof SIGNUP_SOURCE];
+
+export const SIGNUP_SOURCE_LABELS: Record<SignupSource, string> = {
+  SELF: "Registered",
+  GOOGLE: "Google",
+  TRAINER: "Added by trainer",
+};
+
+export function toSignupSource(value: unknown): SignupSource {
+  const s = String(value ?? "");
+  return s in SIGNUP_SOURCE_LABELS
+    ? (s as SignupSource)
+    : SIGNUP_SOURCE.SELF;
+}
+
+// How someone tried to sign in, and how it went. NO_ACCOUNT and BAD_PASSWORD
+// are deliberately distinguished here and deliberately *not* distinguished in
+// the message the visitor sees — the split exists for the audit log only.
+export const LOGIN_METHOD = {
+  PASSWORD: "PASSWORD",
+  GOOGLE: "GOOGLE",
+} as const;
+export type LoginMethod = (typeof LOGIN_METHOD)[keyof typeof LOGIN_METHOD];
+
+export const LOGIN_OUTCOME = {
+  SUCCESS: "SUCCESS",
+  NO_ACCOUNT: "NO_ACCOUNT",
+  BAD_PASSWORD: "BAD_PASSWORD",
+  GOOGLE_ONLY: "GOOGLE_ONLY",
+  GOOGLE_UNVERIFIED: "GOOGLE_UNVERIFIED",
+} as const;
+export type LoginOutcome = (typeof LOGIN_OUTCOME)[keyof typeof LOGIN_OUTCOME];
+
+export const LOGIN_OUTCOME_LABELS: Record<LoginOutcome, string> = {
+  SUCCESS: "Signed in",
+  NO_ACCOUNT: "No such account",
+  BAD_PASSWORD: "Wrong password",
+  GOOGLE_ONLY: "Password on a Google-only account",
+  GOOGLE_UNVERIFIED: "Unverified Google email",
+};
+
+// The order the filter dropdown offers, successes first.
+export const LOGIN_OUTCOME_ORDER = [
+  "SUCCESS",
+  "BAD_PASSWORD",
+  "NO_ACCOUNT",
+  "GOOGLE_ONLY",
+  "GOOGLE_UNVERIFIED",
+] as const satisfies readonly LoginOutcome[];
+
+// Same contract as toExerciseSection: anything unrecognised gets a safe value
+// so display code can index LOGIN_OUTCOME_LABELS without a runtime crash.
+export function toLoginOutcome(value: unknown): LoginOutcome {
+  const s = String(value ?? "");
+  return (LOGIN_OUTCOME_ORDER as readonly string[]).includes(s)
+    ? (s as LoginOutcome)
+    : LOGIN_OUTCOME.NO_ACCOUNT;
+}
+
 // Where an exercise sits in the session. A grouping label, not an ordering key:
 // `order` stays global 1..N across the whole workout (see workout-form.ts).
 export const EXERCISE_SECTIONS = {

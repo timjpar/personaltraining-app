@@ -31,3 +31,16 @@ export const prisma = globalForPrisma.prisma ?? createPrisma();
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
+
+// P2002 — a unique index rejected the write. Worth catching wherever a
+// "does it exist yet?" check and the insert that follows it aren't atomic:
+// two simultaneous signups for one email both get past the check, and the
+// index is what actually settles it.
+export function isUniqueViolation(err: unknown) {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "P2002"
+  );
+}

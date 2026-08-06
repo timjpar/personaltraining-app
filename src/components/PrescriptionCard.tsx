@@ -66,7 +66,9 @@ function DemoMedia({ demo, name }: { demo: Demo; name: string }) {
       href={demo.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink hover:underline"
+      // -ml-2 + padding: a real touch target without the text losing its
+      // left alignment with the metrics above it.
+      className="-ml-2 mt-1 inline-flex min-h-11 items-center gap-1 rounded-[var(--radius-sm)] px-2 text-sm text-ink-soft transition-colors hover:text-ink hover:underline sm:mt-2 sm:min-h-0 sm:py-1"
     >
       Search for a demo ↗
     </a>
@@ -81,6 +83,7 @@ export function PrescriptionCard({
   logged,
   footer,
   demo,
+  struck,
   className,
 }: {
   index: number | string;
@@ -91,6 +94,9 @@ export function PrescriptionCard({
   footer?: ReactNode;
   // Only the client-facing views pass this; trainer pages render unchanged.
   demo?: Demo;
+  // Live "crossed off the board" state while logging. Distinct from `logged`,
+  // which is the saved, after-the-fact badge on a finished session.
+  struck?: boolean;
   className?: string;
 }) {
   return (
@@ -102,13 +108,26 @@ export function PrescriptionCard({
       )}
     >
       <div className="flex items-start gap-3.5">
-        <span className="metric mt-0.5 flex h-7 min-w-7 items-center justify-center rounded-[6px] border border-line bg-paper px-1.5 text-xs font-medium text-ink-soft">
+        <span
+          className={cn(
+            "metric mt-0.5 flex h-7 min-w-7 items-center justify-center rounded-[6px] border border-line bg-paper px-1.5 text-xs font-medium text-ink-soft transition-opacity",
+            struck && "opacity-55",
+          )}
+        >
           {String(index).padStart(2, "0")}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="font-display text-base font-semibold leading-tight text-ink">
-              {name}
+            {/* Crossed off recedes. The eye should land on what still needs
+                doing, so a struck lift drops to secondary ink and the rule
+                rides at 55% — a finished line on a sheet, not a redaction. */}
+            <h3
+              className={cn(
+                "font-display text-base font-semibold leading-tight transition-colors",
+                struck ? "text-ink-soft" : "text-ink",
+              )}
+            >
+              <span className={cn("strike", struck && "strike-on")}>{name}</span>
             </h3>
             {logged ? <Badge tone="jade">Logged</Badge> : null}
           </div>

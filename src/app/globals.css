@@ -118,9 +118,26 @@
   --color-jade-wash: #e7ecee;
 }
 
+/* ---- Phone hard rules ----------------------------------------------------
+   Deliberately UNLAYERED. Tailwind's utilities live in @layer utilities, and
+   unlayered CSS beats every layer regardless of specificity — which is the
+   point: a `text-sm` on an input is a desktop decision, and on a phone it is
+   a bug. iOS Safari zooms the viewport on focus for any field under 16px and
+   never zooms back out, so the athlete gets punted mid-set every time they
+   tap a rep box. 16px is the threshold, not a preference. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @layer base {
   html {
     background: var(--color-paper);
+    /* Stops the rubber-band overscroll revealing white behind the page. */
+    overscroll-behavior-y: none;
   }
 
   body {
@@ -193,6 +210,51 @@
   @keyframes pose-b-cycle {
     0%, 50% { opacity: 0; }
     50.01%, 100% { opacity: 1; }
+  }
+
+  /* ---- The strike-off ----------------------------------------------------
+     Signature move, and the only place in the app that spends any animation
+     budget. Marking a lift done draws a line through it left-to-right, the
+     way a coach crosses it off the board — the app's own name, performed.
+
+     The rule is drawn as a scaled pseudo-element rather than
+     `text-decoration: line-through` so it can be *timed*: the gesture is what
+     sells it, not the end state. transform-only, so it composites on the GPU
+     and stays smooth on a mid-range phone. The reduced-motion block above
+     kills the duration, leaving the struck state applied instantly. */
+  .strike {
+    position: relative;
+    display: inline;
+  }
+
+  .strike::after {
+    content: "";
+    position: absolute;
+    left: -0.08em;
+    right: -0.08em;
+    top: 55%;
+    height: 1.5px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: 0.55;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 260ms cubic-bezier(0.65, 0, 0.35, 1);
+  }
+
+  .strike-on::after {
+    transform: scaleX(1);
+  }
+
+  /* Bottom tab bar clearance. The bar is fixed, so scrollable content needs
+     its height (56px) plus the home-indicator inset reserved underneath, or
+     the last row sits permanently behind it. */
+  .pb-tabbar {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .safe-b {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* Faint graph-paper field for the auth/hero surface only. */
