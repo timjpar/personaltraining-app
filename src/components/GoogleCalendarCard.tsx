@@ -11,6 +11,8 @@ export type GoogleCalendarState =
   | { kind: "unconfigured" }
   | { kind: "disconnected"; timeZone: string }
   | { kind: "revoked"; email: string }
+  // Connected, but with no calendar to write to — see googleCalendarState.
+  | { kind: "incomplete"; email: string; timeZone: string }
   | { kind: "connected"; email: string; timeZone: string; syncedAt: Date | null };
 
 // Lives at the top of both calendar pages rather than on a settings page. This
@@ -35,7 +37,13 @@ export function GoogleCalendarCard({
         </h2>
         <Body state={state} />
         {message ? (
-          <p className="mt-1.5 text-xs text-jade-strong">{message}</p>
+          <p
+            className={`mt-1.5 text-xs ${
+              message.ok ? "text-jade-strong" : "text-flag"
+            }`}
+          >
+            {message.text}
+          </p>
         ) : null}
       </div>
 
@@ -47,11 +55,19 @@ export function GoogleCalendarCard({
                 Sync now
               </button>
             </form>
-            <DeleteWorkoutForm
-              action={disconnectGoogleCalendar}
-              confirmMessage="Disconnect Google Calendar? The Chalkline calendar and everything on it will be removed from your Google account."
-              label="Disconnect"
-            />
+            <Disconnect />
+          </>
+        ) : state.kind === "incomplete" ? (
+          // Both buttons: the repair is one click, and giving up shouldn't mean
+          // hunting for a way out of a half-made connection.
+          <>
+            <a
+              href="/api/calendar/google"
+              className={buttonClass("primary", "sm")}
+            >
+              Finish setup
+            </a>
+            <Disconnect />
           </>
         ) : state.kind === "unconfigured" ? null : (
           <a href="/api/calendar/google" className={buttonClass("primary", "sm")}>
@@ -60,6 +76,16 @@ export function GoogleCalendarCard({
         )}
       </div>
     </Card>
+  );
+}
+
+function Disconnect() {
+  return (
+    <DeleteWorkoutForm
+      action={disconnectGoogleCalendar}
+      confirmMessage="Disconnect Google Calendar? The Chalkline calendar and everything on it will be removed from your Google account."
+      label="Disconnect"
+    />
   );
 }
 
@@ -81,6 +107,16 @@ function Body({ state }: { state: GoogleCalendarState }) {
           Google disconnected Chalkline from{" "}
           <span className="metric">{state.email}</span>. Reconnect to resume
           syncing.
+        </p>
+      );
+
+    case "incomplete":
+      return (
+        <p className="mt-1 text-sm text-ink-soft">
+          Connected as <span className="metric">{state.email}</span>, but the{" "}
+          <span className="metric">Chalkline</span> calendar was never created,
+          so nothing is syncing. Times will be sent as{" "}
+          <span className="metric">{state.timeZone}</span> once it is.
         </p>
       );
 

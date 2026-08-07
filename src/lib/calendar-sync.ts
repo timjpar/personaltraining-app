@@ -443,6 +443,18 @@ export async function googleCalendarState(user: {
   if (connection.status !== "ACTIVE") {
     return { kind: "revoked", email: connection.email };
   }
+  // An active grant with nothing to write to: createCalendar failed after the
+  // tokens were saved. Called out rather than folded into "connected", because
+  // every sync takes the cheap exit above on a null calendarId — so this row
+  // syncs nothing, forever, while the card claims to be healthy and hides the
+  // only button that could repair it.
+  if (!connection.calendarId) {
+    return {
+      kind: "incomplete",
+      email: connection.email,
+      timeZone: zoneFor(user),
+    };
+  }
   return {
     kind: "connected",
     email: connection.email,

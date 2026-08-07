@@ -241,6 +241,12 @@ export const GCAL_MESSAGES = {
   cancelled: "Connecting Google Calendar was cancelled.",
   handshake: "That took too long. Try connecting again.",
   exchange: "Google couldn't complete that connection. Try again.",
+  // The grant landed and the connection is stored; only the calendar we write to
+  // is missing. Separate from `exchange` because telling someone their
+  // connection failed when it didn't sends them back through the whole consent
+  // flow to redo a step that already succeeded.
+  nocalendar:
+    "Connected, but Chalkline couldn't create the calendar. Finish setup to try again.",
   // The distinctive one. Google only issues a refresh token on the *first*
   // grant unless the consent screen is forced, so this means the forcing
   // didn't take — usually an app permission that needs removing first.
@@ -253,7 +259,16 @@ export const GCAL_MESSAGES = {
 
 export type GcalMessage = keyof typeof GCAL_MESSAGES;
 
-export function gcalMessage(code: string | undefined) {
+// Everything in GCAL_MESSAGES reports a failure except this one, and the card has
+// to be able to tell them apart. Dressed in the success colour, "Google couldn't
+// complete that connection" reads as reassurance.
+const GCAL_OK: GcalMessage = "connected";
+
+export function gcalMessage(
+  code: string | undefined,
+): { text: string; ok: boolean } | undefined {
   if (!code) return undefined;
-  return GCAL_MESSAGES[code as GcalMessage];
+  const text = GCAL_MESSAGES[code as GcalMessage];
+  if (!text) return undefined;
+  return { text, ok: code === GCAL_OK };
 }
