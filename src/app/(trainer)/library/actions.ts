@@ -24,6 +24,7 @@ export async function createTemplate(
     data: {
       title: data.title,
       notes: data.notes,
+      discipline: data.discipline,
       trainerId: trainer.id,
       exercises: { create: data.exercises },
     },
@@ -58,6 +59,7 @@ export async function updateTemplate(
       data: {
         title: data.title,
         notes: data.notes,
+        discipline: data.discipline,
         exercises: { create: data.exercises },
       },
     }),
@@ -125,6 +127,9 @@ export async function assignTemplate(
         data: {
           title: template.title,
           notes: template.notes,
+          // Travels with the snapshot: a climbing template must not
+          // materialise into strength sessions.
+          discipline: template.discipline,
           scheduledDate,
           status: "ASSIGNED",
           clientId: c.id,
@@ -170,6 +175,7 @@ export async function assignTemplateToClient(
     data: {
       title: template.title,
       notes: template.notes,
+      discipline: template.discipline,
       scheduledDate,
       status: "ASSIGNED",
       clientId: client.id,

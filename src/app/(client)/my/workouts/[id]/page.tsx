@@ -11,6 +11,7 @@ import {
   type Demo,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
+import { DISCIPLINE_LABELS, toDiscipline } from "@/lib/constants";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { demoSearchUrl } from "@/lib/exercise-archetypes";
@@ -74,7 +75,9 @@ export default async function ClientWorkoutPage({
                 }`
           }
           title={workout.title}
-        />
+        >
+          <Badge>{DISCIPLINE_LABELS[toDiscipline(workout.discipline)]}</Badge>
+        </PageHeading>
       </div>
 
       {done ? (

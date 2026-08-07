@@ -3,7 +3,11 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 import { ROLES } from "@/lib/constants";
 
-const PUBLIC_PATHS = ["/login", "/register"];
+// /reset is listed as a bare prefix, which isPublic() extends to /reset/<token>.
+// Reaching a reset link is by definition something you do while signed out —
+// gating it behind a session would send everyone who needs it to the very page
+// they can't get past.
+const PUBLIC_PATHS = ["/login", "/register", "/forgot", "/reset"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(
@@ -48,18 +52,19 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/clients") ||
     pathname.startsWith("/workouts") ||
     pathname.startsWith("/library") ||
-    pathname.startsWith("/exercises") ||
     pathname.startsWith("/programs") ||
     pathname.startsWith("/nutrition");
   const clientArea = pathname.startsWith("/my");
 
-  // /admin and /climbing are in neither list on purpose, so both roles fall
-  // through to the page — that is the whole reason each has its own route
-  // group. /admin is granted by email and the isAdmin column (see
+  // /admin, /exercises and /climbing are in neither list on purpose, so both
+  // roles fall through to the page — that is the whole reason each has its own
+  // route group. /admin is granted by email and the isAdmin column (see
   // src/lib/admin.ts) while the session token carries only the role, so this is
   // the wrong layer to judge it from; requireAdmin() in the (admin) layout is
-  // the actual gate. /climbing is simply for everyone. Adding either prefix to
-  // a list below would redirect half the app's users away from it.
+  // the actual gate. /exercises and /climbing are simply for everyone —
+  // /exercises used to be trainer-only and listing it here again would redirect
+  // every client away from the movement library. Adding any of these prefixes
+  // to a list below would send half the app's users somewhere else.
 
   if (session.role === ROLES.CLIENT && trainerArea) {
     const url = req.nextUrl.clone();

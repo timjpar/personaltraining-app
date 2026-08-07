@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { normalizeExerciseName, PRESET_SLUGS } from "@/lib/exercise-presets";
+import { toDiscipline } from "@/lib/constants";
 import { parseVideoUrl } from "@/lib/video-embed";
+
+// Lives in the (shared) group because /exercises is now a page both roles read.
+// Every action here still opens with requireTrainer(), so being reachable from a
+// shared route changes who can *see* the page, not who can write to the catalog.
 
 export type ExerciseFormState = { error?: string };
 export type MediaFormState = { error?: string; ok?: string };
@@ -90,7 +95,10 @@ export async function deleteCustomExercise(id: string) {
   revalidatePath("/exercises");
 }
 
-export async function renameCustomExercise(
+// Edits a trainer's own movement: its name and what kind of training it is.
+// Both travel in one form because they're one act — "fix this entry" — and a
+// second action would mean a second round trip for a two-field row.
+export async function updateCustomExercise(
   id: string,
   _prev: ExerciseFormState,
   formData: FormData,
@@ -99,6 +107,8 @@ export async function renameCustomExercise(
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Give the exercise a name." };
+
+  const discipline = toDiscipline(formData.get("discipline"));
 
   const nameKey = normalizeExerciseName(name);
   if (PRESET_SLUGS.has(nameKey)) {
@@ -113,7 +123,7 @@ export async function renameCustomExercise(
   try {
     await prisma.trainerExercise.update({
       where: { id: existing.id },
-      data: { name, nameKey },
+      data: { name, nameKey, discipline },
     });
   } catch (err) {
     if ((err as { code?: string })?.code === "P2002") {

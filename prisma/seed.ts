@@ -75,6 +75,7 @@ async function main() {
     data: {
       title: "Lower Body A",
       notes: "Warm up thoroughly. Quality over load today.",
+      discipline: "STRENGTH",
       scheduledDate: daysFromNow(1),
       startMinute: at(7, 30),
       status: "ASSIGNED",
@@ -101,6 +102,7 @@ async function main() {
     data: {
       title: "Upper Body A",
       notes: "Press focus.",
+      discipline: "STRENGTH",
       scheduledDate: daysFromNow(-1),
       startMinute: at(18),
       status: "COMPLETED",
@@ -132,6 +134,7 @@ async function main() {
   await prisma.workout.create({
     data: {
       title: "Full Body Primer",
+      discipline: "STRENGTH",
       scheduledDate: daysFromNow(2),
       // Left without a time on purpose, so the calendar has an all-day workout
       // to render alongside the timed ones.
@@ -160,6 +163,7 @@ async function main() {
     data: {
       title: "Lower Body A",
       notes: "Strength focus. Warm up thoroughly.",
+      discipline: "STRENGTH",
       trainerId: trainer.id,
       exercises: {
         create: [
@@ -178,6 +182,7 @@ async function main() {
     data: {
       title: "Upper Body A",
       notes: "Press focus.",
+      discipline: "STRENGTH",
       trainerId: trainer.id,
       exercises: {
         create: [
@@ -192,6 +197,7 @@ async function main() {
   const fullBody = await prisma.workoutTemplate.create({
     data: {
       title: "Full Body Primer",
+      discipline: "STRENGTH",
       trainerId: trainer.id,
       exercises: {
         create: [
@@ -203,9 +209,36 @@ async function main() {
     },
   });
 
+  // A non-strength template, so a fresh clone shows what the discipline field
+  // is for — on the library card, on the badge, and travelling onto the
+  // sessions this gets assigned to.
+  await prisma.workoutTemplate.create({
+    data: {
+      title: "Fingers & Pull",
+      notes: "Hangboard day. Skip it entirely if anything in a finger feels off.",
+      discipline: "CLIMBING",
+      trainerId: trainer.id,
+      exercises: {
+        create: [
+          { order: 1, section: "WARMUP", name: "Band Pull-Apart", sets: "2", reps: "15" },
+          { order: 2, section: "WARMUP", name: "Scapular Pull-Up", sets: "3", reps: "8" },
+          { order: 3, name: "Hangboard Repeaters", sets: "5", reps: "7s on / 3s off x6", rest: "3:00", notes: "20mm edge. Stop the set if the grip changes shape." },
+          { order: 4, name: "Frenchies", sets: "3", reps: "1 ladder", rest: "3:00" },
+          { order: 5, name: "Front Lever Tuck", sets: "4", reps: "10s", rest: "2:00" },
+          { order: 6, section: "COOLDOWN", name: "Rice Bucket Dig", sets: "1", reps: "3 min" },
+          { order: 7, section: "COOLDOWN", name: "Doorway Pec Stretch", sets: "2", reps: "45s/side" },
+        ],
+      },
+    },
+  });
+
   // --- The trainer's exercise catalog ---
   // Normally written automatically as sessions are saved; seeded here so the
   // picker's "Recent" and "My exercises" groups aren't empty on a fresh clone.
+  const CUSTOM_DISCIPLINE: Record<string, string> = {
+    "Belt Squat March": "STRENGTH",
+    "Alex's Hip Airplane": "MOBILITY",
+  };
   await prisma.trainerExercise.deleteMany({ where: { trainerId: trainer.id } });
   await prisma.trainerExercise.createMany({
     data: [
@@ -226,6 +259,10 @@ async function main() {
       trainerId: trainer.id,
       name,
       nameKey: normalizeExerciseName(name),
+      // Only the custom ones carry a discipline. The presets stay null on
+      // purpose: that's the state every auto-created row starts in, and their
+      // discipline is derived from the catalog category instead.
+      discipline: CUSTOM_DISCIPLINE[name] ?? null,
       // Stagger so "Recent" has a believable order rather than ties.
       lastUsedAt: new Date(Date.now() - i * 60_000),
     })),
@@ -319,7 +356,7 @@ async function main() {
   console.log("  Trainer  alex@chalkline.dev / trainpass123");
   console.log("  Client   maria@example.com / clientpass123");
   console.log("  Client   jordan@example.com / clientpass123");
-  console.log("  Library  3 workouts · 1 program · 1 nutrition plan");
+  console.log("  Library  4 workouts · 1 program · 1 nutrition plan");
   console.log("  Calendar 3 sessions · 5 events");
 }
 

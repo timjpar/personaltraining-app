@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { login, type AuthState } from "../actions";
 import { Field, Input, FormError, buttonClass } from "@/components/ui";
@@ -24,16 +25,30 @@ export function LoginForm() {
         />
       </Field>
 
-      <Field label="Password" htmlFor="password">
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          required
-        />
-      </Field>
+      <div className="flex flex-col gap-1.5">
+        <Field label="Password" htmlFor="password">
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            required
+          />
+        </Field>
+        {/* Below the field rather than beside its label: the label row is an
+            eyebrow, and hanging a link off it puts a tap target inside the
+            <label>, where a thumb aiming for it focuses the input instead.
+            Styled like "Create a trainer account" below rather than as fine
+            print — someone reads this line precisely when they're locked out
+            and least willing to hunt for it. */}
+        <Link
+          href="/forgot"
+          className="self-start py-1 text-sm font-medium text-jade-strong hover:underline"
+        >
+          Forgot your password?
+        </Link>
+      </div>
 
       <button type="submit" disabled={pending} className={buttonClass("primary")}>
         {pending ? "Signing in…" : "Sign in"}

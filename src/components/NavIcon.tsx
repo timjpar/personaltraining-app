@@ -15,7 +15,7 @@ export type IconName =
   | "nutrition"
   | "today"
   | "history"
-  | "climbing"
+  | "exercises"
   | "admin";
 
 const paths: Record<IconName, React.ReactNode> = {
@@ -72,14 +72,15 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M10 6.4v4l2.6 1.7" />
     </>
   ),
-  // A carabiner: the D-shaped body left open on the spine, with the gate as the
-  // straight bar inside it. The obvious alternative was a mountain, which says
-  // "outdoors" rather than "climbing" — and a route line with holds on it came
-  // out looking like the Activity chart two tabs away.
-  climbing: (
+  // The same standing stick figure ExerciseFigure draws, because every row on
+  // /exercises has one — the tab and the page share a vocabulary. A dumbbell
+  // was the obvious pick and the wrong one: Workouts is already a barbell, and
+  // at 20px the two were the same four strokes. Distinct from `clients`, which
+  // is a head-and-shoulders bust rather than a full body.
+  exercises: (
     <>
-      <path d="M13.6 7.6V6.6a3.2 3.2 0 0 0-3.2-3.2H6.8A3.4 3.4 0 0 0 3.4 6.8v6.4a3.4 3.4 0 0 0 3.4 3.4h3.6a3.2 3.2 0 0 0 3.2-3.2v-1" />
-      <path d="M12.1 6.9v6.2" />
+      <circle cx="10" cy="4" r="1.9" />
+      <path d="M10 6.4v5.6M10 12l-2.6 4.2M10 12l2.6 4.2M6.4 8.6h7.2" />
     </>
   ),
   // A key, for the owner tools. Not a shield or a cog: this isn't security

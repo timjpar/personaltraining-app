@@ -18,6 +18,10 @@ dashboard the moment it happens. Modeled on the CoachRx workflow.
   exercise, rate the session (RPE 1–10), and leave a note for their coach.
 - **Activity feed.** Every completion appears on the trainer's dashboard with
   the client's comment, RPE, and results, plus an unread badge.
+- **Calendars for both roles.** The trainer's calendar merges programmed
+  sessions with consults, check-ins and blocked-out time; the athlete gets a
+  read-only one showing their own training and whatever their coach has booked
+  with them. Either can push theirs to Google Calendar.
 
 ## Tech
 
@@ -52,6 +56,12 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 Use `npx prisma migrate dev` instead of `migrate deploy` when you're changing
 `schema.prisma` and want a new migration generated.
 
+`AUTH_SECRET` signs session cookies **and** derives the key that encrypts stored
+Google Calendar refresh tokens. Rotating it therefore signs everyone out *and*
+makes existing calendar connections unreadable — those land in a "reconnect"
+state rather than failing, but everyone who had connected one has to press the
+button again.
+
 ### Google sign-in (optional)
 
 The "Continue with Google" button is always on the sign-in page. Until
@@ -70,6 +80,61 @@ Signing in with a Google account whose (verified) email already exists takes
 over that account rather than creating a second one, so a client whose trainer
 made their account can use Google and stays a client. A brand-new email creates
 a trainer workspace, exactly like `/register`.
+
+### Email (optional)
+
+Two things send mail, both through [Resend](https://resend.com):
+
+- **New accounts.** Everyone who gets an account is emailed how to sign in. A
+  client whose trainer created their account gets the address and the generated
+  password; someone who registered or came in through Google gets a welcome
+  naming the address their account answers to.
+- **Password resets.** The `/forgot` link mails a single-use link that expires
+  in an hour.
+
+Set `RESEND_API_KEY` and `MAIL_FROM` to turn it on. `MAIL_FROM` has to be an
+address on a domain you've verified with Resend — their `onboarding@resend.dev`
+sender only delivers to the address that owns the Resend account, so it's good
+for a smoke test and nothing else.
+
+With neither set, nothing breaks: `/forgot` says resets aren't available and
+points people at their trainer, and a trainer adding a client is shown the
+password on screen to pass on by hand, exactly as it worked before.
+
+### Google Calendar sync (optional)
+
+Trainers and athletes can each push their own calendar to Google from the card
+at the top of `/calendar` (or `/my/calendar`). It uses the same OAuth client as
+Google sign-in — add one more authorised redirect URI for every origin you serve
+from:
+
+```
+http://localhost:3000/api/calendar/google/callback
+https://your-domain.com/api/calendar/google/callback
+```
+
+No new environment variables. With `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+unset the card says so and the rest of the app is unaffected.
+
+Worth knowing about how it works:
+
+- **One way, app → Google.** Sessions you write in Chalkline appear in Google
+  within seconds. Editing them in Google does *not* come back — the next sync
+  overwrites your change. The calendar in this app stays the source of truth.
+- **Its own calendar.** Chalkline creates a secondary calendar called
+  *Chalkline* rather than writing to your primary, so disconnecting removes
+  everything in one step and nothing of yours is ever touched. The scope it asks
+  for (`calendar.app.created`) is literally incapable of reading or writing your
+  other calendars. **On phones you may have to tick *Chalkline* in the Google
+  Calendar app's calendar list before it appears** — new secondary calendars
+  aren't always subscribed by default.
+- **Times need a zone.** The app stores a day and a minute-of-day, never a
+  wall-clock instant (see the comment on `CalendarEvent`), so Google is told
+  which zone to read them in. That zone comes from the browser on your first
+  visit and is shown on the card before you connect — check it looks right.
+- **Disconnecting** deletes the Chalkline calendar, revokes the token, and drops
+  the local record. If Google is unreachable the local record goes anyway and
+  you're told the calendar may still be there.
 
 ### Owner admin area (optional)
 
@@ -124,12 +189,17 @@ into a session.
 
 - `prisma/schema.prisma` — data model (`User`, `Workout`, `Exercise`, `FeedItem`,
   `LoginEvent`)
-- `src/lib/` — `db` (Prisma client), `auth`/`session` (login + cookies), `admin`
+- `src/lib/` — `db` (Prisma client), `auth`/`session` (login + cookies),
+  `reset-token`/`mail` (password resets and outbound email), `admin`
   (owner/admin gate), `login-log` (sign-in audit), `nav` (the tab bars),
-  `exercise-presets`/`climbing-presets` (the shipped catalogs), helpers
-- `src/app/(auth)/` — login & register
-- `src/app/(trainer)/` — dashboard, clients, program builder, session review
-- `src/app/(client)/` — today, workout logging, history
+  `calendar` (month maths and the merged item shape),
+  `google`/`google-tokens`/`google-calendar`/`calendar-sync` (OAuth and the
+  one-way push to Google), `exercise-presets`/`climbing-presets` (the shipped
+  catalogs), helpers
+- `src/app/(auth)/` — login, register, forgot & reset password
+- `src/app/(trainer)/` — dashboard, clients, program builder, session review,
+  calendar
+- `src/app/(client)/` — today, workout logging, history, calendar
 - `src/app/(shared)/` — pages both roles see (rock climbing training)
 - `src/app/(admin)/` — owner-only account list, sign-in log, account management
 - `src/components/` — UI kit and the prescription-card / builder / log-form pieces
@@ -145,10 +215,15 @@ disk, so it runs fine on serverless platforms.
    traffic (on Vercel: Production, Preview, and Development):
    - `DATABASE_URL` — the **pooled** connection string
    - `AUTH_SECRET` — a long random string (see above). Without it every request
-     that touches a session fails.
+     that touches a session fails. Rotating it signs everyone out and drops
+     every Google Calendar connection.
+   - `RESEND_API_KEY` / `MAIL_FROM` — optional; password resets and new-account
+     emails. Without them `/forgot` points people at their trainer instead.
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; only if you want
      Google sign-in. Add the deployed origin's callback URL to the OAuth client,
      including preview domains if you sign in on those.
+   - `RESEND_API_KEY` / `MAIL_FROM` — optional; only if you want new accounts to
+     be emailed their sign-in details and `/forgot` to work (see above).
    - `ADMIN_EMAILS` — optional; your email, to unlock `/admin` (see above).
 3. **Create the tables** against the production database:
 

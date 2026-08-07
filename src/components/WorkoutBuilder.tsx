@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import type { WorkoutFormState } from "@/app/(trainer)/workout-actions";
 import { ExercisePicker } from "@/components/ExercisePicker";
-import { Card, Field, Input, Textarea, FormError, buttonClass } from "@/components/ui";
+import { Card, Field, Input, Select, Textarea, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
   SECTION_ORDER,
   SECTION_LABELS,
+  DISCIPLINE_ORDER,
+  DISCIPLINE_LABELS,
   toExerciseSection,
+  toDiscipline,
   type ExerciseSection,
 } from "@/lib/constants";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
@@ -36,6 +39,7 @@ type Initial = {
   scheduledDate?: string; // yyyy-mm-dd
   startTime?: string; // "HH:MM", blank for a session with no set time
   notes?: string | null;
+  discipline?: string | null;
   exercises?: BuilderExercise[];
 };
 
@@ -193,6 +197,22 @@ export function WorkoutBuilder({
             </Field>
           </div>
         ) : null}
+        {/* Sits in the cell the date row leaves empty on desktop. Defaults to
+            Strength — the column default, and what most sessions are — so a
+            coach who never touches it still gets an honest answer. */}
+        <Field label="Discipline" htmlFor="discipline">
+          <Select
+            id="discipline"
+            name="discipline"
+            defaultValue={toDiscipline(initial?.discipline)}
+          >
+            {DISCIPLINE_ORDER.map((d) => (
+              <option key={d} value={d}>
+                {DISCIPLINE_LABELS[d]}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <div className="sm:col-span-2">
           <Field label="Notes for the athlete" htmlFor="notes">
             <Textarea

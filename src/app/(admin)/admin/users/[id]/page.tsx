@@ -14,6 +14,7 @@ import {
   toSignupSource,
 } from "@/lib/constants";
 import { AccountControls } from "./AccountControls";
+import { SignInMethods } from "./SignInMethods";
 import { DangerZone } from "./DangerZone";
 
 export default async function AdminUserPage({
@@ -127,15 +128,13 @@ export default async function AdminUserPage({
           {user.lastLoginAt ? formatStamp(user.lastLoginAt) : "Never"}
         </Detail>
         <Detail label="Sign-in methods">
-          <span className="flex flex-wrap gap-1.5">
-            {user.passwordHash ? (
-              <Badge tone="neutral">Password</Badge>
-            ) : null}
-            {user.googleId ? <Badge tone="jade">Google</Badge> : null}
-            {!user.passwordHash && !user.googleId ? (
-              <Badge tone="flag">None — can&rsquo;t sign in</Badge>
-            ) : null}
-          </span>
+          <SignInMethods
+            userId={user.id}
+            firstName={user.name.split(" ")[0] || user.name}
+            hasPassword={Boolean(user.passwordHash)}
+            hasGoogle={Boolean(user.googleId)}
+            canSet={!isAdminUser(user) || isOwnerEmail(admin.email)}
+          />
         </Detail>
         {user.trainer ? (
           <Detail label="Coached by">

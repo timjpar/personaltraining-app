@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { after } from "next/server";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ButtonLink, Container, PageHeading } from "@/components/ui";
+import { GoogleCalendarCard } from "@/components/GoogleCalendarCard";
+import { googleCalendarState, syncIfStale } from "@/lib/calendar-sync";
 import {
   eventItem,
   formatMonthLabel,
@@ -15,6 +18,7 @@ import {
   shiftMonth,
   startOfMonth,
   workoutItem,
+  TRAINER_LINKS,
   type CalendarItem,
 } from "@/lib/calendar";
 import { toDateInput } from "@/lib/format";
@@ -28,10 +32,22 @@ const MAX_CHIPS = 3;
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<{ m?: string; google?: string }>;
 }) {
-  const { m } = await searchParams;
+  const { m, google } = await searchParams;
   const trainer = await requireTrainer();
+
+  const gcal = await googleCalendarState(trainer);
+
+  // The safety net for every path that doesn't push on its own — bulk program
+  // assignment, a direct database edit, a push that failed while Google was
+  // down. Throttled inside syncIfStale, so opening the calendar twice in a
+  // minute doesn't sync twice.
+  //
+  // The id is read out here, before the callback: a Server Component may not
+  // call cookies() or headers() inside an after() callback.
+  const trainerId = trainer.id;
+  after(() => syncIfStale(trainerId));
 
   const monthStart = parseMonthKey(m) ?? startOfMonth(new Date());
   const grid = monthGrid(monthStart);
@@ -58,8 +74,8 @@ export default async function CalendarPage({
   ]);
 
   const byDay = groupByDay([
-    ...workouts.map(workoutItem),
-    ...events.map(eventItem),
+    ...workouts.map((w) => workoutItem(w, TRAINER_LINKS)),
+    ...events.map((e) => eventItem(e, TRAINER_LINKS)),
   ]);
 
   const month = monthStart.getMonth();
@@ -83,6 +99,8 @@ export default async function CalendarPage({
       <PageHeading eyebrow="Calendar" title={formatMonthLabel(monthStart)}>
         Workouts you&rsquo;ve programmed, plus everything else on your week.
       </PageHeading>
+
+      <GoogleCalendarCard state={gcal} notice={google} />
 
       {/* Month stepping and "new event" belong on one row — they are both
           "operate on the month you're looking at", and stacking them cost a

@@ -1,5 +1,5 @@
 // The tab bars, in one place. Three layouts render them now — (trainer),
-// (client) and (shared) — and /climbing is the reason: it belongs to both
+// (client) and (shared) — and /exercises is the reason: it belongs to both
 // roles, so its layout has to rebuild whichever bar the visitor already had.
 // Two copies of these lists would have drifted the first time one gained an
 // entry.
@@ -22,17 +22,16 @@ export function trainerNav(unread: number): NavItem[] {
     { href: "/library", label: "Workouts", icon: "workouts" },
     { href: "/programs", label: "Programs", icon: "programs" },
     { href: "/nutrition", label: "Nutrition", icon: "nutrition" },
-    // "Climbing", not "Rock climbing": the seventh cell is ~53px wide and the
-    // longer label truncates. The page heading carries the full name.
-    { href: "/climbing", label: "Climbing", icon: "climbing" },
+    { href: "/exercises", label: "Exercises", icon: "exercises" },
   ];
 }
 
 export function clientNav(): NavItem[] {
   return [
     { href: "/my", label: "Today", icon: "today" },
+    { href: "/my/calendar", label: "Calendar", icon: "calendar" },
     { href: "/my/nutrition", label: "Nutrition", icon: "nutrition" },
     { href: "/my/history", label: "History", icon: "history" },
-    { href: "/climbing", label: "Climbing", icon: "climbing" },
+    { href: "/exercises", label: "Exercises", icon: "exercises" },
   ];
 }

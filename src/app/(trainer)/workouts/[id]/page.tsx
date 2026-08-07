@@ -9,6 +9,7 @@ import {
   exerciseMetrics,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
+import { DISCIPLINE_LABELS, toDiscipline } from "@/lib/constants";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { RpeMeter } from "@/components/RpeMeter";
@@ -88,7 +89,10 @@ export default async function WorkoutReviewPage({
             </div>
           }
         >
-          <span className="metric">{workout.client.name}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="metric">{workout.client.name}</span>
+            <Badge>{DISCIPLINE_LABELS[toDiscipline(workout.discipline)]}</Badge>
+          </span>
         </PageHeading>
       </div>
 

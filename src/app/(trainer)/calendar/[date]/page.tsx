@@ -14,6 +14,7 @@ import {
   parseDayParam,
   timeInputFromMinutes,
   workoutItem,
+  TRAINER_LINKS,
 } from "@/lib/calendar";
 import { EVENT_KIND_LABELS, toEventKind } from "@/lib/constants";
 import { addDays, formatDateLong, toDateInput } from "@/lib/format";
@@ -63,9 +64,10 @@ export default async function CalendarDayPage({
     }),
   ]);
 
-  const items = [...workouts.map(workoutItem), ...events.map(eventItem)].sort(
-    compareItems,
-  );
+  const items = [
+    ...workouts.map((w) => workoutItem(w, TRAINER_LINKS)),
+    ...events.map((e) => eventItem(e, TRAINER_LINKS)),
+  ].sort(compareItems);
 
   // ?edit=<id> reuses this route for the edit form rather than adding a third
   // page. An id that isn't the trainer's simply falls back to the create form.

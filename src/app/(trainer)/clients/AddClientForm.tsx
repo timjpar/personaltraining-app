@@ -14,10 +14,14 @@ export function AddClientForm() {
       <Card className="p-5">
         <p className="eyebrow text-jade-strong">Client added</p>
         <h2 className="mt-2 font-display text-lg font-semibold text-ink">
-          Share these with {state.created.name}
+          {state.created.emailed
+            ? `Sent to ${state.created.name}`
+            : `Share these with ${state.created.name}`}
         </h2>
         <p className="mt-1 text-sm text-ink-soft">
-          They sign in at the same site with this email and password.
+          {state.created.emailed
+            ? `We emailed these sign-in details to ${state.created.email}. Here they are as well, in case it doesn't arrive.`
+            : "They sign in at the same site with this email and password."}
         </p>
 
         <dl className="mt-4 space-y-2.5">

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/auth";
+import { syncAfterMutation } from "@/lib/calendar-sync";
 
 export type CompleteState = { error?: string };
 
@@ -63,8 +64,14 @@ export async function completeWorkout(
     }),
   ]);
 
+  // Runs as the client but touches the *trainer's* calendar too: completing a
+  // session changes its summary (it gains a ✓), so the coach's Google calendar
+  // should show what actually got done, not just what was planned.
+  syncAfterMutation(workout.trainerId, workout.clientId);
+
   revalidatePath("/my");
   revalidatePath("/my/history");
+  revalidatePath("/my/calendar");
   revalidatePath("/dashboard");
   redirect(`/my/workouts/${workoutId}?done=1`);
 }

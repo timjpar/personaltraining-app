@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { parseEventForm } from "@/lib/calendar-form";
+import { syncAfterMutation } from "@/lib/calendar-sync";
 import { toDateInput } from "@/lib/format";
 
 export type EventFormState = { error?: string };
@@ -50,6 +51,10 @@ export async function createCalendarEvent(
     },
   });
 
+  // Both parties: an event with a client on it belongs on their calendar too.
+  // after() still runs when redirect() throws below.
+  syncAfterMutation(trainer.id, data.clientId);
+
   const day = toDateInput(data.date);
   revalidatePath("/calendar");
   revalidatePath(`/calendar/${day}`);
@@ -88,6 +93,11 @@ export async function updateCalendarEvent(
     },
   });
 
+  // The *old* clientId as well as the new one. Reassigning an event to a
+  // different athlete has to remove it from the first one's Google calendar,
+  // and only their own sync pass can do that.
+  syncAfterMutation(trainer.id, data.clientId, event.clientId);
+
   const day = toDateInput(data.date);
   revalidatePath("/calendar");
   // Both days, because moving an event to a new date leaves a ghost behind on
@@ -106,6 +116,8 @@ export async function deleteCalendarEvent(eventId: string) {
   if (!event) redirect("/calendar");
 
   await prisma.calendarEvent.delete({ where: { id: event.id } });
+
+  syncAfterMutation(trainer.id, event.clientId);
 
   const day = toDateInput(event.date);
   revalidatePath("/calendar");

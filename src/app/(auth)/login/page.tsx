@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LoginForm } from "./LoginForm";
 import { GoogleButton, OrDivider } from "@/components/GoogleButton";
 import { FormError } from "@/components/ui";
+import { redirectIfSignedIn } from "@/lib/auth";
 import { googleErrorMessage } from "@/lib/google";
 
 export default async function LoginPage({
@@ -12,6 +13,8 @@ export default async function LoginPage({
   // only channel they have to say what went wrong.
   searchParams: Promise<{ error?: string }>;
 }) {
+  await redirectIfSignedIn();
+
   const { error } = await searchParams;
   const googleError = googleErrorMessage(error);
 

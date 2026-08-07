@@ -5,7 +5,7 @@ import {
   setExerciseMediaLink,
   removeExerciseMedia,
   type MediaFormState,
-} from "@/app/(trainer)/exercises/actions";
+} from "@/app/(shared)/exercises/actions";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { VideoEmbed } from "@/components/VideoEmbed";
 import { Card, Input, Field, FormError, buttonClass } from "@/components/ui";

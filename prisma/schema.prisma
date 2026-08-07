@@ -43,6 +43,22 @@ model User {
   // src/lib/admin.ts).
   isAdmin Boolean @default(false)
 
+  // Bumped every time the password changes. The session token carries the epoch
+  // it was minted with and getCurrentUser() rejects a mismatch, which is the
+  // only thing that makes a reset mean anything: sessions are stateless JWTs
+  // with a thirty-day life, so without this, resetting the password of an
+  // account someone else is sitting in leaves them signed in for a month.
+  // Deliberately the same mechanism as the role check that already lives there.
+  sessionEpoch Int @default(0)
+
+  // IANA zone name as the browser reports it ("America/New_York"). Nothing in
+  // the app's own date handling reads this — dates stay local-midnight plus a
+  // minute count, see CalendarEvent below — and adding it changes none of that.
+  // It exists because Google Calendar won't accept a wall-clock time without a
+  // zone to interpret it in, and the honest answer to "whose 9am is this?" is
+  // not the server's. Null until the browser has reported one.
+  timeZone String?
+
   // A client belongs to one trainer (self-relation).
   trainerId String?
   trainer   User?   @relation("TrainerClients", fields: [trainerId], references: [id])
@@ -68,6 +84,120 @@ model User {
   eventsAsClient  CalendarEvent[] @relation("ClientEvents")
 
   logins LoginEvent[] @relation("UserLogins")
+
+  resets PasswordResetToken[] @relation("UserResets")
+
+  googleCalendar GoogleCalendarConnection? @relation("UserGoogleCalendar")
+}
+
+// One row per account that has connected Google Calendar. Its own table rather
+// than columns on User for one decisive reason: getCurrentUser() does a
+// findUnique with no `select`, so every column of User is loaded into memory on
+// every authenticated request in the app. A refresh token there would be one
+// careless `<Foo user={user} />` away from being serialised into a client
+// bundle. Nothing reads this table unless a sync is actually running.
+model GoogleCalendarConnection {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation("UserGoogleCalendar", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Which Google account this is. Shown on the card, and worth storing because
+  // people connect a different account than they signed in with more often
+  // than you'd think — and then wonder where their events went.
+  googleId String
+  email    String
+
+  // Sealed with a key derived from AUTH_SECRET; see src/lib/google-tokens.ts.
+  // Encrypted rather than plain because AUTH_SECRET and DATABASE_URL live in
+  // different places, so the realistic leak — a preview branch of the database,
+  // a backup, a query log — hands over this table without the key.
+  refreshToken String
+  // A cache, not a source of truth. Saves a refresh round-trip when several
+  // syncs fire in a burst across separate serverless instances, where an
+  // in-process cache would miss every time.
+  accessToken          String?
+  accessTokenExpiresAt DateTime?
+
+  // What Google actually granted, not what we asked for. The consent screen
+  // lets people untick individual permissions, and a connection missing the
+  // calendar scope has to be refused at the door rather than discovered on the
+  // first push.
+  scope String
+
+  // The secondary calendar we created. Writing to a calendar of our own rather
+  // than their primary makes disconnect one DELETE instead of a sweep, keeps
+  // our deterministic event ids from colliding with anything they already have,
+  // and lets them hide or recolour it independently. Null only between the
+  // token exchange and the first successful calendars.insert.
+  calendarId String?
+
+  status      String    @default("ACTIVE") // ACTIVE | REVOKED
+  lastError   String?
+  connectedAt DateTime  @default(now())
+  syncedAt    DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  items GoogleCalendarItem[]
+}
+
+// What we've pushed, and what it looked like when we pushed it. A mapping table
+// rather than a googleEventId column on Workout, because a client and their
+// trainer may both sync the same workout — two calendars, two event ids, which
+// one column can't hold. It also gives change detection a home: Workout has no
+// updatedAt, and sync bookkeeping has no business on a coach's session anyway.
+model GoogleCalendarItem {
+  id String @id @default(cuid())
+
+  connectionId String
+  connection   GoogleCalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  source   String // WORKOUT | EVENT
+  sourceId String
+
+  googleEventId String
+
+  // A copy of the local-midnight date we last pushed this at. The reconcile
+  // pass works over a date window, and without this a row that was deleted
+  // locally — or moved out of the window — could never be found again to delete
+  // remotely.
+  date DateTime
+
+  // Hash of the payload we last sent. Nothing to push when it matches, which is
+  // the overwhelmingly common case and the reason a sync usually costs zero
+  // Google calls.
+  hash String
+
+  syncedAt DateTime @default(now())
+
+  @@unique([connectionId, source, sourceId])
+  @@index([connectionId, date])
+}
+
+// One row per "email me a reset link". Short-lived and single-use — see
+// src/lib/reset-token.ts, which owns every rule about them.
+model PasswordResetToken {
+  id String @id @default(cuid())
+
+  // SHA-256 of the token that went out in the email, never the token itself.
+  // A leaked database is then a list of useless hashes rather than a set of
+  // live account-takeover links. The index is what the lookup runs against,
+  // so the raw token is never compared against anything in the clear.
+  tokenHash String @unique
+
+  userId String
+  user   User   @relation("UserResets", fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  // Set the moment a token is spent. Kept rather than deleted so a second click
+  // on the same link can say "already used" instead of the indistinguishable
+  // "never existed", and so the rate limit below counts real requests.
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  // Supports both reads: "is this user asking too often" (the rate limit) and
+  // "invalidate everything else they have outstanding" (on a successful reset).
+  @@index([userId, createdAt])
 }
 
 // One row per sign-in attempt, successful or not. Read only by the owner admin
@@ -100,6 +230,11 @@ model Workout {
   notes         String?
   scheduledDate DateTime
   status        String    @default("ASSIGNED") // ASSIGNED | COMPLETED
+  // What kind of training this session is. STRENGTH is the default because it's
+  // what every workout written before this column existed actually was. Copied
+  // from the template or program slot a session is assigned from, so a climbing
+  // template can't materialise into strength sessions.
+  discipline    String    @default("STRENGTH") // STRENGTH | CARDIO | CLIMBING | MOBILITY | OTHER
   completedAt   DateTime?
   rpe           Int? // session rating of perceived exertion, 1-10
   clientComment String?
@@ -176,11 +311,12 @@ model FeedItem {
 // any client (or slot into a program). Assigning one copies its rows into a real
 // Workout — templates themselves are never scheduled or logged.
 model WorkoutTemplate {
-  id        String   @id @default(cuid())
-  title     String
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  title      String
+  notes      String?
+  discipline String   @default("STRENGTH") // mirrors Workout.discipline
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   trainerId String
   trainer   User   @relation("TrainerTemplates", fields: [trainerId], references: [id], onDelete: Cascade)
@@ -260,6 +396,12 @@ model TrainerExercise {
   nameKey    String // lowercased, whitespace-collapsed — the dedupe key
   createdAt  DateTime @default(now())
   lastUsedAt DateTime @default(now())
+
+  // Nullable, not defaulted: rows are created automatically by
+  // recordExerciseNames, so "no one has classified this" is a real state and
+  // distinct from "someone chose Strength". A null reads as the discipline of
+  // the preset category the name belongs to, and OTHER if it belongs to none.
+  discipline String? // STRENGTH | CARDIO | CLIMBING | MOBILITY | OTHER
 
   // Trainer-supplied demo media, shown to the client instead of the generic
   // YouTube search. mediaKind isn't cosmetic: UPLOAD means we own the blob and

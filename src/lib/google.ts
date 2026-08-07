@@ -18,6 +18,8 @@
 // stop.
 import { SignJWT, jwtVerify, createRemoteJWKSet } from "jose";
 import { getSecret } from "./session";
+import { appUrl } from "./app-url";
+import { base64url, randomToken, sha256 } from "./random";
 
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
@@ -43,28 +45,41 @@ export function googleConfig(): GoogleConfig | null {
 }
 
 // Must be byte-identical in the authorization request and the token exchange,
-// and registered in the Google Cloud console. It defaults to the origin the
-// request actually arrived on so localhost and a deploy both work untouched;
-// APP_URL is the escape hatch for a setup where that origin isn't the public
-// one (an odd proxy, a tunnel).
-export function redirectUri(requestOrigin: string) {
-  const base = process.env.APP_URL?.replace(/\/$/, "") || requestOrigin;
-  return `${base}/api/auth/google/callback`;
+// and registered in the Google Cloud console. The APP_URL rule itself lives in
+// app-url.ts, because emailed links need exactly the same answer and two copies
+// of it would drift the first time one of them was fixed.
+// `path` because there are two flows now — signing in, and connecting a
+// calendar — and each needs its own registered redirect URI.
+export function redirectUri(
+  requestOrigin: string,
+  path = "/api/auth/google/callback",
+) {
+  return `${appUrl(requestOrigin)}${path}`;
 }
 
 export type Handshake = { state: string; nonce: string; verifier: string };
 
+// Which flow a handshake belongs to. A sign-in handshake and a calendar-connect
+// handshake are otherwise byte-identical in shape, and they live in different
+// cookies — this is what stops one being lifted into the other's cookie to make
+// a "connect your calendar" click complete a sign-in, or vice versa.
+export type HandshakePurpose = "signin" | "gcal";
+
 export async function createHandshake(): Promise<Handshake> {
   return {
-    state: randomString(),
-    nonce: randomString(),
-    verifier: randomString(),
+    state: randomToken(),
+    nonce: randomToken(),
+    verifier: randomToken(),
   };
 }
 
-export async function signHandshake(handshake: Handshake): Promise<string> {
+export async function signHandshake(
+  handshake: Handshake,
+  purpose: HandshakePurpose = "signin",
+): Promise<string> {
   return new SignJWT({ ...handshake })
     .setProtectedHeader({ alg: "HS256" })
+    .setAudience(purpose)
     .setIssuedAt()
     .setExpirationTime(`${OAUTH_MAX_AGE}s`)
     .sign(getSecret());
@@ -72,10 +87,13 @@ export async function signHandshake(handshake: Handshake): Promise<string> {
 
 export async function verifyHandshake(
   token: string | undefined,
+  purpose: HandshakePurpose = "signin",
 ): Promise<Handshake | null> {
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSecret(), {
+      audience: purpose,
+    });
     const { state, nonce, verifier } = payload;
     if (
       typeof state !== "string" ||
@@ -90,24 +108,39 @@ export async function verifyHandshake(
   }
 }
 
+export type AuthorizationOptions = {
+  scope?: string;
+  prompt?: string;
+  // "offline" is what makes Google issue a refresh token at all.
+  accessType?: string;
+  // Carries forward permissions already granted, so connecting a calendar
+  // doesn't silently drop the sign-in scopes from the grant.
+  includeGrantedScopes?: boolean;
+};
+
+// The defaults reproduce the sign-in request exactly, so that call site didn't
+// have to change when the calendar flow was added.
 export async function authorizationUrl(
   config: GoogleConfig,
   uri: string,
   handshake: Handshake,
+  options: AuthorizationOptions = {},
 ): Promise<string> {
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: uri,
     response_type: "code",
-    scope: "openid email profile",
+    scope: options.scope ?? "openid email profile",
     state: handshake.state,
     nonce: handshake.nonce,
     code_challenge: await codeChallenge(handshake.verifier),
     code_challenge_method: "S256",
     // Without this, a browser signed into exactly one Google account is sent
     // straight back with no chance to pick a different one.
-    prompt: "select_account",
+    prompt: options.prompt ?? "select_account",
   });
+  if (options.accessType) params.set("access_type", options.accessType);
+  if (options.includeGrantedScopes) params.set("include_granted_scopes", "true");
   return `${AUTH_ENDPOINT}?${params}`;
 }
 
@@ -148,13 +181,25 @@ export async function fetchIdentity(
       : undefined;
   if (typeof idToken !== "string") return null;
 
+  return verifyIdToken(config, idToken, handshake.nonce);
+}
+
+// Verifies an ID token and reads the claims we trust. Extracted so the calendar
+// connect flow, which keeps the whole token grant rather than just this, checks
+// issuer, audience and nonce through exactly the same code — one place to get
+// right, and one place for it to stay right.
+export async function verifyIdToken(
+  config: GoogleConfig,
+  idToken: string,
+  nonce: string,
+): Promise<GoogleIdentity | null> {
   try {
     const { payload } = await jwtVerify(idToken, JWKS, {
       issuer: ISSUERS,
       audience: config.clientId,
     });
     // The nonce ties this token to the handshake cookie in *this* browser.
-    if (payload.nonce !== handshake.nonce) return null;
+    if (payload.nonce !== nonce) return null;
 
     const { sub, email, email_verified: verified, name } = payload;
     if (typeof sub !== "string" || typeof email !== "string") return null;
@@ -190,21 +235,6 @@ export function googleErrorMessage(code: string | undefined) {
   return GOOGLE_ERRORS[code as GoogleError] ?? GOOGLE_ERRORS.exchange;
 }
 
-function randomString() {
-  return base64url(crypto.getRandomValues(new Uint8Array(32)));
-}
-
 async function codeChallenge(verifier: string) {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(verifier),
-  );
-  return base64url(new Uint8Array(digest));
-}
-
-function base64url(bytes: Uint8Array) {
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  return base64url(await sha256(verifier));
 }
