@@ -81,6 +81,61 @@ over that account rather than creating a second one, so a client whose trainer
 made their account can use Google and stays a client. A brand-new email creates
 a trainer workspace, exactly like `/register`.
 
+### Email (optional)
+
+Two things send mail, both through [Resend](https://resend.com):
+
+- **New accounts.** Everyone who gets an account is emailed how to sign in. A
+  client whose trainer created their account gets the address and the generated
+  password; someone who registered or came in through Google gets a welcome
+  naming the address their account answers to.
+- **Password resets.** The `/forgot` link mails a single-use link that expires
+  in an hour.
+
+Set `RESEND_API_KEY` and `MAIL_FROM` to turn it on. `MAIL_FROM` has to be an
+address on a domain you've verified with Resend — their `onboarding@resend.dev`
+sender only delivers to the address that owns the Resend account, so it's good
+for a smoke test and nothing else.
+
+With neither set, nothing breaks: `/forgot` says resets aren't available and
+points people at their trainer, and a trainer adding a client is shown the
+password on screen to pass on by hand, exactly as it worked before.
+
+### Google Calendar sync (optional)
+
+Trainers and athletes can each push their own calendar to Google from the card
+at the top of `/calendar` (or `/my/calendar`). It uses the same OAuth client as
+Google sign-in — add one more authorised redirect URI for every origin you serve
+from:
+
+```
+http://localhost:3000/api/calendar/google/callback
+https://your-domain.com/api/calendar/google/callback
+```
+
+No new environment variables. With `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+unset the card says so and the rest of the app is unaffected.
+
+Worth knowing about how it works:
+
+- **One way, app → Google.** Sessions you write in Chalkline appear in Google
+  within seconds. Editing them in Google does *not* come back — the next sync
+  overwrites your change. The calendar in this app stays the source of truth.
+- **Its own calendar.** Chalkline creates a secondary calendar called
+  *Chalkline* rather than writing to your primary, so disconnecting removes
+  everything in one step and nothing of yours is ever touched. The scope it asks
+  for (`calendar.app.created`) is literally incapable of reading or writing your
+  other calendars. **On phones you may have to tick *Chalkline* in the Google
+  Calendar app's calendar list before it appears** — new secondary calendars
+  aren't always subscribed by default.
+- **Times need a zone.** The app stores a day and a minute-of-day, never a
+  wall-clock instant (see the comment on `CalendarEvent`), so Google is told
+  which zone to read them in. That zone comes from the browser on your first
+  visit and is shown on the card before you connect — check it looks right.
+- **Disconnecting** deletes the Chalkline calendar, revokes the token, and drops
+  the local record. If Google is unreachable the local record goes anyway and
+  you're told the calendar may still be there.
+
 ### Owner admin area (optional)
 
 Set `ADMIN_EMAILS` to your own address and `/admin` opens up: every account on
@@ -167,6 +222,8 @@ disk, so it runs fine on serverless platforms.
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; only if you want
      Google sign-in. Add the deployed origin's callback URL to the OAuth client,
      including preview domains if you sign in on those.
+   - `RESEND_API_KEY` / `MAIL_FROM` — optional; only if you want new accounts to
+     be emailed their sign-in details and `/forgot` to work (see above).
    - `ADMIN_EMAILS` — optional; your email, to unlock `/admin` (see above).
 3. **Create the tables** against the production database:
 

@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { hashPassword, verifyPassword, setSession } from "@/lib/auth";
 import { recordLoginSafely } from "@/lib/login-log";
-import { googleOnlyEmail, mailConfig, resetEmail, sendMail } from "@/lib/mail";
+import {
+  googleOnlyEmail,
+  mailConfig,
+  resetEmail,
+  sendMail,
+  welcomeEmail,
+} from "@/lib/mail";
 import { requestOrigin } from "@/lib/request-origin";
 import { consumeResetToken, createResetToken } from "@/lib/reset-token";
 import { LOGIN_METHOD, LOGIN_OUTCOME, ROLES, SIGNUP_SOURCE } from "@/lib/constants";
@@ -105,6 +111,14 @@ export async function register(
     method: LOGIN_METHOD.PASSWORD,
     outcome: LOGIN_OUTCOME.SUCCESS,
     userId: user.id,
+  });
+
+  // Confirms which address the account answers to. The result is ignored on
+  // purpose: nothing about having registered depends on the email arriving, and
+  // sendMail already logs its own failures.
+  await sendMail({
+    ...welcomeEmail(await requestOrigin(), user.name, user.email),
+    to: user.email,
   });
 
   // Kept outside the try: redirect() signals by throwing, and catching it here

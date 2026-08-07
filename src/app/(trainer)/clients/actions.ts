@@ -3,12 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireTrainer, hashPassword } from "@/lib/auth";
+import { newClientEmail, sendMail } from "@/lib/mail";
 import { generatePassword } from "@/lib/password";
+import { requestOrigin } from "@/lib/request-origin";
 import { SIGNUP_SOURCE } from "@/lib/constants";
 
 export type AddClientState = {
   error?: string;
-  created?: { name: string; email: string; password: string };
+  // `emailed` false means the account exists but nothing reached the client —
+  // mail isn't configured, or the send failed. The password below is then the
+  // only way in, so the form keeps showing it either way.
+  created?: {
+    name: string;
+    email: string;
+    password: string;
+    emailed: boolean;
+  };
 };
 
 export async function addClient(
@@ -46,10 +56,19 @@ export async function addClient(
     },
   });
 
+  // Best effort, exactly like recordLoginSafely: sendMail reports failure with
+  // `false` and never throws, so a mail outage can't undo an account that has
+  // already been written. What it must not do is fail silently — the trainer is
+  // the fallback delivery mechanism, so the result goes back to the form.
+  const emailed = await sendMail({
+    ...newClientEmail(await requestOrigin(), name, email, password),
+    to: email,
+  });
+
   revalidatePath("/clients");
   revalidatePath("/dashboard");
 
-  return { created: { name, email, password } };
+  return { created: { name, email, password, emailed } };
 }
 
 export type ResetClientPasswordState = {

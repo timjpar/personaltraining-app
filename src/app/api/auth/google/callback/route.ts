@@ -3,9 +3,11 @@
 // ../route.ts and the ID token verifies against Google's keys.
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import type { User } from "@/generated/prisma/client";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { sessionCookie } from "@/lib/auth";
 import { recordLoginSafely } from "@/lib/login-log";
+import { googleWelcomeEmail, sendMail } from "@/lib/mail";
 import { LOGIN_METHOD, LOGIN_OUTCOME, ROLES, SIGNUP_SOURCE } from "@/lib/constants";
 import {
   OAUTH_COOKIE,
@@ -60,7 +62,17 @@ export async function GET(req: NextRequest) {
     return fail(req, "unverified");
   }
 
-  const user = await resolveUser(identity);
+  const { user, created } = await resolveUser(identity);
+
+  // Only on the sign-in that brought the account into existence. Best effort and
+  // deliberately unawaited-on for its result: a mail failure must not turn a
+  // successful sign-in into an error page.
+  if (created) {
+    await sendMail({
+      ...googleWelcomeEmail(req.nextUrl.origin, user.name, user.email),
+      to: user.email,
+    });
+  }
 
   await recordLoginSafely({
     email: user.email,
@@ -79,11 +91,16 @@ export async function GET(req: NextRequest) {
 }
 
 // Finds the account this Google identity belongs to, creating one if it's new.
-async function resolveUser(identity: GoogleIdentity) {
+// `created` is true only on the branch that actually inserted a row — the
+// welcome email hangs off it, and every other branch is someone signing back
+// into an account they already had.
+async function resolveUser(
+  identity: GoogleIdentity,
+): Promise<{ user: User; created: boolean }> {
   const linked = await prisma.user.findUnique({
     where: { googleId: identity.googleId },
   });
-  if (linked) return linked;
+  if (linked) return { user: linked, created: false };
 
   // First Google sign-in for an email we already know: link the two. This is
   // only safe because the address is verified above — it's what lets a client
@@ -93,14 +110,15 @@ async function resolveUser(identity: GoogleIdentity) {
     where: { email: identity.email },
   });
   if (byEmail) {
-    return prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: byEmail.id },
       data: { googleId: identity.googleId },
     });
+    return { user, created: false };
   }
 
   try {
-    return await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email: identity.email,
         // Google always sends a name for a real account, but the claim is
@@ -114,14 +132,16 @@ async function resolveUser(identity: GoogleIdentity) {
         signupSource: SIGNUP_SOURCE.GOOGLE,
       },
     });
+    return { user, created: true };
   } catch (err) {
     // Two sign-ins for a brand-new account at once: the loser reads back the
-    // row the winner wrote instead of failing.
+    // row the winner wrote instead of failing. `created: false` is what keeps
+    // that race to one welcome email rather than two.
     if (isUniqueViolation(err)) {
       const existing = await prisma.user.findUnique({
         where: { googleId: identity.googleId },
       });
-      if (existing) return existing;
+      if (existing) return { user: existing, created: false };
     }
     throw err;
   }
