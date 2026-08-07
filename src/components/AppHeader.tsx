@@ -51,7 +51,10 @@ export function AppHeader({
           room: previously six links, the theme control and Sign out fought
           over 375px, and the loser was clipped mid-word. */}
       <header className="sticky top-0 z-20 border-b border-line bg-paper/85 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-2 px-4 sm:h-16 sm:gap-6 sm:px-8">
+        {/* gap tightens at lg rather than loosening: that is the one width
+            where the pill row has to share the line, and 24px twice over is
+            room the nav needs more than the rhythm does. */}
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-2 px-4 sm:h-16 sm:gap-6 sm:px-8 lg:gap-4">
           <Wordmark />
 
           {/* lg, not sm: the row of pills needs ~570px and the cluster to its
@@ -59,15 +62,24 @@ export function AppHeader({
               used to be drawn underneath Sign out. Under that width the tab
               bar below is the navigation, which is what it's for. The
               overflow-x is a safety net for a long name or a translated
-              label — it scrolls rather than overlapping. */}
-          <nav className="hidden min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden">
+              label — it scrolls rather than overlapping.
+
+              shrink-0 is what keeps that net from catching the normal case.
+              The row is capped at max-w-5xl, so no window is ever wide enough
+              to relieve it; without this the nav was the flex item that gave
+              way, and it gave way by exactly the last pill's right padding —
+              "Exercises" kept its label and lost the right edge of its hover
+              highlight. The name beside it yields instead (see truncate
+              below), because a shortened name still reads and a clipped
+              control doesn't. */}
+          <nav className="hidden min-w-0 shrink-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-current={activeHref === item.href ? "page" : undefined}
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-sm font-medium transition-colors",
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-sm font-medium transition-colors",
                   activeHref === item.href
                     ? // text-paper, not text-white: both tokens invert with the
                       // theme, so this stays legible in dark mode where `ink`
@@ -93,7 +105,7 @@ export function AppHeader({
             ))}
           </nav>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-4">
+          <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-4">
             {adminHref ? (
               <Link
                 href={adminHref}
@@ -108,9 +120,12 @@ export function AppHeader({
               accent={accent}
               firstRun={!themeChosen}
             />
-            <div className="hidden text-right leading-tight sm:block">
-              <p className="text-sm font-medium text-ink">{name}</p>
-              <p className="eyebrow text-ink-soft">{roleLabel}</p>
+            {/* The block that gives way when the line is short. It only
+                truncates once the pills have taken what they need, which for
+                most names is never. */}
+            <div className="hidden min-w-0 text-right leading-tight sm:block">
+              <p className="truncate text-sm font-medium text-ink">{name}</p>
+              <p className="eyebrow truncate text-ink-soft">{roleLabel}</p>
             </div>
             <form action={logout}>
               <button

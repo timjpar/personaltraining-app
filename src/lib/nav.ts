@@ -1,8 +1,8 @@
-// The tab bars, in one place. Three layouts render them now — (trainer),
-// (client) and (shared) — and /exercises is the reason: it belongs to both
-// roles, so its layout has to rebuild whichever bar the visitor already had.
-// Two copies of these lists would have drifted the first time one gained an
-// entry.
+// The tab bars, in one place. Two layouts render them — (trainer) and
+// (client). They were three: /exercises used to be a page both roles read,
+// which needed its own (shared) group and a layout that rebuilt whichever bar
+// the visitor arrived with. It is trainer-only now, so the group is gone and
+// each role's bar is built by that role's layout.
 //
 // Order is the order of the cells. The mobile bar is a flex row with no
 // scroll (see AppHeader), so every addition costs the others width — labels
@@ -32,6 +32,5 @@ export function clientNav(): NavItem[] {
     { href: "/my/calendar", label: "Calendar", icon: "calendar" },
     { href: "/my/nutrition", label: "Nutrition", icon: "nutrition" },
     { href: "/my/history", label: "History", icon: "history" },
-    { href: "/exercises", label: "Exercises", icon: "exercises" },
   ];
 }
