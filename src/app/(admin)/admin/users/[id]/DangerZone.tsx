@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   deleteUser,
   resetPassword,
@@ -42,6 +42,7 @@ export function DangerZone({
     deleteUser,
     deleteInitial,
   );
+  const [copied, setCopied] = useState(false);
 
   return (
     <div className="grid gap-5 sm:grid-cols-2">
@@ -50,19 +51,30 @@ export function DangerZone({
           Reset password
         </h2>
         <p className="mt-1 text-sm text-ink-soft">
-          Sets a new password for {name}. Their existing sign-in stays valid —
-          sessions are self-contained tokens, so this doesn&rsquo;t sign them out
-          of a device they&rsquo;re already on.
+          Existing passwords can&rsquo;t be shown — they&rsquo;re stored as
+          one-way hashes, so nobody can read them back, including you. Setting a
+          new one is the way to get {name} in.
         </p>
 
         {reset.password ? (
           <>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-line bg-paper px-3.5 py-2.5">
-              <span className="eyebrow text-ink-soft">New password</span>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-jade/25 bg-jade-wash px-3.5 py-2.5">
               <span className="metric text-sm text-ink">{reset.password}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(reset.password ?? "");
+                  setCopied(true);
+                }}
+                className="eyebrow shrink-0 rounded-[var(--radius-sm)] border border-line bg-card px-2.5 py-1.5 text-ink-soft transition-colors hover:text-ink"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
             </div>
             <p className="mt-2 text-xs text-ink-soft">
-              Shown once. Nothing stores it — copy it before you leave the page.
+              Shown once, because nothing stores it — leaving this page is the
+              end of it and you&rsquo;d have to set another. Hand it to {name}{" "}
+              and have them change it.
             </p>
           </>
         ) : (
@@ -70,14 +82,15 @@ export function DangerZone({
             <FormError>{reset.error}</FormError>
             <input type="hidden" name="userId" value={userId} />
             <Field
-              label="Password"
+              label="New password"
               htmlFor="reset-password"
-              hint="Leave blank to generate one."
+              hint="Type one to choose it yourself, or leave blank and one gets generated."
             >
               <Input
                 id="reset-password"
                 name="password"
                 type="text"
+                autoComplete="off"
                 placeholder="Auto-generate"
                 minLength={8}
               />
@@ -87,7 +100,7 @@ export function DangerZone({
               disabled={resetting}
               className={buttonClass("outline")}
             >
-              {resetting ? "Resetting…" : "Reset password"}
+              {resetting ? "Setting…" : "Set a new password"}
             </button>
           </form>
         )}

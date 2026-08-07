@@ -47,7 +47,8 @@ export default async function AdminAccountsPage() {
     <Container>
       <PageHeading eyebrow="Owner" title="Accounts">
         Everyone with an account, what they signed up with, and what they&rsquo;ve
-        built.
+        built. Open one to edit it, set a new password, or change what it can
+        reach.
       </PageHeading>
 
       <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -85,6 +86,14 @@ export default async function AdminAccountsPage() {
                     <Badge tone="amber">Owner</Badge>
                   ) : u.isAdmin ? (
                     <Badge tone="amber">Admin</Badge>
+                  ) : null}
+                  {/* Only the awkward cases are badged. "Has a password" is
+                      the ordinary state and badging it would put a label on
+                      every row that nobody ever needs to read. */}
+                  {!u.passwordHash ? (
+                    <Badge tone={u.googleId ? "neutral" : "flag"}>
+                      {u.googleId ? "Google only" : "No password"}
+                    </Badge>
                   ) : null}
                 </p>
                 <p className="metric truncate text-xs text-ink-soft">{u.email}</p>
