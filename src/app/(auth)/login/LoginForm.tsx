@@ -38,10 +38,13 @@ export function LoginForm() {
         </Field>
         {/* Below the field rather than beside its label: the label row is an
             eyebrow, and hanging a link off it puts a tap target inside the
-            <label>, where a thumb aiming for it focuses the input instead. */}
+            <label>, where a thumb aiming for it focuses the input instead.
+            Styled like "Create a trainer account" below rather than as fine
+            print — someone reads this line precisely when they're locked out
+            and least willing to hunt for it. */}
         <Link
           href="/forgot"
-          className="self-start text-xs text-ink-soft hover:text-jade-strong hover:underline"
+          className="self-start py-1 text-sm font-medium text-jade-strong hover:underline"
         >
           Forgot your password?
         </Link>

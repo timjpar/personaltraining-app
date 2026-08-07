@@ -1,8 +1,8 @@
 // Climbing-specific training, grouped the way a climber actually plans a week
-// rather than by equipment like the general catalog. Two things read this: the
-// /climbing page, which shows the groups and the notes, and
-// exercise-presets.ts, which flattens the names into one "Rock Climbing"
-// category so every movement here is programmable from the normal builder.
+// rather than by equipment like the general catalog. Only exercise-presets.ts
+// reads this, and it uses these groups twice: as seven first-class categories
+// in the catalog /exercises browses, and flattened into one "Rock Climbing"
+// entry in the picker a coach scrolls every session.
 //
 // No imports on purpose. exercise-presets.ts imports *this*, so anything
 // imported back the other way would be a cycle.
@@ -302,7 +302,3 @@ export const CLIMBING_GROUPS: ClimbingGroup[] = [
     ],
   },
 ];
-
-export const CLIMBING_EXERCISE_NAMES: string[] = CLIMBING_GROUPS.flatMap((g) =>
-  g.exercises.map((e) => e.name),
-);

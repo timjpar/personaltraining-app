@@ -78,8 +78,10 @@ export default async function ExercisesPage() {
           ) : undefined
         }
       >
-        {PRESET_NAMES.length} movements, grouped by how you&rsquo;d train them —
-        strength, cardio, climbing and mobility.{" "}
+        {/* One expression, so JSX can't trim the space between the count and
+            the noun the way it does after a bare {expr} at a line break. */}
+        {`${PRESET_NAMES.length} movements`}, grouped by how you&rsquo;d train
+        them — strength, cardio, climbing and mobility.{" "}
         {isTrainer
           ? "Every one of them is in the exercise picker, so you can program any of them straight into a session."
           : "Tap any movement to see how it's done."}
