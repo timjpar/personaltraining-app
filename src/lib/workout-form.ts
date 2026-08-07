@@ -7,8 +7,10 @@
 import {
   SECTION_ORDER,
   toExerciseSection,
+  toDiscipline,
   SECTION_LABELS,
   type ExerciseSection,
+  type Discipline,
 } from "@/lib/constants";
 import { minutesFromTimeInput } from "@/lib/calendar";
 
@@ -27,14 +29,14 @@ export type ParsedExercise = {
   notes: string | null;
 };
 
-export type ParsedWorkout = {
-  title: string;
-  notes: string | null;
+// A dated workout is a prescription plus a slot in the calendar. Derived from
+// ParsedPrescription rather than restated, because parseWorkoutForm builds it by
+// spreading one into the other — restating the fields let the two drift.
+export type ParsedWorkout = ParsedPrescription & {
   scheduledDate: Date;
   // Minutes from midnight, or null for a session with no set time. Optional in
   // the form on purpose: templates and programs create workouts without one.
   startMinute: number | null;
-  exercises: ParsedExercise[];
 };
 
 // The prescription (title + notes + exercise rows) shared by dated workouts and
@@ -42,6 +44,9 @@ export type ParsedWorkout = {
 export type ParsedPrescription = {
   title: string;
   notes: string | null;
+  // Never null: toDiscipline falls back to STRENGTH, so a form posted without
+  // the field (a page left open across this deploy) saves as what it was.
+  discipline: Discipline;
   exercises: ParsedExercise[];
 };
 
@@ -56,6 +61,7 @@ export function parsePrescription(
 ): { data?: ParsedPrescription; error?: string } {
   const title = String(formData.get("title") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const discipline = toDiscipline(formData.get("discipline"));
 
   if (!title) return { error: "Give the session a title." };
 
@@ -100,7 +106,7 @@ export function parsePrescription(
     return { error: "Add at least one exercise." };
   }
 
-  return { data: { title, notes, exercises } };
+  return { data: { title, notes, discipline, exercises } };
 }
 
 export function parseWorkoutForm(

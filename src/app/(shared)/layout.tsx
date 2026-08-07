@@ -11,6 +11,7 @@ import { isAdminUser } from "@/lib/admin";
 import { prisma } from "@/lib/db";
 import { getThemePrefs } from "@/lib/theme-server";
 import { AppHeader } from "@/components/AppHeader";
+import { TimeZoneProbe } from "@/components/TimeZoneProbe";
 import { trainerNav, clientNav } from "@/lib/nav";
 import { ROLES } from "@/lib/constants";
 
@@ -39,6 +40,7 @@ export default async function SharedLayout({
         themeChosen={chosen}
         adminHref={isAdminUser(user) ? "/admin" : undefined}
       />
+      <TimeZoneProbe current={user.timeZone} />
       {/* Clears the fixed tab bar so the last row of any page stays reachable. */}
       <main className="pb-tabbar lg:pb-0">{children}</main>
     </div>

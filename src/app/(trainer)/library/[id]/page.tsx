@@ -5,9 +5,11 @@ import { prisma } from "@/lib/db";
 import {
   Container,
   PageHeading,
+  Badge,
   ButtonLink,
   EmptyState,
 } from "@/components/ui";
+import { DISCIPLINE_LABELS, toDiscipline } from "@/lib/constants";
 import {
   PrescriptionCard,
   SectionHeading,
@@ -74,9 +76,12 @@ export default async function TemplatePage({
             </div>
           }
         >
-          <span className="metric">
-            {template.exercises.length} exercise
-            {template.exercises.length === 1 ? "" : "s"}
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="metric">
+              {template.exercises.length} exercise
+              {template.exercises.length === 1 ? "" : "s"}
+            </span>
+            <Badge>{DISCIPLINE_LABELS[toDiscipline(template.discipline)]}</Badge>
           </span>
         </PageHeading>
       </div>

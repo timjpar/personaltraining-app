@@ -26,10 +26,15 @@ export async function verifyPassword(password: string, hash: string | null) {
 // The signed cookie as data, for callers that build their own Response —
 // the Google callback returns a redirect it constructs itself, so it can't
 // rely on the request-scoped cookie store.
-export async function sessionCookie(user: { id: string; role: string }) {
+export async function sessionCookie(user: {
+  id: string;
+  role: string;
+  sessionEpoch: number;
+}) {
   const token = await signSession({
     userId: user.id,
     role: user.role as (typeof ROLES)[keyof typeof ROLES],
+    epoch: user.sessionEpoch,
   });
   return {
     name: SESSION_COOKIE,
@@ -44,7 +49,11 @@ export async function sessionCookie(user: { id: string; role: string }) {
   } as const;
 }
 
-export async function setSession(user: { id: string; role: string }) {
+export async function setSession(user: {
+  id: string;
+  role: string;
+  sessionEpoch: number;
+}) {
   const { name, value, options } = await sessionCookie(user);
   const store = await cookies();
   store.set(name, value, options);
@@ -74,7 +83,28 @@ export async function getCurrentUser() {
   // allowed, and an inert token does no harm.
   if (user.role !== session.role) return null;
 
+  // The same mechanism, for the same reason, applied to password changes. A
+  // reset is usually someone taking their account back, and a stateless
+  // thirty-day cookie would otherwise leave whoever they're locking out signed
+  // in the whole time. Every path that sets a password bumps the epoch, so
+  // every session but the one the reset itself mints is retired here.
+  if (user.sessionEpoch !== session.epoch) return null;
+
   return user;
+}
+
+// The inverse of requireUser, for the signed-out pages. It looks the account up
+// rather than trusting the cookie, so a session for a deleted account falls
+// through to the form instead of bouncing — signing in replaces the cookie.
+//
+// Called per page rather than from the (auth) layout, because /reset
+// deliberately does *not* want it: forgetting your password on the machine
+// you're still signed in on is one of the ordinary ways to end up holding a
+// reset link, and bouncing that click to /dashboard makes the link unusable
+// exactly when it's needed.
+export async function redirectIfSignedIn() {
+  const user = await getCurrentUser();
+  if (user) redirect(user.role === ROLES.TRAINER ? "/dashboard" : "/my");
 }
 
 export async function requireUser() {

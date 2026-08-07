@@ -51,3 +51,49 @@ export async function addClient(
 
   return { created: { name, email, password } };
 }
+
+export type ResetClientPasswordState = {
+  error?: string;
+  password?: string;
+};
+
+// The route back in for a client who can't use the emailed link — no inbox
+// access, no mail configured on the server, or simply standing in front of
+// their coach. The admin area has the same capability over every account
+// (see (admin)/admin/actions.ts); this one reaches a trainer's own roster only.
+export async function resetClientPassword(
+  _prev: ResetClientPasswordState,
+  formData: FormData,
+): Promise<ResetClientPasswordState> {
+  const trainer = await requireTrainer();
+
+  const clientId = String(formData.get("clientId") ?? "");
+  if (!clientId) return { error: "That client no longer exists." };
+
+  // Reloaded and ownership-checked in one query rather than trusting the form.
+  // Setting someone's password is taking their account, so "is this actually
+  // mine to reset" is the whole guard — a posted id from another trainer's
+  // roster has to find nothing here.
+  const client = await prisma.user.findFirst({
+    where: { id: clientId, trainerId: trainer.id },
+    select: { id: true, name: true },
+  });
+  if (!client) return { error: "That client no longer exists." };
+
+  const password = generatePassword();
+  await prisma.user.update({
+    where: { id: client.id },
+    data: {
+      passwordHash: await hashPassword(password),
+      // Signs them out everywhere. A coach resetting a password is often doing
+      // it because the client lost the device it was saved on.
+      sessionEpoch: { increment: 1 },
+    },
+  });
+
+  revalidatePath(`/clients/${client.id}`);
+
+  // Returned once, to be read off the screen and passed on. Nothing stores the
+  // plaintext, so closing the page is the end of it.
+  return { password };
+}

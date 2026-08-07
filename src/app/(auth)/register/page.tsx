@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { RegisterForm } from "./RegisterForm";
 import { GoogleButton, OrDivider } from "@/components/GoogleButton";
+import { redirectIfSignedIn } from "@/lib/auth";
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  await redirectIfSignedIn();
+
   return (
     <div>
       <h1 className="font-display text-2xl font-semibold text-ink">

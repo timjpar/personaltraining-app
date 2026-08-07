@@ -5,16 +5,26 @@
 //
 // This module is imported by a client component, so it stays data-only.
 
-import { CLIMBING_EXERCISE_NAMES } from "./climbing-presets";
+import { CLIMBING_GROUPS } from "./climbing-presets";
+import { DISCIPLINES, type Discipline } from "./constants";
 
 export type PresetCategory = {
   label: string;
+  // What kind of training the whole category is. Carried on the category rather
+  // than each name so a movement can't disagree with the group it sits in, and
+  // so renaming a label can never silently orphan its discipline.
+  discipline: Discipline;
+  // Shown under the heading on /exercises. Only the climbing groups arrived
+  // with one, so it stays optional rather than inventing copy for the rest.
+  blurb?: string;
   exercises: string[];
 };
 
-export const EXERCISE_PRESETS: PresetCategory[] = [
+// Everything that isn't climbing or warm-up/cool-down work.
+const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
   {
     label: "Barbell",
+    discipline: DISCIPLINES.STRENGTH,
     exercises: [
       "Back Squat",
       "Front Squat",
@@ -42,6 +52,7 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
   },
   {
     label: "Dumbbell",
+    discipline: DISCIPLINES.STRENGTH,
     exercises: [
       "Dumbbell Bench Press",
       "Incline Dumbbell Press",
@@ -70,6 +81,7 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
   },
   {
     label: "Machine & Cable",
+    discipline: DISCIPLINES.STRENGTH,
     exercises: [
       "Lat Pulldown",
       "Neutral-Grip Pulldown",
@@ -99,6 +111,7 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
   },
   {
     label: "Bodyweight",
+    discipline: DISCIPLINES.STRENGTH,
     exercises: [
       "Pull-Up",
       "Chin-Up",
@@ -122,6 +135,7 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
   },
   {
     label: "Olympic & Power",
+    discipline: DISCIPLINES.STRENGTH,
     exercises: [
       "Clean",
       "Power Clean",
@@ -144,6 +158,7 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
   },
   {
     label: "Kettlebell",
+    discipline: DISCIPLINES.STRENGTH,
     exercises: [
       "Kettlebell Swing",
       "American Kettlebell Swing",
@@ -158,6 +173,7 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
   },
   {
     label: "Core",
+    discipline: DISCIPLINES.STRENGTH,
     exercises: [
       "Plank",
       "Side Plank",
@@ -178,6 +194,7 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
   },
   {
     label: "Conditioning",
+    discipline: DISCIPLINES.CARDIO,
     exercises: [
       "Row (Erg)",
       "Assault Bike",
@@ -195,15 +212,15 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
       "Sprint Intervals",
     ],
   },
-  // One category, not the seven the /climbing page shows. The picker groups a
-  // trainer scrolls past every session shouldn't fan out for a discipline most
-  // of them don't coach — the page is where the structure belongs.
-  {
-    label: "Rock Climbing",
-    exercises: CLIMBING_EXERCISE_NAMES,
-  },
+];
+
+// Preparation and cool-down work, which every discipline borrows from. Filed
+// under Mobility rather than split across the others: a coach looking for
+// Cat-Cow is looking for warm-up work, not for whatever it warms up for.
+const WARMUP_AND_MOBILITY: PresetCategory[] = [
   {
     label: "Warm-up & Activation",
+    discipline: DISCIPLINES.MOBILITY,
     exercises: [
       "Bike Easy",
       "Row Easy",
@@ -229,6 +246,7 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
   },
   {
     label: "Mobility & Cool-down",
+    discipline: DISCIPLINES.MOBILITY,
     exercises: [
       "Couch Stretch",
       "Pigeon Stretch",
@@ -248,6 +266,34 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
       "Easy Walk",
     ],
   },
+];
+
+// The whole catalog, climbing broken out into the seven groups it was authored
+// as. This is what /exercises browses: there, structure is the point, and
+// "Fingers & Grip" is a more useful heading than a wall of 57 names.
+export const EXERCISE_CATEGORIES: PresetCategory[] = [
+  ...STRENGTH_AND_CONDITIONING,
+  ...CLIMBING_GROUPS.map((g) => ({
+    label: g.label,
+    discipline: DISCIPLINES.CLIMBING,
+    blurb: g.blurb,
+    exercises: g.exercises.map((e) => e.name),
+  })),
+  ...WARMUP_AND_MOBILITY,
+];
+
+// The picker's view of the same catalog, with the climbing groups collapsed
+// back into one entry. A trainer scrolls this dropdown every session and most
+// of them don't coach climbing — seven extra groups is a cost they'd pay every
+// time. The page is where the structure belongs.
+export const EXERCISE_PRESETS: PresetCategory[] = [
+  ...STRENGTH_AND_CONDITIONING,
+  {
+    label: "Rock Climbing",
+    discipline: DISCIPLINES.CLIMBING,
+    exercises: CLIMBING_GROUPS.flatMap((g) => g.exercises.map((e) => e.name)),
+  },
+  ...WARMUP_AND_MOBILITY,
 ];
 
 // Warm-up and cool-down rows lead with the category that fits them, so the
@@ -283,4 +329,30 @@ export const PRESET_SLUGS: Set<string> = new Set(
 
 export function isPresetName(name: string): boolean {
   return PRESET_SLUGS.has(normalizeExerciseName(name));
+}
+
+// The protocol line shown beneath a movement on /exercises. Only the climbing
+// movements were authored with one — everything else renders as a bare name,
+// which is why this is a lookup rather than a field on the category.
+export const EXERCISE_NOTES: Map<string, string> = new Map(
+  CLIMBING_GROUPS.flatMap((g) =>
+    g.exercises.map((e) => [normalizeExerciseName(e.name), e.note] as const),
+  ),
+);
+
+// A movement's discipline comes from the category it sits in. First category
+// wins, matching the picker's dedupe — so Push-Up, which Bodyweight claims
+// before the climbing groups reach it, reads as Strength.
+const PRESET_DISCIPLINE: Map<string, Discipline> = new Map();
+for (const category of EXERCISE_CATEGORIES) {
+  for (const name of category.exercises) {
+    const key = normalizeExerciseName(name);
+    if (!PRESET_DISCIPLINE.has(key)) PRESET_DISCIPLINE.set(key, category.discipline);
+  }
+}
+
+// Undefined for a name the catalog has never heard of — a trainer's own
+// movement, whose discipline is stored on the row instead.
+export function disciplineForName(name: string): Discipline | undefined {
+  return PRESET_DISCIPLINE.get(normalizeExerciseName(name));
 }

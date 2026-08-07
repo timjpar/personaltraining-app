@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { parseWorkoutForm } from "@/lib/workout-form";
 import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
+import { syncAfterMutation } from "@/lib/calendar-sync";
 
 export type WorkoutFormState = { error?: string };
 
@@ -28,6 +29,7 @@ export async function createWorkout(
     data: {
       title: data.title,
       notes: data.notes,
+      discipline: data.discipline,
       scheduledDate: data.scheduledDate,
       startMinute: data.startMinute,
       status: "ASSIGNED",
@@ -38,6 +40,8 @@ export async function createWorkout(
   });
 
   await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
+
+  syncAfterMutation(trainer.id, clientId);
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/dashboard");
@@ -68,6 +72,7 @@ export async function updateWorkout(
       data: {
         title: data.title,
         notes: data.notes,
+        discipline: data.discipline,
         scheduledDate: data.scheduledDate,
         startMinute: data.startMinute,
         exercises: { create: data.exercises },
@@ -76,6 +81,8 @@ export async function updateWorkout(
   ]);
 
   await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
+
+  syncAfterMutation(trainer.id, workout.clientId);
 
   revalidatePath(`/workouts/${workoutId}`);
   revalidatePath(`/clients/${workout.clientId}`);
@@ -92,6 +99,8 @@ export async function deleteWorkout(workoutId: string) {
   if (!workout) redirect("/dashboard");
 
   await prisma.workout.delete({ where: { id: workout.id } });
+
+  syncAfterMutation(trainer.id, workout.clientId);
 
   revalidatePath(`/clients/${workout.clientId}`);
   revalidatePath("/dashboard");

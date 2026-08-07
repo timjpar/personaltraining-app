@@ -2,28 +2,40 @@
 
 import { useActionState, useState } from "react";
 import {
-  renameCustomExercise,
+  updateCustomExercise,
   deleteCustomExercise,
   type ExerciseFormState,
-} from "@/app/(trainer)/exercises/actions";
+} from "@/app/(shared)/exercises/actions";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
-import { Input, FormError, buttonClass } from "@/components/ui";
+import { Badge, Input, Select, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import {
+  DISCIPLINE_ORDER,
+  DISCIPLINE_LABELS,
+  toDiscipline,
+} from "@/lib/constants";
 
 export function CustomExerciseRow({
   id,
   name,
+  discipline,
   lastUsed,
 }: {
   id: string;
   name: string;
+  // Null for a movement nobody has classified — the row was created
+  // automatically the first time it was programmed. Reads as Other until the
+  // trainer says otherwise.
+  discipline: string | null;
   lastUsed: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState<ExerciseFormState, FormData>(
-    renameCustomExercise.bind(null, id),
+    updateCustomExercise.bind(null, id),
     {},
   );
+
+  const current = discipline ? toDiscipline(discipline) : "OTHER";
 
   if (editing) {
     return (
@@ -39,9 +51,21 @@ export function CustomExerciseRow({
             name="name"
             defaultValue={name}
             aria-label="Exercise name"
-            className="flex-1"
+            className="min-w-40 flex-1"
             autoFocus
           />
+          <Select
+            name="discipline"
+            defaultValue={current}
+            aria-label="Discipline"
+            className="w-auto"
+          >
+            {DISCIPLINE_ORDER.map((d) => (
+              <option key={d} value={d}>
+                {DISCIPLINE_LABELS[d]}
+              </option>
+            ))}
+          </Select>
           <button
             type="submit"
             disabled={pending}
@@ -70,13 +94,14 @@ export function CustomExerciseRow({
         <p className="truncate font-medium text-ink">{name}</p>
         <p className="metric text-xs text-ink-soft">Last used {lastUsed}</p>
       </div>
+      <Badge>{DISCIPLINE_LABELS[current]}</Badge>
       <FormError>{state.error}</FormError>
       <button
         type="button"
         onClick={() => setEditing(true)}
         className={cn(buttonClass("ghost", "sm"))}
       >
-        Rename
+        Edit
       </button>
       <DeleteWorkoutForm
         action={deleteCustomExercise.bind(null, id)}

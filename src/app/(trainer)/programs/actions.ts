@@ -178,6 +178,9 @@ export async function assignProgram(
           data: {
             title: slot.template.title,
             notes: slot.template.notes,
+            // Per slot, not per program: a block can mix a climbing day with
+            // a strength day, and each session should say which it is.
+            discipline: slot.template.discipline,
             scheduledDate: addDays(startDate, offset),
             status: "ASSIGNED",
             clientId: c.id,

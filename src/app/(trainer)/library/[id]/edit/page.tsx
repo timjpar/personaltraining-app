@@ -48,6 +48,7 @@ export default async function EditTemplatePage({
           initial={{
             title: template.title,
             notes: template.notes,
+            discipline: template.discipline,
             exercises: template.exercises.map((e) => ({
               id: e.id,
               name: e.name,

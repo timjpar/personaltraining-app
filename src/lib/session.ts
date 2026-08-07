@@ -16,10 +16,10 @@ export function getSecret() {
   return new TextEncoder().encode(secret);
 }
 
-export type SessionPayload = { userId: string; role: Role };
+export type SessionPayload = { userId: string; role: Role; epoch: number };
 
 export async function signSession(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ role: payload.role })
+  return new SignJWT({ role: payload.role, epoch: payload.epoch })
     .setProtectedHeader({ alg: ALG })
     .setSubject(payload.userId)
     .setIssuedAt()
@@ -36,7 +36,14 @@ export async function verifySession(
     if (typeof payload.sub !== "string" || typeof payload.role !== "string") {
       return null;
     }
-    return { userId: payload.sub, role: payload.role as Role };
+    return {
+      userId: payload.sub,
+      role: payload.role as Role,
+      // Tokens minted before password resets existed carry no epoch, and every
+      // account starts at 0 — so reading a missing claim as 0 lets sessions
+      // issued before this deploy keep working instead of signing everyone out.
+      epoch: typeof payload.epoch === "number" ? payload.epoch : 0,
+    };
   } catch {
     return null;
   }

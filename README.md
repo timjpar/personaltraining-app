@@ -18,6 +18,10 @@ dashboard the moment it happens. Modeled on the CoachRx workflow.
   exercise, rate the session (RPE 1–10), and leave a note for their coach.
 - **Activity feed.** Every completion appears on the trainer's dashboard with
   the client's comment, RPE, and results, plus an unread badge.
+- **Calendars for both roles.** The trainer's calendar merges programmed
+  sessions with consults, check-ins and blocked-out time; the athlete gets a
+  read-only one showing their own training and whatever their coach has booked
+  with them. Either can push theirs to Google Calendar.
 
 ## Tech
 
@@ -51,6 +55,12 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 
 Use `npx prisma migrate dev` instead of `migrate deploy` when you're changing
 `schema.prisma` and want a new migration generated.
+
+`AUTH_SECRET` signs session cookies **and** derives the key that encrypts stored
+Google Calendar refresh tokens. Rotating it therefore signs everyone out *and*
+makes existing calendar connections unreadable — those land in a "reconnect"
+state rather than failing, but everyone who had connected one has to press the
+button again.
 
 ### Google sign-in (optional)
 
@@ -124,12 +134,17 @@ into a session.
 
 - `prisma/schema.prisma` — data model (`User`, `Workout`, `Exercise`, `FeedItem`,
   `LoginEvent`)
-- `src/lib/` — `db` (Prisma client), `auth`/`session` (login + cookies), `admin`
+- `src/lib/` — `db` (Prisma client), `auth`/`session` (login + cookies),
+  `reset-token`/`mail` (password resets and outbound email), `admin`
   (owner/admin gate), `login-log` (sign-in audit), `nav` (the tab bars),
-  `exercise-presets`/`climbing-presets` (the shipped catalogs), helpers
-- `src/app/(auth)/` — login & register
-- `src/app/(trainer)/` — dashboard, clients, program builder, session review
-- `src/app/(client)/` — today, workout logging, history
+  `calendar` (month maths and the merged item shape),
+  `google`/`google-tokens`/`google-calendar`/`calendar-sync` (OAuth and the
+  one-way push to Google), `exercise-presets`/`climbing-presets` (the shipped
+  catalogs), helpers
+- `src/app/(auth)/` — login, register, forgot & reset password
+- `src/app/(trainer)/` — dashboard, clients, program builder, session review,
+  calendar
+- `src/app/(client)/` — today, workout logging, history, calendar
 - `src/app/(shared)/` — pages both roles see (rock climbing training)
 - `src/app/(admin)/` — owner-only account list, sign-in log, account management
 - `src/components/` — UI kit and the prescription-card / builder / log-form pieces
@@ -145,7 +160,10 @@ disk, so it runs fine on serverless platforms.
    traffic (on Vercel: Production, Preview, and Development):
    - `DATABASE_URL` — the **pooled** connection string
    - `AUTH_SECRET` — a long random string (see above). Without it every request
-     that touches a session fails.
+     that touches a session fails. Rotating it signs everyone out and drops
+     every Google Calendar connection.
+   - `RESEND_API_KEY` / `MAIL_FROM` — optional; password resets and new-account
+     emails. Without them `/forgot` points people at their trainer instead.
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; only if you want
      Google sign-in. Add the deployed origin's callback URL to the OAuth client,
      including preview domains if you sign in on those.

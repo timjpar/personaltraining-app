@@ -133,16 +133,47 @@ export type CalendarItem = {
   href: string;
 };
 
+// Where an item's link points, which is the one thing the two calendars can't
+// agree on: the trainer's hrefs are all under /calendar and /workouts, and
+// src/proxy.ts bounces a client away from both.
+export type ItemLinks = {
+  workout(id: string): string;
+  event(id: string, day: string): string;
+};
+
+export const TRAINER_LINKS: ItemLinks = {
+  workout: (id) => `/workouts/${id}`,
+  // Editing happens on the day page, via a query param rather than a third
+  // route.
+  event: (id, day) => `/calendar/${day}?edit=${id}`,
+};
+
+export const CLIENT_LINKS: ItemLinks = {
+  workout: (id) => `/my/workouts/${id}`,
+  // No ?edit= — a client's calendar is a reading surface. The day page is the
+  // most specific thing there is to point at.
+  event: (_id, day) => `/my/calendar/${day}`,
+};
+
 // Structural parameters rather than Prisma types, so this module stays free of
 // the generated client and the pages can select only the columns they need.
-export function workoutItem(w: {
-  id: string;
-  title: string;
-  scheduledDate: Date;
-  startMinute: number | null;
-  status: string;
-  client: { id: string; name: string } | null;
-}): CalendarItem {
+//
+// `links` is required rather than defaulted, and that is not an oversight.
+// These are used as bare callbacks — `workouts.map(workoutItem)` — and
+// Array.prototype.map passes the *index* as the second argument, so a
+// defaulted parameter would silently receive 0 at every existing call site.
+// Requiring it makes the compiler walk you through them.
+export function workoutItem(
+  w: {
+    id: string;
+    title: string;
+    scheduledDate: Date;
+    startMinute: number | null;
+    status: string;
+    client: { id: string; name: string } | null;
+  },
+  links: ItemLinks,
+): CalendarItem {
   return {
     id: w.id,
     source: "workout",
@@ -154,19 +185,22 @@ export function workoutItem(w: {
     clientName: w.client?.name ?? null,
     kind: null,
     completed: w.status === WORKOUT_STATUS.COMPLETED,
-    href: `/workouts/${w.id}`,
+    href: links.workout(w.id),
   };
 }
 
-export function eventItem(e: {
-  id: string;
-  title: string;
-  date: Date;
-  startMinute: number | null;
-  endMinute: number | null;
-  kind: string;
-  client: { id: string; name: string } | null;
-}): CalendarItem {
+export function eventItem(
+  e: {
+    id: string;
+    title: string;
+    date: Date;
+    startMinute: number | null;
+    endMinute: number | null;
+    kind: string;
+    client: { id: string; name: string } | null;
+  },
+  links: ItemLinks,
+): CalendarItem {
   return {
     id: e.id,
     source: "event",
@@ -178,9 +212,7 @@ export function eventItem(e: {
     clientName: e.client?.name ?? null,
     kind: toEventKind(e.kind),
     completed: false,
-    // Editing happens on the day page, via a query param rather than a third
-    // route.
-    href: `/calendar/${toDateInput(e.date)}?edit=${e.id}`,
+    href: links.event(e.id, toDateInput(e.date)),
   };
 }
 

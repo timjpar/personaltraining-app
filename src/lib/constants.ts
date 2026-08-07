@@ -46,8 +46,28 @@ export function toSignupSource(value: unknown): SignupSource {
 export const LOGIN_METHOD = {
   PASSWORD: "PASSWORD",
   GOOGLE: "GOOGLE",
+  // Signed in by following an emailed reset link. Its own method rather than a
+  // PASSWORD success, because "this account was taken over via a reset" is the
+  // single most useful line the audit log can show — it's how a compromise
+  // through the mail flow becomes visible at all.
+  RESET: "RESET",
 } as const;
 export type LoginMethod = (typeof LOGIN_METHOD)[keyof typeof LOGIN_METHOD];
+
+export const LOGIN_METHOD_LABELS: Record<LoginMethod, string> = {
+  PASSWORD: "Password",
+  GOOGLE: "Google",
+  RESET: "Reset link",
+};
+
+// Same contract as toLoginOutcome. PASSWORD is the safe fallback: it's what
+// every row predating the other two methods is.
+export function toLoginMethod(value: unknown): LoginMethod {
+  const s = String(value ?? "");
+  return s in LOGIN_METHOD_LABELS
+    ? (s as LoginMethod)
+    : LOGIN_METHOD.PASSWORD;
+}
 
 export const LOGIN_OUTCOME = {
   SUCCESS: "SUCCESS",
@@ -82,6 +102,46 @@ export function toLoginOutcome(value: unknown): LoginOutcome {
   return (LOGIN_OUTCOME_ORDER as readonly string[]).includes(s)
     ? (s as LoginOutcome)
     : LOGIN_OUTCOME.NO_ACCOUNT;
+}
+
+// What kind of training something is. Set on a workout or template by the coach
+// who writes it, and on a trainer's own movements; the shipped catalog derives
+// its own from the category a movement sits in (see exercise-presets.ts).
+export const DISCIPLINES = {
+  STRENGTH: "STRENGTH",
+  CARDIO: "CARDIO",
+  CLIMBING: "CLIMBING",
+  MOBILITY: "MOBILITY",
+  OTHER: "OTHER",
+} as const;
+export type Discipline = (typeof DISCIPLINES)[keyof typeof DISCIPLINES];
+
+// Strength first because it's the column default and the common case; OTHER
+// last because it's the escape hatch, not a choice anyone reaches for.
+export const DISCIPLINE_ORDER = [
+  "STRENGTH",
+  "CARDIO",
+  "CLIMBING",
+  "MOBILITY",
+  "OTHER",
+] as const satisfies readonly Discipline[];
+
+export const DISCIPLINE_LABELS: Record<Discipline, string> = {
+  STRENGTH: "Strength",
+  CARDIO: "Cardio",
+  CLIMBING: "Climbing",
+  MOBILITY: "Mobility",
+  OTHER: "Other",
+};
+
+// Same contract as toExerciseSection. STRENGTH is the fallback because it's the
+// column default, so every session written before this field existed reads as
+// what it actually was.
+export function toDiscipline(value: unknown): Discipline {
+  const s = String(value ?? "");
+  return (DISCIPLINE_ORDER as readonly string[]).includes(s)
+    ? (s as Discipline)
+    : DISCIPLINES.STRENGTH;
 }
 
 // Where an exercise sits in the session. A grouping label, not an ordering key:

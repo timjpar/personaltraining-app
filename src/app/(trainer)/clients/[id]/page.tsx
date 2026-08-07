@@ -12,6 +12,7 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { AssignSavedWorkout } from "@/components/AssignSavedWorkout";
+import { ResetClientPassword } from "./ResetClientPassword";
 import { assignTemplateToClient } from "@/app/(trainer)/library/actions";
 import { formatDate, toDateInput } from "@/lib/format";
 
@@ -197,6 +198,15 @@ export default async function ClientDetailPage({
           )}
         </section>
       </div>
+
+      {/* Account admin, kept to the bottom and to one column: it's the thing you
+          reach for once in a while, not what this page is about. */}
+      <section className="mt-10 max-w-md">
+        <ResetClientPassword
+          clientId={client.id}
+          firstName={client.name.split(/\s+/)[0]}
+        />
+      </section>
     </Container>
   );
 }

@@ -3,6 +3,7 @@ import { isAdminUser } from "@/lib/admin";
 import { prisma } from "@/lib/db";
 import { getThemePrefs } from "@/lib/theme-server";
 import { AppHeader } from "@/components/AppHeader";
+import { TimeZoneProbe } from "@/components/TimeZoneProbe";
 import { trainerNav } from "@/lib/nav";
 
 export default async function TrainerLayout({
@@ -27,6 +28,7 @@ export default async function TrainerLayout({
         themeChosen={chosen}
         adminHref={isAdminUser(user) ? "/admin" : undefined}
       />
+      <TimeZoneProbe current={user.timeZone} />
       {/* Clears the fixed tab bar so the last row of any page stays reachable. */}
       <main className="pb-tabbar lg:pb-0">{children}</main>
     </div>

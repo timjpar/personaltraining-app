@@ -4,10 +4,11 @@ import { prisma } from "@/lib/db";
 import { Container, PageHeading, Card, Badge, EmptyState } from "@/components/ui";
 import { formatStamp } from "@/lib/format";
 import {
-  LOGIN_METHOD,
+  LOGIN_METHOD_LABELS,
   LOGIN_OUTCOME,
   LOGIN_OUTCOME_LABELS,
   LOGIN_OUTCOME_ORDER,
+  toLoginMethod,
   toLoginOutcome,
 } from "@/lib/constants";
 
@@ -124,7 +125,7 @@ export default async function AdminLoginsPage({
                   )}
                 </p>
                 <p className="eyebrow text-ink-soft">
-                  {e.method === LOGIN_METHOD.GOOGLE ? "Google" : "Password"}
+                  {LOGIN_METHOD_LABELS[toLoginMethod(e.method)]}
                 </p>
                 <p className="metric shrink-0 text-xs text-ink-soft">
                   {formatStamp(e.createdAt)}

@@ -63,7 +63,13 @@ export async function resetPassword(
   const password = typed || generatePassword();
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(password) },
+    data: {
+      passwordHash: await hashPassword(password),
+      // Every path that sets a password bumps this, or the reset is cosmetic:
+      // session tokens are stateless and last thirty days, so without it an
+      // admin locking someone out leaves them signed in for a month.
+      sessionEpoch: { increment: 1 },
+    },
   });
 
   revalidatePath(`/admin/users/${user.id}`);
