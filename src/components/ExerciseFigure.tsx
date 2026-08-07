@@ -93,6 +93,15 @@ const FIGURES: Record<Archetype, Poses> = {
     a: "M10 8v4M10 12l-2.5 3.5M10 12l2.5 3.5M7 9.5h6M6.5 9.5h7",
     b: "M10 6v6M10 12l-2 4M10 12l2 4M8 5.5l2-2.5 2 2.5M6 3h8",
   },
+  // On the wall: the wall itself is the vertical on the right, the same way
+  // pull-vertical draws its bar. Between poses the whole body moves up and the
+  // reaching arm swaps — a move, rather than a figure waving.
+  climb: {
+    head: [8.5, 5],
+    headB: [8.5, 4],
+    a: "M14.8 2.5v15M8.5 6.5v5M8.5 8l4.5-3.5M8.5 8l4 1M8.5 11.5l4 1.5M8.5 11.5l-1.5 4.5",
+    b: "M14.8 2.5v15M8.5 5.5v5M8.5 7l4.5-3M8.5 7l3.5 2M8.5 10.5l4 .5M8.5 10.5l-.5 4.5",
+  },
   // Nothing recognised — a plain standing figure, deliberately still.
   neutral: {
     head: [10, 4.5],

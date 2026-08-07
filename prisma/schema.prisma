@@ -35,6 +35,14 @@ model User {
   // sort and display "last seen" without a per-row subquery.
   lastLoginAt DateTime?
 
+  // Granted by an owner from /admin, and the reason admin isn't a third value
+  // of `role`: it's an overlay on an ordinary trainer account, so promoting
+  // someone doesn't disturb the coaching they were already doing. Owners
+  // themselves are named in ADMIN_EMAILS and never rely on this column, which
+  // keeps the root of the permission tree outside the database (see
+  // src/lib/admin.ts).
+  isAdmin Boolean @default(false)
+
   // A client belongs to one trainer (self-relation).
   trainerId String?
   trainer   User?   @relation("TrainerClients", fields: [trainerId], references: [id])

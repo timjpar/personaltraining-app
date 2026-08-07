@@ -24,6 +24,7 @@ export const ARCHETYPES = [
   "cardio",
   "stretch",
   "explosive",
+  "climb",
   "neutral",
 ] as const;
 
@@ -32,6 +33,25 @@ export type Archetype = (typeof ARCHETYPES)[number];
 type Rule = { archetype: Archetype; match: string[] };
 
 const RULES: Rule[] = [
+  // First, because climbing names collide with half the list below: "Finger
+  // Rolls" would be a curl, "Boulder 4x4" nothing at all. Deliberately narrow —
+  // "climbing" rather than "climb" (Stair Climber is cardio), "arc training"
+  // rather than "arc", and no "hang" on its own, which would take Hanging Leg
+  // Raise off the core rule. Pull-ups are left to pull-vertical: a climber's
+  // weighted pull-up is still a pull-up, and that figure is the better one.
+  {
+    archetype: "climb",
+    match: [
+      "hangboard", "dead hang", "max hang", "assisted hang", "repeater",
+      "crimp", "open-hand", "finger", "pinch", "campus", "boulder",
+      "traverse", "lock-off", "front lever", "climbing", "arc training",
+      // guard: "straight-arm" alone takes Straight-Arm Pulldown off the
+      // pull-vertical rule, so the drill is matched by its full name.
+      "frenchie", "flagging", "silent feet", "straight-arm drill", "route ",
+      "circuit board", "cut-loose", "rice bucket", "windshield",
+    ],
+  },
+
   // guard: "Row (Erg)", "SkiErg" and "Row Easy" must not read as barbell rows;
   // rope/jack work is conditioning rather than a power movement.
   {
@@ -140,6 +160,7 @@ const RULES: Rule[] = [
       "swings", "wall slide", "airplane", "clamshell", "inchworm",
       "breathing", "ankle", "thread the needle", "forward fold",
       "a-skip", "banded", "band ", "walk",
+      "external rotation", "shoulder cars",
     ],
   },
 ];

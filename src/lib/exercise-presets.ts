@@ -5,6 +5,8 @@
 //
 // This module is imported by a client component, so it stays data-only.
 
+import { CLIMBING_EXERCISE_NAMES } from "./climbing-presets";
+
 export type PresetCategory = {
   label: string;
   exercises: string[];
@@ -193,6 +195,13 @@ export const EXERCISE_PRESETS: PresetCategory[] = [
       "Sprint Intervals",
     ],
   },
+  // One category, not the seven the /climbing page shows. The picker groups a
+  // trainer scrolls past every session shouldn't fan out for a discipline most
+  // of them don't coach — the page is where the structure belongs.
+  {
+    label: "Rock Climbing",
+    exercises: CLIMBING_EXERCISE_NAMES,
+  },
   {
     label: "Warm-up & Activation",
     exercises: [
@@ -254,7 +263,19 @@ export function normalizeExerciseName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-export const PRESET_NAMES: string[] = EXERCISE_PRESETS.flatMap((c) => c.exercises);
+// Deduped, because a movement can legitimately belong to two categories —
+// climbers warm up with the same Band Pull-Apart everyone else does. The picker
+// dedupes at render time too (first group wins); this is so the count the
+// /exercises page prints as "the N built-in movements" stays honest.
+const seenNames = new Set<string>();
+export const PRESET_NAMES: string[] = EXERCISE_PRESETS.flatMap(
+  (c) => c.exercises,
+).filter((name) => {
+  const key = normalizeExerciseName(name);
+  if (seenNames.has(key)) return false;
+  seenNames.add(key);
+  return true;
+});
 
 export const PRESET_SLUGS: Set<string> = new Set(
   PRESET_NAMES.map(normalizeExerciseName),

@@ -71,6 +71,47 @@ over that account rather than creating a second one, so a client whose trainer
 made their account can use Google and stays a client. A brand-new email creates
 a trainer workspace, exactly like `/register`.
 
+### Owner admin area (optional)
+
+Set `ADMIN_EMAILS` to your own address and `/admin` opens up: every account on
+the app with the email and name it signed up under, how the account was created
+(registered, added by a trainer, or Google), when it last signed in, and every
+workout template, program, nutrition plan and assigned session it has built. A
+second page logs every sign-in attempt, successful or not. From an account's
+page you can rename it, change its email, move a client onto a different
+trainer, switch it between trainer and client, reset its password, or delete it.
+
+```
+ADMIN_EMAILS="you@example.com,cofounder@example.com"
+```
+
+There are two tiers:
+
+- **Owner** — named in `ADMIN_EMAILS`. Can do everything, including handing out
+  the tier below. Nothing in the app can revoke an owner, because nothing in the
+  app granted them: it's a config change and a redeploy.
+- **Admin** — an owner presses **Make admin** on a trainer's account. They get
+  the same pages and can manage ordinary accounts, but can't promote anyone else
+  and can't reset, edit or delete another admin's account.
+
+So a compromised admin account can't widen its own access, and leaving
+`ADMIN_EMAILS` blank means there are no owners, nobody to promote anyone, and
+`/admin` is a 404 for everyone. It's a 404 rather than a redirect for anyone
+else who finds the URL.
+
+Changing an account's role signs that account out — the session cookie carries
+the role it was minted with, so it's retired rather than left to disagree with
+the database.
+
+### Rock climbing training
+
+`/climbing` is open to trainers and clients alike: around sixty climbing-specific
+movements — hangboard protocols, campus work, body tension, the antagonist work
+that keeps elbows healthy, wall drills and endurance — each with the prescription
+that actually makes it training rather than a name. Every one of them is also in
+the exercise picker under **Rock Climbing**, so a coach can program them straight
+into a session.
+
 ### Demo accounts (after `npm run db:seed`)
 
 | Role    | Email                | Password        |
@@ -81,11 +122,16 @@ a trainer workspace, exactly like `/register`.
 
 ## Project layout
 
-- `prisma/schema.prisma` — data model (`User`, `Workout`, `Exercise`, `FeedItem`)
-- `src/lib/` — `db` (Prisma client), `auth`/`session` (login + cookies), helpers
+- `prisma/schema.prisma` — data model (`User`, `Workout`, `Exercise`, `FeedItem`,
+  `LoginEvent`)
+- `src/lib/` — `db` (Prisma client), `auth`/`session` (login + cookies), `admin`
+  (owner/admin gate), `login-log` (sign-in audit), `nav` (the tab bars),
+  `exercise-presets`/`climbing-presets` (the shipped catalogs), helpers
 - `src/app/(auth)/` — login & register
 - `src/app/(trainer)/` — dashboard, clients, program builder, session review
 - `src/app/(client)/` — today, workout logging, history
+- `src/app/(shared)/` — pages both roles see (rock climbing training)
+- `src/app/(admin)/` — owner-only account list, sign-in log, account management
 - `src/components/` — UI kit and the prescription-card / builder / log-form pieces
 
 ## Deploying
@@ -103,6 +149,7 @@ disk, so it runs fine on serverless platforms.
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; only if you want
      Google sign-in. Add the deployed origin's callback URL to the OAuth client,
      including preview domains if you sign in on those.
+   - `ADMIN_EMAILS` — optional; your email, to unlock `/admin` (see above).
 3. **Create the tables** against the production database:
 
    ```bash

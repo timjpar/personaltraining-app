@@ -53,6 +53,14 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/nutrition");
   const clientArea = pathname.startsWith("/my");
 
+  // /admin and /climbing are in neither list on purpose, so both roles fall
+  // through to the page — that is the whole reason each has its own route
+  // group. /admin is granted by email and the isAdmin column (see
+  // src/lib/admin.ts) while the session token carries only the role, so this is
+  // the wrong layer to judge it from; requireAdmin() in the (admin) layout is
+  // the actual gate. /climbing is simply for everyone. Adding either prefix to
+  // a list below would redirect half the app's users away from it.
+
   if (session.role === ROLES.CLIENT && trainerArea) {
     const url = req.nextUrl.clone();
     url.pathname = "/my";
