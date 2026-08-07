@@ -3,16 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireTrainer, hashPassword } from "@/lib/auth";
+import { generatePassword } from "@/lib/password";
+import { SIGNUP_SOURCE } from "@/lib/constants";
 
 export type AddClientState = {
   error?: string;
   created?: { name: string; email: string; password: string };
 };
-
-function generatePassword() {
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `chalk-${rand}`; // >= 8 chars, easy to read aloud
-}
 
 export async function addClient(
   _prev: AddClientState,
@@ -45,6 +42,7 @@ export async function addClient(
       role: "CLIENT",
       trainerId: trainer.id,
       passwordHash: await hashPassword(password),
+      signupSource: SIGNUP_SOURCE.TRAINER,
     },
   });
 

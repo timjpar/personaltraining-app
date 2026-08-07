@@ -60,7 +60,21 @@ export async function getCurrentUser() {
   const token = store.get(SESSION_COOKIE)?.value;
   const session = await verifySession(token);
   if (!session) return null;
-  return prisma.user.findUnique({ where: { id: session.userId } });
+
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user) return null;
+
+  // The token carries the role it was minted with, and src/proxy.ts routes off
+  // that while the layouts route off this row. Once an admin can change a role
+  // (see the admin area), the two can disagree — and a disagreement is a
+  // redirect loop: the proxy sends a TRAINER token to /dashboard, the layout
+  // reads CLIENT and sends it to /my, the proxy sends it back. Treating the
+  // stale token as no session ends it: they sign in again and get a fresh one.
+  // The cookie itself is left alone; writing cookies during a render isn't
+  // allowed, and an inert token does no harm.
+  if (user.role !== session.role) return null;
+
+  return user;
 }
 
 export async function requireUser() {

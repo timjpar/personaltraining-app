@@ -23,6 +23,7 @@ export function AppHeader({
   theme,
   accent,
   themeChosen,
+  adminHref,
 }: {
   name: string;
   roleLabel: string;
@@ -30,6 +31,10 @@ export function AppHeader({
   theme: Theme;
   accent: Accent;
   themeChosen: boolean;
+  // Set for admins only. It lives up here rather than in the tab bar because
+  // the bar has no scroll and is already at its cell budget — and because
+  // owner tools aren't a destination you reach for one-handed mid-session.
+  adminHref?: string;
 }) {
   const pathname = usePathname();
 
@@ -49,14 +54,20 @@ export function AppHeader({
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-2 px-4 sm:h-16 sm:gap-6 sm:px-8">
           <Wordmark />
 
-          <nav className="hidden min-w-0 items-center gap-1 sm:flex">
+          {/* lg, not sm: the row of pills needs ~570px and the cluster to its
+              right needs ~260, so below 1024 it doesn't fit and the last item
+              used to be drawn underneath Sign out. Under that width the tab
+              bar below is the navigation, which is what it's for. The
+              overflow-x is a safety net for a long name or a translated
+              label — it scrolls rather than overlapping. */}
+          <nav className="hidden min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-current={activeHref === item.href ? "page" : undefined}
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-sm font-medium transition-colors",
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-sm font-medium transition-colors",
                   activeHref === item.href
                     ? // text-paper, not text-white: both tokens invert with the
                       // theme, so this stays legible in dark mode where `ink`
@@ -83,6 +94,15 @@ export function AppHeader({
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-4">
+            {adminHref ? (
+              <Link
+                href={adminHref}
+                aria-label="Owner tools"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-[8px] text-ink-soft transition-colors hover:bg-card hover:text-ink sm:h-8 sm:w-8"
+              >
+                <NavIcon name="admin" className="h-5 w-5" />
+              </Link>
+            ) : null}
             <AppearanceControl
               theme={theme}
               accent={accent}
@@ -104,15 +124,16 @@ export function AppHeader({
         </div>
       </header>
 
-      {/* ---- Tab bar (phones) ----------------------------------------------
+      {/* ---- Tab bar (phones and tablets) -----------------------------------
           Fixed to the bottom, where a thumb actually reaches. Every
           destination is visible at once — no scrolling, so the active tab is
-          never off-screen the way it was on /library. Labels stay: six icons
+          never off-screen the way it was on /library. Labels stay: seven icons
           alone would be a guessing game, and "Programs" vs "Workouts" is
-          exactly the pair that needs words. */}
+          exactly the pair that needs words. At seven cells a label has ~53px
+          on a 375px screen, which is why they're all one short word. */}
       <nav
         aria-label="Sections"
-        className="safe-b fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 backdrop-blur sm:hidden"
+        className="safe-b fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 backdrop-blur lg:hidden"
       >
         <ul className="flex items-stretch">
           {navItems.map((item) => {

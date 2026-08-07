@@ -29,6 +29,20 @@ export function relativeTime(d: Date | string) {
   return formatDate(date);
 }
 
+// Audit-grade timestamp. The rest of the app is deliberately looser — a session
+// is "Tue, Aug 4" and that's enough — but a sign-in record has to be
+// unambiguous across years and precise to the minute.
+export function formatStamp(d: Date | string) {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function initials(name: string) {
   return name
     .trim()

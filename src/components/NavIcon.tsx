@@ -14,7 +14,9 @@ export type IconName =
   | "programs"
   | "nutrition"
   | "today"
-  | "history";
+  | "history"
+  | "climbing"
+  | "admin";
 
 const paths: Record<IconName, React.ReactNode> = {
   // Activity — what came back from the athletes.
@@ -68,6 +70,24 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M3.2 8.6A7 7 0 1 1 3 11.2" />
       <path d="M3 4.5v4.2h4.2" />
       <path d="M10 6.4v4l2.6 1.7" />
+    </>
+  ),
+  // A carabiner: the D-shaped body left open on the spine, with the gate as the
+  // straight bar inside it. The obvious alternative was a mountain, which says
+  // "outdoors" rather than "climbing" — and a route line with holds on it came
+  // out looking like the Activity chart two tabs away.
+  climbing: (
+    <>
+      <path d="M13.6 7.6V6.6a3.2 3.2 0 0 0-3.2-3.2H6.8A3.4 3.4 0 0 0 3.4 6.8v6.4a3.4 3.4 0 0 0 3.4 3.4h3.6a3.2 3.2 0 0 0 3.2-3.2v-1" />
+      <path d="M12.1 6.9v6.2" />
+    </>
+  ),
+  // A key, for the owner tools. Not a shield or a cog: this isn't security
+  // theatre or settings, it's the one door most accounts don't have.
+  admin: (
+    <>
+      <circle cx="6.8" cy="10" r="3.4" />
+      <path d="M10.2 10H17M13.9 10v2.6M16.2 10v1.9" />
     </>
   ),
 };
