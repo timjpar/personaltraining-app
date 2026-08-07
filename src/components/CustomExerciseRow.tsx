@@ -5,7 +5,7 @@ import {
   updateCustomExercise,
   deleteCustomExercise,
   type ExerciseFormState,
-} from "@/app/(shared)/exercises/actions";
+} from "@/app/(trainer)/exercises/actions";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
 import { Badge, Input, Select, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";

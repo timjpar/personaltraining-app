@@ -7,9 +7,9 @@ import { normalizeExerciseName, PRESET_SLUGS } from "@/lib/exercise-presets";
 import { toDiscipline } from "@/lib/constants";
 import { parseVideoUrl } from "@/lib/video-embed";
 
-// Lives in the (shared) group because /exercises is now a page both roles read.
-// Every action here still opens with requireTrainer(), so being reachable from a
-// shared route changes who can *see* the page, not who can write to the catalog.
+// Every action here opens with requireTrainer(). The page above it is now
+// trainer-gated by the (trainer) layout too, but these are POST endpoints in
+// their own right — the layout that renders the form is not what protects them.
 
 export type ExerciseFormState = { error?: string };
 export type MediaFormState = { error?: string; ok?: string };

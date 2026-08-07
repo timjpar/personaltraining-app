@@ -53,18 +53,20 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/workouts") ||
     pathname.startsWith("/library") ||
     pathname.startsWith("/programs") ||
-    pathname.startsWith("/nutrition");
+    pathname.startsWith("/nutrition") ||
+    // The movement library and the /climbing redirect that feeds it. Both were
+    // once open to clients, which is why they had a route group of their own;
+    // they are trainer tools again, so they belong in this list.
+    pathname.startsWith("/exercises") ||
+    pathname.startsWith("/climbing");
   const clientArea = pathname.startsWith("/my");
 
-  // /admin, /exercises and /climbing are in neither list on purpose, so both
-  // roles fall through to the page — that is the whole reason each has its own
-  // route group. /admin is granted by email and the isAdmin column (see
-  // src/lib/admin.ts) while the session token carries only the role, so this is
-  // the wrong layer to judge it from; requireAdmin() in the (admin) layout is
-  // the actual gate. /exercises and /climbing are simply for everyone —
-  // /exercises used to be trainer-only and listing it here again would redirect
-  // every client away from the movement library. Adding any of these prefixes
-  // to a list below would send half the app's users somewhere else.
+  // /admin is in neither list on purpose, so both roles fall through to the
+  // page — that is the whole reason it has its own route group. It is granted
+  // by email and the isAdmin column (see src/lib/admin.ts) while the session
+  // token carries only the role, so this is the wrong layer to judge it from;
+  // requireAdmin() in the (admin) layout is the actual gate. Adding /admin to a
+  // list below would send an admin of the other role somewhere else.
 
   if (session.role === ROLES.CLIENT && trainerArea) {
     const url = req.nextUrl.clone();
