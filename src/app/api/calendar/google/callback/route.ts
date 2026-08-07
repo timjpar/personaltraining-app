@@ -95,7 +95,11 @@ export async function GET(req: NextRequest) {
       });
     } catch (err) {
       console.error("Failed to create the Chalkline calendar", err);
-      return done(req, home, "exchange");
+      // Not "exchange": the grant is already stored above, so the connection
+      // exists and only the calendar is missing. googleCalendarState reports
+      // that row as `incomplete` and the card offers to finish the job, which
+      // lands back here to run exactly this block again.
+      return done(req, home, "nocalendar");
     }
   }
 
