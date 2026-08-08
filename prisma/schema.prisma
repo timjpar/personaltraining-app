@@ -279,6 +279,22 @@ model Workout {
   clientComment String?
   createdAt     DateTime  @default(now())
 
+  // The coach's answer to a finished session — the other half of rpe and
+  // clientComment above, which is why all four sit on Workout rather than in a
+  // messages table. A session gets one response from one coach and it belongs
+  // to that session; threading it would be a different feature.
+  //
+  // The athlete sees both on their own copy of the session. Nothing here is a
+  // private note: if that's ever wanted it needs its own column, because a
+  // column that is sometimes shown and sometimes not is how private notes end
+  // up in front of the person they were about.
+  coachReaction    String? // one of COACH_REACTIONS in src/lib/constants.ts
+  coachNote        String?
+  // When the coach last responded, so the athlete's page can say "2h ago" and
+  // so "has this been responded to" is one nullable check rather than an OR
+  // over two columns that can each independently be cleared.
+  coachRespondedAt DateTime?
+
   // Time of day, as minutes from midnight (0-1439). Null means no time was set,
   // which is every workout written before the calendar existed and every one
   // created by assigning a template or a program. Deliberately the same shape

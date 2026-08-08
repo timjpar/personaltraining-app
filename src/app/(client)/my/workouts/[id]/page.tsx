@@ -11,7 +11,8 @@ import {
   type Demo,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
-import { DISCIPLINE_LABELS, toDiscipline } from "@/lib/constants";
+import { DISCIPLINE_LABELS, toDiscipline, toCoachReaction } from "@/lib/constants";
+import { CoachResponseCard } from "@/components/CoachResponseCard";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { demoSearchUrl } from "@/lib/exercise-archetypes";
@@ -33,7 +34,13 @@ export default async function ClientWorkoutPage({
 
   const workout = await prisma.workout.findFirst({
     where: { id, clientId: client.id },
-    include: { exercises: { orderBy: { order: "asc" } } },
+    include: {
+      exercises: { orderBy: { order: "asc" } },
+      // Only the name, and only so the coach's response can be signed. The
+      // select matters: this row is the trainer's full User record otherwise,
+      // and it is one careless prop away from a client bundle.
+      trainer: { select: { name: true } },
+    },
   });
   if (!workout) notFound();
 
@@ -124,6 +131,16 @@ export default async function ClientWorkoutPage({
               </p>
             ) : null}
           </Card>
+
+          {/* Above the exercises, not below them: a coach's reply is the first
+              thing worth knowing on a session you already did, and burying it
+              under the whole prescription is how it goes unread. */}
+          <CoachResponseCard
+            coachName={workout.trainer.name}
+            reaction={toCoachReaction(workout.coachReaction)}
+            note={workout.coachNote}
+            respondedAt={workout.coachRespondedAt}
+          />
 
           <div className="flex flex-col gap-6">
             {groupBySection(workout.exercises).map((group) => (

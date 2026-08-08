@@ -57,6 +57,44 @@ export function toFoodSource(value: unknown): FoodSource {
   return s in FOOD_SOURCE_LABELS ? (s as FoodSource) : FOOD_SOURCE.MANUAL;
 }
 
+// How a coach reacts to a finished session. A closed set rather than a free
+// emoji field: these render in the athlete's app next to their own effort
+// rating, and a fixed list is the difference between a coach picking a tone and
+// a coach picking a character the app then has to render, sort and explain.
+//
+// Every one of them is positive on purpose. A reaction is the one-tap gesture;
+// anything that needs a caveat is what coachNote is for, where it arrives with
+// the words that make it coaching rather than a verdict.
+export const COACH_REACTIONS = {
+  STRONG: "STRONG",
+  FIRE: "FIRE",
+  PROUD: "PROUD",
+  ONTARGET: "ONTARGET",
+} as const;
+export type CoachReaction =
+  (typeof COACH_REACTIONS)[keyof typeof COACH_REACTIONS];
+
+// The glyph and the words that go with it. The label is not decoration: it's
+// the button's accessible name, and it's what the athlete's page says in text
+// beside the emoji, so a reaction still means something to a screen reader or
+// on a device with no font for it.
+export const COACH_REACTION_DISPLAY: Record<
+  CoachReaction,
+  { emoji: string; label: string }
+> = {
+  STRONG: { emoji: "💪", label: "Strong work" },
+  FIRE: { emoji: "🔥", label: "On fire" },
+  PROUD: { emoji: "👏", label: "Proud of this one" },
+  ONTARGET: { emoji: "🎯", label: "Right on target" },
+};
+
+// Null-returning, unlike its neighbours: there is no sensible default reaction,
+// and "no reaction" is the ordinary state of almost every session.
+export function toCoachReaction(value: unknown): CoachReaction | null {
+  const s = String(value ?? "");
+  return s in COACH_REACTION_DISPLAY ? (s as CoachReaction) : null;
+}
+
 // How an account came to exist. SELF is the default on the column, so it's also
 // what every row predating the audit log reads as.
 export const SIGNUP_SOURCE = {

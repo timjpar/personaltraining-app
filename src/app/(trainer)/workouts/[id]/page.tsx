@@ -9,7 +9,8 @@ import {
   exerciseMetrics,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
-import { DISCIPLINE_LABELS, toDiscipline } from "@/lib/constants";
+import { DISCIPLINE_LABELS, toDiscipline, toCoachReaction } from "@/lib/constants";
+import { CoachFeedbackForm } from "@/components/CoachFeedbackForm";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { RpeMeter } from "@/components/RpeMeter";
@@ -117,6 +118,17 @@ export default async function WorkoutReviewPage({
             </p>
           ) : null}
         </Card>
+      ) : null}
+
+      {isCompleted ? (
+        <div className="mt-4">
+          <CoachFeedbackForm
+            workoutId={workout.id}
+            clientName={workout.client.name}
+            reaction={toCoachReaction(workout.coachReaction)}
+            note={workout.coachNote}
+          />
+        </div>
       ) : null}
 
       {workout.notes ? (
