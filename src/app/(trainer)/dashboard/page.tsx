@@ -280,6 +280,7 @@ export default async function DashboardPage() {
         <NotificationsCard
           digestHour={trainer.digestHour}
           instantWorkoutEmail={trainer.instantWorkoutEmail}
+          instantNutritionEmail={trainer.instantNutritionEmail}
           timeZone={zoneFor(trainer)}
           mailConfigured={mailConfig() !== null}
         />

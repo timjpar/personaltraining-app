@@ -1,11 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/auth";
-import { parseNutritionLogForm } from "@/lib/nutrition-form";
+import { parseNutritionLogForm, sumMacros } from "@/lib/nutrition-form";
 import { parseDayParam } from "@/lib/calendar";
+import { formatDate, toDateInput } from "@/lib/format";
 import { FEED_TYPE } from "@/lib/constants";
+import { sendNutritionEmailSafely } from "@/lib/digest";
+import { requestOrigin } from "@/lib/request-origin";
 import type { FoodPreset } from "@/lib/food-presets";
 import { lookupBarcodeProduct, normalizeBarcode } from "@/lib/open-food-facts";
 import { geminiConfig, identifyFoods } from "@/lib/gemini";
@@ -167,6 +171,46 @@ export async function saveNutritionLog(
       });
     }
   });
+
+  // Coaches who opted out of this still get the day in that evening's digest,
+  // exactly as completeWorkout puts it: latency, not whether they hear at all.
+  //
+  // A primary-key lookup for one boolean, rather than loading the trainer up
+  // front with the client: requireClient() returns the athlete's own row and
+  // nothing hangs off it, and this way the query only happens on a save that
+  // could actually send. The clear-the-day path above deliberately doesn't
+  // reach here — there is no log left to report.
+  if (client.trainerId) {
+    const trainer = await prisma.user.findUnique({
+      where: { id: client.trainerId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        instantNutritionEmail: true,
+      },
+    });
+    if (trainer?.instantNutritionEmail) {
+      // Awaited out here, not inside the callback, for the reason
+      // completeWorkout gives: headers() belongs to the request, and after()
+      // runs once the response is on its way.
+      const origin = await requestOrigin();
+      const totals = sumMacros([{ foods: data.entries }]);
+      after(() =>
+        sendNutritionEmailSafely(
+          origin,
+          trainer,
+          { id: client.id, name: client.name },
+          {
+            date: toDateInput(date),
+            day: formatDate(date),
+            ...totals,
+            notes: data.notes,
+          },
+        ),
+      );
+    }
+  }
 
   revalidateAfterLog(client.id, client.trainerId);
   return { ok: "Saved." };

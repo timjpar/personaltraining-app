@@ -78,12 +78,20 @@ model User {
   // interrupted should be the deliberate half.
   instantWorkoutEmail Boolean @default(false)
 
-  // Both of the above sit on User rather than in a side table, unlike
+  // The same opt-in for food logs, and the noisier of the two by a wide margin.
+  // A workout completes once, so instantWorkoutEmail means one email per
+  // session; a day's log is upserted every time the athlete adds a food, so
+  // this means one email per *save*. saveNutritionLog's own comment puts that
+  // at four or five a day per athlete. Off by default like its neighbour, and
+  // the card says plainly what it costs.
+  instantNutritionEmail Boolean @default(false)
+
+  // All three of the above sit on User rather than in a side table, unlike
   // GoogleCalendarConnection. The hazard that one avoids is a *secret* being
   // loaded by getCurrentUser()'s select-less findUnique and ending up one
-  // careless `<Foo user={user} />` from a client bundle. These are two
-  // non-secret scalars in the same class as timeZone and isAdmin, and the
-  // settings card is supposed to render them.
+  // careless `<Foo user={user} />` from a client bundle. These are non-secret
+  // scalars in the same class as timeZone and isAdmin, and the settings card is
+  // supposed to render them.
 
   // A client belongs to one trainer (self-relation).
   trainerId String?

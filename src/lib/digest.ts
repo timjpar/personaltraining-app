@@ -1,13 +1,14 @@
 // What the coach hears about, and when.
 //
 // Two paths, deliberately different: buildDigest gathers a day's activity for
-// the once-daily email, and sendWorkoutEmailSafely fires immediately for the
-// trainers who opted into that. Both end in sendMail, which never throws.
+// the once-daily email, and the two "safely" senders fire immediately for the
+// trainers who opted into that. All of them end in sendMail, which never throws.
 import { prisma } from "@/lib/db";
 import {
   sendMail,
   digestEmail,
   workoutCompletedEmail,
+  nutritionLoggedEmail,
   type DigestLog,
   type DigestWorkout,
 } from "@/lib/mail";
@@ -131,5 +132,50 @@ export async function sendWorkoutEmailSafely(
     });
   } catch (err) {
     console.error("Workout email failed", err);
+  }
+}
+
+// The food-log twin of the above, with the same best-effort contract.
+//
+// It takes the totals already computed by the caller rather than re-reading the
+// log: saveNutritionLog has just written those rows inside a transaction, and a
+// read from after() could race the commit it is meant to be reporting on. The
+// one thing it does fetch is the calorie target, which the caller has no reason
+// to hold — same "most recently assigned plan wins" rule buildDigest uses.
+export async function sendNutritionEmailSafely(
+  origin: string,
+  trainer: { id: string; name: string; email: string },
+  client: { id: string; name: string },
+  log: {
+    date: string;
+    day: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    notes: string | null;
+  },
+): Promise<void> {
+  try {
+    const plan = await prisma.nutritionPlan.findFirst({
+      where: {
+        trainerId: trainer.id,
+        clientId: client.id,
+        assignedAt: { not: null },
+      },
+      orderBy: { assignedAt: "desc" },
+      select: { targetCalories: true },
+    });
+
+    await sendMail({
+      ...nutritionLoggedEmail(origin, trainer.name, client.name, {
+        ...log,
+        clientId: client.id,
+        targetCalories: plan?.targetCalories ?? null,
+      }),
+      to: trainer.email,
+    });
+  } catch (err) {
+    console.error("Nutrition email failed", err);
   }
 }
