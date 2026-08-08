@@ -27,6 +27,14 @@ type LogExercise = {
   demo?: Demo;
 };
 
+// The two result boxes. Typed values keep the tabular mono of a program sheet,
+// but the hint is prose, so the placeholder drops to the body face — and to
+// 12px on phones, where the pair shares a 375px row and mono would clip
+// "Weight you used". The field itself stays 16px there (see globals.css) so
+// iOS doesn't zoom on focus.
+const hintInput =
+  "metric min-h-12 w-full rounded-[var(--radius-sm)] border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:font-body placeholder:text-xs placeholder:text-ink-soft/60 focus-visible:border-jade focus-visible:outline-none sm:min-h-0 sm:placeholder:text-sm";
+
 function RpePicker() {
   const [value, setValue] = useState<number | null>(null);
   return (
@@ -217,8 +225,8 @@ export function WorkoutLogForm({
                             <input
                               name={`res_${ex.id}_reps`}
                               inputMode="numeric"
-                              placeholder={ex.reps ?? "—"}
-                              className="metric min-h-12 w-full rounded-[var(--radius-sm)] border border-line bg-paper px-3 py-2 text-sm text-ink focus-visible:border-jade focus-visible:outline-none sm:min-h-0"
+                              placeholder="Reps you did"
+                              className={hintInput}
                             />
                           </label>
                           <label className="flex flex-1 flex-col gap-1">
@@ -228,11 +236,11 @@ export function WorkoutLogForm({
                             <input
                               name={`res_${ex.id}_load`}
                               inputMode="decimal"
-                              // Prefer the prescribed weight: if the coach
-                              // wrote an actual number, that's the more useful
-                              // prompt.
-                              placeholder={ex.weight ?? ex.load ?? "—"}
-                              className="metric min-h-12 w-full rounded-[var(--radius-sm)] border border-line bg-paper px-3 py-2 text-sm text-ink focus-visible:border-jade focus-visible:outline-none sm:min-h-0"
+                              // Says what to enter rather than echoing the
+                              // prescription — that already sits in the metric
+                              // strip a few pixels above these fields.
+                              placeholder="Weight you used"
+                              className={hintInput}
                             />
                           </label>
                         </div>
