@@ -35,15 +35,24 @@ export function MacroBar({
             className="rounded-[var(--radius-sm)] border border-line bg-card px-3.5 py-2.5"
           >
             <p className="eyebrow text-ink-soft/70">{it.label}</p>
+            {/* The target goes on its own line rather than trailing the value.
+                Inline, a four-digit figure against a four-digit target wraps
+                wherever the column happens to end — "1475 /" above "2000 kcal",
+                with the unit orphaned — and these cells sit in a two-column
+                layout now, so narrow is the normal case rather than the edge. */}
             <p className="metric mt-1 text-lg font-semibold leading-none text-ink">
               {value}
-              {target != null ? (
-                <span className="font-normal text-ink-soft"> / {target}</span>
-              ) : null}
               <span className="ml-1 text-xs font-normal text-ink-soft">
                 {it.unit}
               </span>
             </p>
+            {/* Bare number, no unit: the line above already carries it, and
+                "/ 2000 kcal" is one token too wide for a quarter-column cell. */}
+            {target != null ? (
+              <p className="metric mt-1.5 whitespace-nowrap text-xs leading-none text-ink-soft">
+                / {target}
+              </p>
+            ) : null}
           </div>
         );
       })}

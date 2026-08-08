@@ -28,6 +28,12 @@ export default async function AdminUserPage({
   // Everything this account owns, fetched here rather than linked to: the
   // trainer-facing pages for templates, programs and nutrition all scope by
   // `trainerId: <the signed-in trainer>`, so they'd 404 on someone else's work.
+  //
+  // Workouts are the exception, and only because they earned their own admin
+  // route: reading what a coach actually programmed is the thing this page is
+  // most often opened for, and a title with no way through to the session is a
+  // dead end. See /admin/workouts/[id] — same render as the trainer's review
+  // page, without the edit controls or the unread-clearing side effect.
   const [user, trainers] = await Promise.all([
     prisma.user.findUnique({
     where: { id },
@@ -218,6 +224,7 @@ export default async function AdminUserPage({
             {user.workoutsAsTrainer.map((w) => (
               <Row
                 key={w.id}
+                href={`/admin/workouts/${w.id}`}
                 title={w.title}
                 sub={`For ${w.client.name}`}
                 meta={`${formatDate(w.scheduledDate)} · ${w.status === "COMPLETED" ? "Completed" : "Assigned"}`}
@@ -234,6 +241,7 @@ export default async function AdminUserPage({
           {user.workoutsAsClient.map((w) => (
             <Row
               key={w.id}
+              href={`/admin/workouts/${w.id}`}
               title={w.title}
               meta={`${formatDate(w.scheduledDate)} · ${w.status === "COMPLETED" ? "Completed" : "Assigned"}`}
             />

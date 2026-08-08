@@ -1,6 +1,10 @@
 // Parses the nutrition builder into structured data, and sums food macros into
 // daily totals. The builder is fully controlled and submits its meals as one
 // JSON blob (field "meals"); the plan-level fields are plain named inputs.
+//
+// Both halves of the loop live here: the coach's plan (parseNutritionForm) and
+// the athlete's day log (parseNutritionLogForm). sumMacros serves both.
+import { toFoodSource, type FoodSource } from "@/lib/constants";
 
 export type ParsedFood = {
   name: string;
@@ -96,6 +100,70 @@ export function parseNutritionForm(
       targetCarbs: intOrNull(formData.get("targetCarbs")),
       targetFat: intOrNull(formData.get("targetFat")),
       meals,
+    },
+  };
+}
+
+// The client's day log. Same job as parseNutritionForm above and the same
+// serialization contract — one hidden JSON field — but the shape is flat: a
+// day is a list of foods carrying a meal label, not a list of meals carrying
+// foods. See the LoggedFood comment in schema.prisma for why.
+export type ParsedLogEntry = {
+  meal: string;
+  name: string;
+  quantity: string | null;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  source: FoodSource;
+  order: number;
+};
+
+export type ParsedLog = {
+  notes: string | null;
+  entries: ParsedLogEntry[];
+};
+
+export function parseNutritionLogForm(
+  formData: FormData,
+): { data?: ParsedLog; error?: string } {
+  let raw: unknown = [];
+  try {
+    raw = JSON.parse(String(formData.get("entries") ?? "[]"));
+  } catch {
+    raw = [];
+  }
+
+  const entries: ParsedLogEntry[] = [];
+  if (Array.isArray(raw)) {
+    for (const e of raw) {
+      const entry = e as Record<string, unknown>;
+      const name = String(entry?.name ?? "").trim();
+      if (!name) continue; // drop empty rows, exactly as the plan parser does
+      entries.push({
+        // Trimmed to a sane length: it's a label the athlete types freely and
+        // it ends up in a digest email and a coach's feed.
+        meal: String(entry?.meal ?? "").trim().slice(0, 40),
+        name,
+        quantity: String(entry?.quantity ?? "").trim() || null,
+        calories: intOrNull(entry?.calories),
+        protein: intOrNull(entry?.protein),
+        carbs: intOrNull(entry?.carbs),
+        fat: intOrNull(entry?.fat),
+        source: toFoodSource(entry?.source),
+        order: entries.length + 1,
+      });
+    }
+  }
+
+  // An empty log is a legitimate thing to save: it's how an athlete clears a
+  // day they logged by mistake. The action deletes the row rather than storing
+  // an empty one, so there's nothing to reject here.
+  return {
+    data: {
+      notes: String(formData.get("notes") ?? "").trim() || null,
+      entries,
     },
   };
 }

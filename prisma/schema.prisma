@@ -59,6 +59,32 @@ model User {
   // not the server's. Null until the browser has reported one.
   timeZone String?
 
+  // Which hour of the trainer's own day the digest goes out at, 0-23; null is
+  // off. Deliberately NOT the minutes-from-midnight the rest of the app uses
+  // for times (see CalendarEvent): the scheduler that fires this runs hourly,
+  // so a minute field would promise a precision it cannot keep, and someone
+  // would set 20:30 and file a bug about the half hour. Read against timeZone
+  // above, which is the only reason that column now has a second caller.
+  //
+  // Defaulted rather than null so an existing trainer gets a digest without
+  // finding a setting first — the same call GoogleCalendarCard makes about
+  // discoverability. Turning it off is then a deliberate choice, which is the
+  // right way round for something that only ever sends one email a day.
+  digestHour Int? @default(20)
+
+  // Opt in to hearing about a finished session the moment it lands, instead of
+  // waiting for the digest. Off by default: the digest exists precisely so a
+  // coach with twenty clients isn't interrupted all day, so choosing to be
+  // interrupted should be the deliberate half.
+  instantWorkoutEmail Boolean @default(false)
+
+  // Both of the above sit on User rather than in a side table, unlike
+  // GoogleCalendarConnection. The hazard that one avoids is a *secret* being
+  // loaded by getCurrentUser()'s select-less findUnique and ending up one
+  // careless `<Foo user={user} />` from a client bundle. These are two
+  // non-secret scalars in the same class as timeZone and isAdmin, and the
+  // settings card is supposed to render them.
+
   // A client belongs to one trainer (self-relation).
   trainerId String?
   trainer   User?   @relation("TrainerClients", fields: [trainerId], references: [id])
@@ -77,6 +103,11 @@ model User {
   nutritionTemplates NutritionPlan[]   @relation("TrainerNutrition")
   // Nutrition plans assigned down to this user (as a client).
   nutritionPlans     NutritionPlan[]   @relation("ClientNutrition")
+  // What this user actually ate, as a client. The other half of the loop:
+  // nutritionPlans above is what the coach prescribed.
+  nutritionLogs      NutritionLog[]    @relation("ClientNutritionLogs")
+
+  digestRuns DigestRun[] @relation("TrainerDigests")
 
   // The trainer's own calendar entries, and the ones that name this user as the
   // client they're about.
@@ -301,9 +332,24 @@ model FeedItem {
   clientId String
   client   User   @relation("ClientFeed", fields: [clientId], references: [id], onDelete: Cascade)
 
-  workoutId String
-  workout   Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  // Exactly one of these is set, chosen by `type`. Both are nullable because a
+  // feed item is now either kind of event — workoutId was NOT NULL when a
+  // finished session was the only thing that could reach the feed.
+  workoutId String?
+  workout   Workout? @relation(fields: [workoutId], references: [id], onDelete: Cascade)
 
+  nutritionLogId String?
+  nutritionLog   NutritionLog? @relation(fields: [nutritionLogId], references: [id], onDelete: Cascade)
+
+  // The unique index is what stops a day's log filling the feed. An athlete
+  // saves their log four or five times over a day; each save must find the
+  // same feed row rather than add one. Postgres allows unlimited NULLs in a
+  // unique index, so every WORKOUT_COMPLETED row — all of them null here —
+  // coexists untouched, and the save becomes a single upsert keyed on this
+  // column: atomic, with no read-then-write window for two saves to race
+  // through. A workout can't use the same trick, and doesn't need to: it
+  // completes once.
+  @@unique([nutritionLogId])
   @@index([trainerId, read])
 }
 
@@ -472,6 +518,121 @@ model Food {
   carbs    Int?
   fat      Int?
   order    Int     @default(0)
+}
+
+// What the athlete actually ate on a day — the other half of NutritionPlan,
+// which is only ever what the coach prescribed.
+//
+// A separate tree rather than a reused NutritionPlan with some flag, because a
+// plan is defined by the things a log has no business carrying: target macros,
+// assignedAt, and a nullable clientId that means "library template". Every
+// existing plan query would need a new filter to keep diaries out, and the one
+// call site that got missed would show an athlete's log back to them as their
+// prescription.
+model NutritionLog {
+  id String @id @default(cuid())
+
+  clientId String
+  client   User   @relation("ClientNutritionLogs", fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Local-midnight, the same convention as Workout.scheduledDate — this is the
+  // athlete's day, resolved the same way every other date in the app is.
+  // Contrast DigestRun.day, which is a String precisely because it isn't.
+  date DateTime
+
+  // The nutrition analogue of Workout.clientComment: "travelling, ate out
+  // twice". The context that makes the numbers legible to a coach.
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  foods     LoggedFood[]
+  feedItems FeedItem[]
+
+  // Serves the save's upsert and the client's own day lookup both. One day per
+  // client, so re-saving edits the day instead of stacking another one.
+  @@unique([clientId, date])
+  // The digest asks "what changed since I last ran", which the unique index
+  // above can't answer — its second column is the day logged *for*, not the
+  // moment it was touched.
+  @@index([clientId, updatedAt])
+}
+
+// One food in a day's log. Flat, with the meal as a label on the row rather
+// than a Meal table between this and NutritionLog — the opposite shape to
+// Plan → Meal → Food, and on purpose:
+//
+//   - A meal row's only content would be a string the athlete typed. Saving is
+//     a wholesale delete-and-recreate (the same pattern updateNutritionTemplate
+//     uses), so those rows would be destroyed and remade on every save and
+//     never hold identity across one.
+//   - Decisively: a barcode scan produces exactly one food. With meals as rows,
+//     a scanned item has to choose a parent before it can exist at all, which
+//     puts a dialog in front of the fastest path in the feature.
+//
+// sumMacros() in nutrition-form.ts still works unchanged — pass the day as a
+// single pseudo-meal, `sumMacros([{ foods: log.foods }])`.
+model LoggedFood {
+  id    String       @id @default(cuid())
+  logId String
+  log   NutritionLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+
+  // Free-form: "Breakfast", "Post-session", or empty. A grouping label for
+  // reading the day back, not an ordering key — `order` stays global across
+  // the whole log, exactly as Exercise.order does across a whole workout.
+  meal String @default("")
+
+  name String
+  // Same contract as Food.quantity, including the "2 × 1 medium (200 g)" form
+  // a scaled preset produces. Deliberately no servings column, for the reason
+  // spelled out on that column.
+  quantity String?
+  calories Int?
+  protein  Int?
+  carbs    Int?
+  fat      Int?
+  order    Int     @default(0)
+
+  // MANUAL | PRESET | BARCODE | PHOTO — see FOOD_SOURCE in constants.ts. The
+  // only signal the scanning features will ever produce about whether they get
+  // used, and a coach reads "off a barcode" differently from "she guessed".
+  source String @default("MANUAL")
+}
+
+// One row per trainer per day the digest has been claimed for. Its own table
+// for the same reason GoogleCalendarConnection is one: nothing reads it unless
+// a digest is actually running, so it stays off the User row that every
+// authenticated request loads in full.
+//
+// The unique index below is the mutex, not just a constraint. The cron fires
+// hourly and can retry; create() either wins the day or throws P2002, which
+// isUniqueViolation() in src/lib/db.ts already exists to catch. That is a
+// claim-then-send, structurally the same move syncIfStale makes when it uses a
+// where-guard as both the throttle and the lock.
+model DigestRun {
+  id String @id @default(cuid())
+
+  trainerId String
+  trainer   User   @relation("TrainerDigests", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  // The trainer's own calendar day, "2026-08-07". A String rather than the
+  // local-midnight DateTime used everywhere else in this schema, and that
+  // asymmetry with NutritionLog.date is the point: this day is resolved in the
+  // *trainer's* zone on a server that may be in another one, so a DateTime
+  // would be ambiguous in exactly the way CalendarEvent's comment warns about.
+  day String
+
+  claimedAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  // What went out, so a quiet digest is distinguishable from a broken one.
+  workouts Int     @default(0)
+  logs     Int     @default(0)
+  ok       Boolean @default(false)
+
+  @@unique([trainerId, day])
+  @@index([trainerId, claimedAt])
 }
 
 // A trainer's own calendar entry: consults, check-in calls, admin blocks —
