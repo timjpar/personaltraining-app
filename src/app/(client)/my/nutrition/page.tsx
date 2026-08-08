@@ -1,46 +1,28 @@
 import { requireClient } from "@/lib/auth";
-import { prisma } from "@/lib/db";
-import { Container, PageHeading, EmptyState } from "@/components/ui";
-import { NutritionPlanView } from "@/components/NutritionPlanView";
-import { formatDate } from "@/lib/format";
+import { Container, PageHeading } from "@/components/ui";
+import { NutritionDay } from "./day";
 
+// Today's log, with the coach's plan alongside. This page used to be the plan
+// on its own; the plan is still here, but reading it was never the job an
+// athlete opened the Nutrition tab to do.
+//
+// Deliberately not a redirect to /my/nutrition/<today>: this is a tab-bar
+// destination, and a tab that changes its own URL the moment you arrive breaks
+// the back button and makes the active-pill match a moving target.
 export default async function ClientNutritionPage() {
   const client = await requireClient();
 
-  // The current plan is the most recently assigned one.
-  const plan = await prisma.nutritionPlan.findFirst({
-    where: { clientId: client.id },
-    orderBy: { assignedAt: "desc" },
-    include: {
-      meals: {
-        orderBy: { order: "asc" },
-        include: { foods: { orderBy: { order: "asc" } } },
-      },
-    },
-  });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   return (
-    <Container className="max-w-3xl">
-      <PageHeading
-        eyebrow="Nutrition"
-        title={plan ? plan.title : "Nutrition"}
-      >
-        {plan
-          ? plan.assignedAt
-            ? `Your plan since ${formatDate(plan.assignedAt)}.`
-            : "Your current plan."
-          : "Your nutrition plan will show up here."}
+    <Container className="max-w-5xl">
+      <PageHeading eyebrow="Nutrition" title="Today">
+        Log what you ate. Your coach sees it with their daily summary.
       </PageHeading>
 
       <div className="mt-7">
-        {plan ? (
-          <NutritionPlanView plan={plan} />
-        ) : (
-          <EmptyState title="No plan yet">
-            When your coach assigns a meal plan, it&rsquo;ll appear here with your
-            daily targets and macros.
-          </EmptyState>
-        )}
+        <NutritionDay clientId={client.id} day={today} />
       </div>
     </Container>
   );

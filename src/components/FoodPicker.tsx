@@ -25,6 +25,7 @@ export function FoodPicker({
   onPick,
   onPickCustom,
   custom,
+  customLabel = "My foods",
   placeholder = "Food",
   className,
   "aria-label": ariaLabel,
@@ -37,9 +38,12 @@ export function FoodPicker({
   // The "use as a custom food" row was taken. The parent drops the serving
   // link, since there's no per-serving base left to scale from.
   onPickCustom?: (name: string) => void;
-  // Trainer-authored foods, shown ahead of the catalog. Nothing supplies these
-  // yet; the slot is here so adding them later needs no signature change.
+  // Foods shown ahead of the catalog. The day log passes what this athlete has
+  // logged before, which is what makes a repeated breakfast one tap.
   custom?: FoodPreset[];
+  // What that group is called. "My foods" reads right for a coach building a
+  // plan and slightly off for an athlete reading their own history back.
+  customLabel?: string;
   placeholder?: string;
   className?: string;
   "aria-label"?: string;
@@ -87,11 +91,11 @@ export function FoodPicker({
       out.push({ label, foods: picked });
     };
 
-    if (custom?.length) push("My foods", custom);
+    if (custom?.length) push(customLabel, custom);
     for (const c of FOOD_PRESETS) push(c.label, c.foods);
 
     return { groups: out, truncated: cut };
-  }, [value, custom]);
+  }, [value, custom, customLabel]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.foods), [groups]);
 

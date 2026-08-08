@@ -208,6 +208,151 @@ export function googleWelcomeEmail(
   };
 }
 
+// Sent the moment a session lands, to a trainer who opted in to that instead of
+// waiting for the digest. The workout still appears in that evening's digest —
+// the digest is the day's record, not a queue of unsent items, and deduping it
+// would make the same day read differently depending on a setting.
+export function workoutCompletedEmail(
+  origin: string,
+  trainerName: string,
+  clientName: string,
+  workout: { id: string; title: string; rpe: number | null; clientComment: string | null },
+): Mail {
+  const link = `${appUrl(origin)}/workouts/${workout.id}`;
+  const effort = workout.rpe != null ? `RPE ${workout.rpe}/10` : "not rated";
+  return {
+    to: "",
+    subject: `${clientName} finished ${workout.title}`,
+    text: [
+      `Hi ${trainerName},`,
+      "",
+      `${clientName} just logged ${workout.title}. Effort: ${effort}.`,
+      ...(workout.clientComment ? ["", `They said: ${workout.clientComment}`] : []),
+      "",
+      `See the session: ${link}`,
+    ].join("\n"),
+    html: `<p>Hi ${escapeHtml(trainerName)},</p>
+<p><strong>${escapeHtml(clientName)}</strong> just logged ${escapeHtml(workout.title)}. Effort: ${escapeHtml(effort)}.</p>
+${
+  workout.clientComment
+    ? `<p style="border-left:2px solid #ddd;padding-left:12px">${escapeHtml(workout.clientComment)}</p>`
+    : ""
+}
+<p><a href="${escapeHtml(link)}">See the session</a></p>`,
+  };
+}
+
+// The day's activity in one message, at the hour the trainer chose.
+//
+// Note how much more of this is attacker-influenced text than the account
+// emails above: client names, workout titles, RPE comments, log notes, and food
+// names typed by an athlete or returned by a language model. Every one of them
+// goes through escapeHtml, without exception.
+export type DigestWorkout = {
+  id: string;
+  title: string;
+  clientName: string;
+  rpe: number | null;
+  clientComment: string | null;
+};
+
+export type DigestLog = {
+  clientId: string;
+  clientName: string;
+  day: string; // the date it's *for*, already formatted
+  date: string; // yyyy-mm-dd, for the link
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  targetCalories: number | null;
+  notes: string | null;
+};
+
+export function digestEmail(
+  origin: string,
+  trainerName: string,
+  data: { workouts: DigestWorkout[]; logs: DigestLog[] },
+): Mail {
+  const base = appUrl(origin);
+  const counts = [
+    data.workouts.length
+      ? `${data.workouts.length} session${data.workouts.length === 1 ? "" : "s"}`
+      : null,
+    data.logs.length
+      ? `${data.logs.length} food log${data.logs.length === 1 ? "" : "s"}`
+      : null,
+  ].filter(Boolean);
+
+  const workoutLine = (w: DigestWorkout) =>
+    `${w.clientName} — ${w.title}${w.rpe != null ? ` (RPE ${w.rpe})` : ""}${
+      w.clientComment ? `: ${w.clientComment}` : ""
+    }`;
+
+  const logLine = (l: DigestLog) =>
+    `${l.clientName} — ${l.day}: ${l.calories}${
+      l.targetCalories != null ? ` / ${l.targetCalories}` : ""
+    } kcal, P ${l.protein} C ${l.carbs} F ${l.fat}${l.notes ? `: ${l.notes}` : ""}`;
+
+  return {
+    to: "",
+    subject: `Chalkline: ${counts.join(" and ")}`,
+    text: [
+      `Hi ${trainerName},`,
+      "",
+      "Here's what your athletes did today.",
+      ...(data.workouts.length
+        ? ["", "Sessions", ...data.workouts.map((w) => `  ${workoutLine(w)}`)]
+        : []),
+      ...(data.logs.length
+        ? ["", "Nutrition", ...data.logs.map((l) => `  ${logLine(l)}`)]
+        : []),
+      "",
+      // Said plainly, because a trainer with instant alerts on will otherwise
+      // read the repeat as a bug.
+      "This covers everything from today, including anything already emailed.",
+      "",
+      `Open Chalkline: ${base}/dashboard`,
+    ].join("\n"),
+    html: `<p>Hi ${escapeHtml(trainerName)},</p>
+<p>Here&rsquo;s what your athletes did today.</p>
+${
+  data.workouts.length
+    ? `<h3>Sessions</h3><ul>${data.workouts
+        .map(
+          (w) =>
+            `<li><a href="${escapeHtml(`${base}/workouts/${w.id}`)}">${escapeHtml(
+              w.clientName,
+            )} &mdash; ${escapeHtml(w.title)}</a>${
+              w.rpe != null ? ` <em>RPE ${w.rpe}</em>` : ""
+            }${w.clientComment ? `<br><span style="color:#666">${escapeHtml(w.clientComment)}</span>` : ""}</li>`,
+        )
+        .join("")}</ul>`
+    : ""
+}
+${
+  data.logs.length
+    ? `<h3>Nutrition</h3><ul>${data.logs
+        .map(
+          (l) =>
+            `<li><a href="${escapeHtml(
+              `${base}/clients/${l.clientId}/nutrition/${l.date}`,
+            )}">${escapeHtml(l.clientName)} &mdash; ${escapeHtml(l.day)}</a>: ${
+              l.calories
+            }${l.targetCalories != null ? ` / ${l.targetCalories}` : ""} kcal, P ${
+              l.protein
+            } C ${l.carbs} F ${l.fat}${
+              l.notes ? `<br><span style="color:#666">${escapeHtml(l.notes)}</span>` : ""
+            }</li>`,
+        )
+        .join("")}</ul>`
+    : ""
+}
+<p style="color:#666;font-size:0.9em">This covers everything from today, including anything already emailed.</p>
+<p><a href="${escapeHtml(`${base}/dashboard`)}">Open Chalkline</a></p>`,
+  };
+}
+
 // The name comes from a database column the account holder chose, so it is
 // exactly the kind of value that shouldn't be dropped into markup unescaped.
 function escapeHtml(s: string): string {

@@ -15,6 +15,7 @@ import { AssignSavedWorkout } from "@/components/AssignSavedWorkout";
 import { ResetClientPassword } from "./ResetClientPassword";
 import { assignTemplateToClient } from "@/app/(trainer)/library/actions";
 import { formatDate, toDateInput } from "@/lib/format";
+import { sumMacros } from "@/lib/nutrition-form";
 
 function WorkoutRow({
   id,
@@ -60,23 +61,42 @@ export default async function ClientDetailPage({
   const { id } = await params;
   const trainer = await requireTrainer();
 
-  const client = await prisma.user.findFirst({
-    where: { id, trainerId: trainer.id, role: "CLIENT" },
-    include: {
-      workoutsAsClient: {
-        orderBy: { scheduledDate: "desc" },
-        include: { _count: { select: { exercises: true } } },
+  // All four in parallel. Each scopes itself — the logs and the plan carry the
+  // trainer check in their own where clause rather than leaning on the client
+  // lookup having succeeded, so running them together is safe.
+  const [client, templates, logs, plan] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id, trainerId: trainer.id, role: "CLIENT" },
+      include: {
+        workoutsAsClient: {
+          orderBy: { scheduledDate: "desc" },
+          include: { _count: { select: { exercises: true } } },
+        },
       },
-    },
-  });
+    }),
+    prisma.workoutTemplate.findMany({
+      where: { trainerId: trainer.id },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, title: true },
+    }),
+    prisma.nutritionLog.findMany({
+      where: { clientId: id, client: { trainerId: trainer.id } },
+      orderBy: { date: "desc" },
+      take: 14,
+      include: {
+        foods: {
+          select: { calories: true, protein: true, carbs: true, fat: true },
+        },
+      },
+    }),
+    prisma.nutritionPlan.findFirst({
+      where: { clientId: id, trainerId: trainer.id },
+      orderBy: { assignedAt: "desc" },
+      select: { title: true, targetCalories: true },
+    }),
+  ]);
 
   if (!client) notFound();
-
-  const templates = await prisma.workoutTemplate.findMany({
-    where: { trainerId: trainer.id },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true },
-  });
 
   const upcoming = client.workoutsAsClient
     .filter((w) => w.status !== "COMPLETED")
@@ -198,6 +218,79 @@ export default async function ClientDetailPage({
           )}
         </section>
       </div>
+
+      <section className="mt-10">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className="font-display text-lg font-semibold text-ink">
+            Nutrition
+          </h2>
+          {plan ? (
+            <p className="text-xs text-ink-soft">
+              On <span className="text-ink">{plan.title}</span>
+              {plan.targetCalories
+                ? ` · target ${plan.targetCalories} kcal`
+                : ""}
+            </p>
+          ) : (
+            <Link
+              href="/nutrition"
+              className="text-xs font-medium text-jade-strong hover:underline"
+            >
+              Assign a plan →
+            </Link>
+          )}
+        </div>
+
+        {logs.length === 0 ? (
+          <EmptyState title="Nothing logged yet">
+            When {client.name.split(/\s+/)[0]} logs what they ate, the days show
+            up here with totals against their targets.
+          </EmptyState>
+        ) : (
+          <Card className="divide-y divide-line">
+            {logs.map((log) => {
+              const totals = sumMacros([{ foods: log.foods }]);
+              const over =
+                plan?.targetCalories != null &&
+                totals.calories > plan.targetCalories;
+              return (
+                <Link
+                  key={log.id}
+                  href={`/clients/${client.id}/nutrition/${toDateInput(log.date)}`}
+                  className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-paper"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">
+                      {formatDate(log.date)}
+                    </p>
+                    <p className="metric mt-0.5 text-xs text-ink-soft">
+                      P {totals.protein} · C {totals.carbs} · F {totals.fat}
+                      {log.foods.length
+                        ? ` · ${log.foods.length} item${log.foods.length === 1 ? "" : "s"}`
+                        : ""}
+                    </p>
+                  </div>
+                  {/* Amber for over target, matching how effort is flagged
+                      everywhere else — it's a number to look at, not a fault. */}
+                  <span
+                    className={
+                      "metric shrink-0 text-xs " +
+                      (over ? "text-amber" : "text-ink-soft")
+                    }
+                  >
+                    {totals.calories}
+                    {plan?.targetCalories != null
+                      ? ` / ${plan.targetCalories}`
+                      : ""}{" "}
+                    kcal
+                  </span>
+                  <span className="text-ink-soft">›</span>
+                </Link>
+              );
+            })}
+          </Card>
+        )}
+      </section>
 
       {/* Account admin, kept to the bottom and to one column: it's the thing you
           reach for once in a while, not what this page is about. */}

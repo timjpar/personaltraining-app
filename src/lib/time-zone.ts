@@ -40,3 +40,40 @@ export function zoneFor(user: { timeZone: string | null }): string {
     "UTC"
   );
 }
+
+// What hour it is for someone right now, 0-23, in their own zone. The digest
+// needs this: it fires from an hourly cron on a server that may be anywhere,
+// and "is it 8pm for this coach yet" is not a question the server's own clock
+// can answer.
+//
+// formatToParts with hourCycle "h23" rather than hour12: false, which is not
+// interchangeable — several ICU versions return "24" for midnight under
+// hour12: false, and an hour that reads as 24 matches no digestHour and
+// silently drops that trainer's digest for the day. The % 24 is belt to that
+// braces on runtimes that still manage it.
+export function localHour(at: Date, timeZone: string): number {
+  const part = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    hour: "numeric",
+  })
+    .formatToParts(at)
+    .find((p) => p.type === "hour");
+  const n = Number(part?.value);
+  return Number.isFinite(n) ? n % 24 : 0;
+}
+
+// The calendar day it is for someone right now, as "2026-08-07". This is what
+// DigestRun.day stores, and the reason that column is a String: the day is
+// resolved in the trainer's zone, not the server's, so a local-midnight
+// DateTime would be ambiguous about which midnight it meant.
+//
+// en-CA gives ISO order natively, which beats reassembling parts by hand.
+export function localDay(at: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(at);
+}

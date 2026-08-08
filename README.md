@@ -16,8 +16,20 @@ dashboard the moment it happens. Modeled on the CoachRx workflow.
   each with sets / reps / load / tempo / rest and a coaching note.
 - **Client logging.** Clients see what's assigned, log actual reps and load per
   exercise, rate the session (RPE 1–10), and leave a note for their coach.
-- **Activity feed.** Every completion appears on the trainer's dashboard with
-  the client's comment, RPE, and results, plus an unread badge.
+- **Nutrition, both directions.** Coaches build meal plans with daily macro
+  targets and assign them; athletes log what they actually ate each day, with
+  the plan beside them for reference and their totals shown against target.
+- **Scan a food.** Point the camera at a barcode and the product's macros fill
+  themselves in from [Open Food Facts](https://world.openfoodfacts.org) — free,
+  no key. Or photograph the meal and have Gemini read it, which also covers
+  home cooking. Either way it lands in an editable row, never straight in the
+  database.
+- **Activity feed.** Every completion and every food log appears on the
+  trainer's dashboard with the client's comment, RPE, results or macros, plus
+  an unread badge.
+- **A daily digest.** One email per coach per day, at an hour they choose,
+  covering who trained and who logged. Finished sessions can also email the
+  moment they land, for coaches who want that.
 - **Calendars for both roles.** The trainer's calendar merges programmed
   sessions with consults, check-ins and blocked-out time; the athlete gets a
   read-only one showing their own training and whatever their coach has booked
@@ -83,7 +95,7 @@ a trainer workspace, exactly like `/register`.
 
 ### Email (optional)
 
-Two things send mail, both through [Resend](https://resend.com):
+Mail goes out through [Resend](https://resend.com):
 
 - **New accounts.** Everyone who gets an account is emailed how to sign in. A
   client whose trainer created their account gets the address and the generated
@@ -91,6 +103,9 @@ Two things send mail, both through [Resend](https://resend.com):
   naming the address their account answers to.
 - **Password resets.** The `/forgot` link mails a single-use link that expires
   in an hour.
+- **The daily digest**, and the optional instant alert when a session is
+  finished. Both are configured per trainer at the bottom of `/dashboard`, and
+  the digest needs a scheduler — see below.
 
 Set `RESEND_API_KEY` and `MAIL_FROM` to turn it on. `MAIL_FROM` has to be an
 address on a domain you've verified with Resend — their `onboarding@resend.dev`
@@ -100,6 +115,48 @@ for a smoke test and nothing else.
 With neither set, nothing breaks: `/forgot` says resets aren't available and
 points people at their trainer, and a trainer adding a client is shown the
 password on screen to pass on by hand, exactly as it worked before.
+
+### Photo food scanning (optional)
+
+Set `GEMINI_API_KEY` to a key from
+[Google AI Studio](https://aistudio.google.com/apikey) and the log form gains a
+"Photo of food" button that reads a meal into rows. Without it the button says
+so when pressed; barcode scanning and the food catalog don't touch this key.
+
+The photo is never stored by this app — it lives as a variable for one request.
+But on Google's free tier, Google may retain what's sent and train on it, and
+that includes your athletes' meal photos. A billed Google Cloud project excludes
+prompts from that; only the key changes.
+
+Barcode scanning needs no key at all. It uses the browser's `BarcodeDetector`,
+which Safari doesn't implement — on an iPhone the live scanner button doesn't
+appear, and the photo path (which opens the camera directly, no `getUserMedia`)
+or typing the digits covers it. Note that any camera access requires a secure
+context, so a phone pointed at `http://192.168.x.x:3000` will fail: use
+`npx next dev --experimental-https` or a tunnel.
+
+### Scheduling the daily digest (optional)
+
+The digest is sent by `/api/cron/digest`, which authenticates with a bearer
+token rather than a session because a scheduler has no cookies. Set
+`CRON_SECRET` in the deployed environment; with it blank the endpoint is a 404
+and nothing is sent.
+
+It has to be pinged **hourly** — each trainer picks their own send hour, which
+is resolved against their own time zone, so the endpoint has to be given the
+chance to notice each hour arriving. It only ever sends once per trainer per
+day; a `DigestRun` row claims the day, and its unique index is what makes a
+retry or a double-fire harmless.
+
+Vercel's Hobby plan refuses any cron more frequent than daily, so the repo
+ships `.github/workflows/digest.yml` instead. It needs two repository settings:
+
+- a **secret** named `CRON_SECRET`, matching the deployed value
+- a **variable** named `APP_URL`, holding the site origin
+
+On a paid Vercel plan, delete that workflow and add a `vercel.json` with a
+`crons` entry pointing at `/api/cron/digest` — Vercel sends the
+`Authorization: Bearer $CRON_SECRET` header itself, so no code changes.
 
 ### Google Calendar sync (optional)
 

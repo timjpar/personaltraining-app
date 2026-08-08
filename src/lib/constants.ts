@@ -16,7 +16,46 @@ export type WorkoutStatus = (typeof WORKOUT_STATUS)[keyof typeof WORKOUT_STATUS]
 
 export const FEED_TYPE = {
   WORKOUT_COMPLETED: "WORKOUT_COMPLETED",
+  NUTRITION_LOGGED: "NUTRITION_LOGGED",
 } as const;
+export type FeedType = (typeof FEED_TYPE)[keyof typeof FEED_TYPE];
+
+export const FEED_TYPE_LABELS: Record<FeedType, string> = {
+  WORKOUT_COMPLETED: "Finished a session",
+  NUTRITION_LOGGED: "Logged nutrition",
+};
+
+// Same contract as toDiscipline. WORKOUT_COMPLETED is the fallback because it
+// is the column default, so every feed row written before nutrition logging
+// existed reads as what it actually is.
+export function toFeedType(value: unknown): FeedType {
+  const s = String(value ?? "");
+  return s in FEED_TYPE_LABELS
+    ? (s as FeedType)
+    : FEED_TYPE.WORKOUT_COMPLETED;
+}
+
+// How a logged food got its numbers. MANUAL is the column default and the
+// honest fallback: typed in by hand is what every other value degrades to.
+export const FOOD_SOURCE = {
+  MANUAL: "MANUAL",
+  PRESET: "PRESET",
+  BARCODE: "BARCODE",
+  PHOTO: "PHOTO",
+} as const;
+export type FoodSource = (typeof FOOD_SOURCE)[keyof typeof FOOD_SOURCE];
+
+export const FOOD_SOURCE_LABELS: Record<FoodSource, string> = {
+  MANUAL: "Typed in",
+  PRESET: "From the catalog",
+  BARCODE: "Scanned barcode",
+  PHOTO: "From a photo",
+};
+
+export function toFoodSource(value: unknown): FoodSource {
+  const s = String(value ?? "");
+  return s in FOOD_SOURCE_LABELS ? (s as FoodSource) : FOOD_SOURCE.MANUAL;
+}
 
 // How an account came to exist. SELF is the default on the column, so it's also
 // what every row predating the audit log reads as.
