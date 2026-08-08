@@ -242,6 +242,58 @@ ${
   };
 }
 
+// The same idea for a food log, and the same deliberate overlap with the digest:
+// the day still appears in that evening's summary.
+//
+// Where it differs from workoutCompletedEmail is that this one repeats. A log is
+// a day that gets edited, so the second and fifth email are about the same date
+// as the first — hence "updated" in the subject rather than "logged", and hence
+// the totals in the body, which are the only part that actually changed. Every
+// interpolated value here is athlete-typed or model-returned: all escaped.
+export function nutritionLoggedEmail(
+  origin: string,
+  trainerName: string,
+  clientName: string,
+  log: {
+    clientId: string;
+    date: string; // yyyy-mm-dd, for the link
+    day: string; // already formatted, for reading
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    targetCalories: number | null;
+    notes: string | null;
+  },
+): Mail {
+  const link = `${appUrl(origin)}/clients/${log.clientId}/nutrition/${log.date}`;
+  const kcal =
+    log.targetCalories != null
+      ? `${log.calories} / ${log.targetCalories} kcal`
+      : `${log.calories} kcal`;
+  const macros = `P ${log.protein} C ${log.carbs} F ${log.fat}`;
+  return {
+    to: "",
+    subject: `${clientName} updated their food log`,
+    text: [
+      `Hi ${trainerName},`,
+      "",
+      `${clientName} updated ${log.day}: ${kcal}, ${macros}.`,
+      ...(log.notes ? ["", `They said: ${log.notes}`] : []),
+      "",
+      `See the day: ${link}`,
+    ].join("\n"),
+    html: `<p>Hi ${escapeHtml(trainerName)},</p>
+<p><strong>${escapeHtml(clientName)}</strong> updated ${escapeHtml(log.day)}: ${escapeHtml(kcal)}, ${escapeHtml(macros)}.</p>
+${
+  log.notes
+    ? `<p style="border-left:2px solid #ddd;padding-left:12px">${escapeHtml(log.notes)}</p>`
+    : ""
+}
+<p><a href="${escapeHtml(link)}">See the day</a></p>`,
+  };
+}
+
 // The day's activity in one message, at the hour the trainer chose.
 //
 // Note how much more of this is attacker-influenced text than the account
