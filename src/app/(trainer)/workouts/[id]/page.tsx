@@ -121,17 +121,6 @@ export default async function WorkoutReviewPage({
         </Card>
       ) : null}
 
-      {isCompleted ? (
-        <div className="mt-4">
-          <CoachFeedbackForm
-            workoutId={workout.id}
-            clientName={workout.client.name}
-            reaction={toCoachReaction(workout.coachReaction)}
-            note={workout.coachNote}
-          />
-        </div>
-      ) : null}
-
       {workout.notes ? (
         <p className="mt-6 rounded-[var(--radius-sm)] border border-line bg-card px-4 py-3 text-sm leading-relaxed text-ink-soft">
           {workout.notes}
@@ -173,6 +162,23 @@ export default async function WorkoutReviewPage({
           </div>
         ))}
       </div>
+
+      {/* Last, and deliberately not next to the effort card it answers. A coach
+          writing this has just read the session; putting the form above the
+          exercises means scrolling past a compose box to reach the thing being
+          responded to. The athlete's copy makes the opposite call for the same
+          reason — see CoachResponseCard — because a reply is news to them and
+          old news to whoever wrote it. */}
+      {isCompleted ? (
+        <div className="mt-6">
+          <CoachFeedbackForm
+            workoutId={workout.id}
+            clientName={workout.client.name}
+            reaction={toCoachReaction(workout.coachReaction)}
+            note={workout.coachNote}
+          />
+        </div>
+      ) : null}
     </Container>
   );
 }

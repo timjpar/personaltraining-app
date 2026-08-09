@@ -11,9 +11,10 @@ import {
   type CoachReaction,
 } from "@/lib/constants";
 
-// The coach's half of a finished session, on the review page directly under the
-// athlete's effort and comment — a reply belongs beneath the thing it replies
-// to, and reading the two in order is the whole point.
+// The coach's half of a finished session, at the foot of the review page. It
+// sits after the exercises rather than beside the effort card it answers: the
+// coach writes this having just read the session, and a compose box between
+// them and the sets is a box to scroll past.
 //
 // One form and one action for both the reaction and the note, rather than a
 // tap-to-react endpoint beside a save-the-note one. Two writers to three
