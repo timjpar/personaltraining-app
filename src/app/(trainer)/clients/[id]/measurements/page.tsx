@@ -6,6 +6,7 @@ import { Card, Container, EmptyState, PageHeading, Badge } from "@/components/ui
 import { MeasurementForm } from "@/components/MeasurementForm";
 import { DeleteMeasurement } from "@/components/DeleteMeasurement";
 import { WeightTrend, BodyStats } from "@/components/WeightTrend";
+import { BmrPanel } from "@/components/BmrPanel";
 import { UnitsToggle } from "@/components/UnitsToggle";
 import {
   saveMeasurement,
@@ -46,7 +47,16 @@ export default async function ClientMeasurementsPage({
     }),
     prisma.clientProfile.findFirst({
       where: { userId: id, user: { trainerId: trainer.id } },
-      select: { goalWeightKg: true },
+      select: {
+        goalWeightKg: true,
+        // The four the resting-burn panel reads. Selected here rather than
+        // loading the whole profile: this page has no use for injuries or
+        // dietary notes.
+        sex: true,
+        birthDate: true,
+        heightCm: true,
+        activityLevel: true,
+      },
     }),
     prisma.measurement.findMany({
       where: { clientId: id, client: { trainerId: trainer.id } },
@@ -112,6 +122,19 @@ export default async function ClientMeasurementsPage({
           />
         </Card>
       ) : null}
+
+      {/* Resting burn sits under the trend rather than above it: the weight is
+          the measurement and this is what follows from it. */}
+      <div className="mt-6">
+        <BmrPanel
+          profile={profile}
+          latest={current}
+          earliest={
+            weighIns.length >= 2 ? weighIns[weighIns.length - 1] : null
+          }
+          units={units}
+        />
+      </div>
 
       <Card className="mt-6 p-4 sm:p-5">
         <h2 className="mb-1 font-display text-base font-semibold text-ink">
