@@ -262,6 +262,56 @@ export function suggestTargets(input: TargetInputs): Targets {
   };
 }
 
+export type BmrInputs = {
+  sex: BiologicalSex;
+  weightKg: number;
+  heightCm: number;
+  age: number;
+};
+
+// The gate in front of bmr(), and deliberately a lower bar than
+// targetInputsFrom below: resting burn is a fact about a body, so it needs
+// only sex, age, height and a weight. No goal, no activity level, no target
+// rate. That matters because it is the half of the picture a coach can see
+// straight after intake, before any of the coaching decisions have been made.
+export function bmrInputsFrom(
+  profile: {
+    sex: string | null;
+    birthDate: Date | null;
+    heightCm: number | null;
+  } | null,
+  latest: { weightKg: number | null } | null,
+  on: Date = new Date(),
+): { inputs?: BmrInputs; missing: string[] } {
+  const missing: string[] = [];
+
+  const sex =
+    profile?.sex === "MALE" || profile?.sex === "FEMALE" ? profile.sex : null;
+  if (!sex) missing.push("whether to use the male or female equation");
+  if (!profile?.birthDate) missing.push("their date of birth");
+  if (profile?.heightCm == null) missing.push("their height");
+  if (latest?.weightKg == null) missing.push("a weigh-in");
+
+  if (
+    !sex ||
+    !profile?.birthDate ||
+    profile.heightCm == null ||
+    latest?.weightKg == null
+  ) {
+    return { missing };
+  }
+
+  return {
+    missing,
+    inputs: {
+      sex,
+      weightKg: latest.weightKg,
+      heightCm: profile.heightCm,
+      age: ageFrom(profile.birthDate, on),
+    },
+  };
+}
+
 // The gate in front of suggestTargets. Returns either a complete set of inputs
 // or the human list of what is still missing, so the UI can say "add a height
 // and a date of birth" instead of rendering a confident wrong number off a
