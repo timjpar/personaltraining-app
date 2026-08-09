@@ -113,9 +113,11 @@ async function main() {
       trainerId: trainer.id,
       exercises: {
         create: [
-          { order: 1, name: "Bench Press", sets: "4", reps: "6", load: "72.5%", tempo: "21X1", rest: "2:30", resultReps: "6,6,6,5", resultLoad: "65kg", done: true },
-          { order: 2, name: "Chin-Up", sets: "3", reps: "8", load: "bodyweight", rest: "2:00", resultReps: "8,8,7", done: true },
-          { order: 3, name: "Dumbbell Shoulder Press", sets: "3", reps: "10", load: "18kg", rest: "90s", resultReps: "10,10,10", resultLoad: "18kg", done: true },
+          { order: 1, name: "Bench Press", sets: "4", reps: "6", load: "72.5%", tempo: "21X1", rest: "2:30", resultSets: "4", resultReps: "6,6,6,5", resultLoad: "65kg", done: true },
+          // Cut a set short — the case the strings exist for, and the one that
+          // shows a coach something a bare count would hide.
+          { order: 2, name: "Chin-Up", sets: "3", reps: "8", load: "bodyweight", rest: "2:00", resultSets: "2 of 3", resultReps: "8,8,7", done: true },
+          { order: 3, name: "Dumbbell Shoulder Press", sets: "3", reps: "10", load: "18kg", rest: "90s", resultSets: "3", resultReps: "10,10,10", resultLoad: "18kg", done: true },
         ],
       },
     },

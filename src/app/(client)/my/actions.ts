@@ -45,6 +45,7 @@ export async function completeWorkout(
     prisma.exercise.update({
       where: { id: ex.id },
       data: {
+        resultSets: String(formData.get(`res_${ex.id}_sets`) ?? "").trim() || null,
         resultReps: String(formData.get(`res_${ex.id}_reps`) ?? "").trim() || null,
         resultLoad: String(formData.get(`res_${ex.id}_load`) ?? "").trim() || null,
         done: formData.get(`res_${ex.id}_done`) != null,

@@ -215,10 +215,24 @@ export function WorkoutLogForm({
                     struck={done[ex.id]}
                     footer={
                       <div className="flex flex-col gap-2.5 border-t border-line pt-3.5">
-                        {/* Two short values sit side by side even at 375px;
-                            the done bar gets the full width below them. */}
-                        <div className="flex gap-2.5">
-                          <label className="flex flex-1 flex-col gap-1">
+                        {/* Sets and reps are short, so they pair up even at
+                            375px. Load takes the full row underneath, because
+                            three across a phone leaves ~55px of text width and
+                            "Weight you used" needs 88px. From sm: up there's
+                            room for all three. */}
+                        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                          <label className="flex flex-col gap-1">
+                            <span className="eyebrow text-ink-soft/70">
+                              Sets done
+                            </span>
+                            <input
+                              name={`res_${ex.id}_sets`}
+                              inputMode="numeric"
+                              placeholder="Sets you did"
+                              className={hintInput}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
                             <span className="eyebrow text-ink-soft/70">
                               Reps done
                             </span>
@@ -229,7 +243,7 @@ export function WorkoutLogForm({
                               className={hintInput}
                             />
                           </label>
-                          <label className="flex flex-1 flex-col gap-1">
+                          <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
                             <span className="eyebrow text-ink-soft/70">
                               Load used
                             </span>

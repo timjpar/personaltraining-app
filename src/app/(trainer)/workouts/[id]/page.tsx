@@ -7,6 +7,7 @@ import {
   PrescriptionCard,
   SectionHeading,
   exerciseMetrics,
+  loggedResult,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
 import { DISCIPLINE_LABELS, toDiscipline, toCoachReaction } from "@/lib/constants";
@@ -157,21 +158,13 @@ export default async function WorkoutReviewPage({
                     })()}
                     logged={isCompleted && ex.done}
                     footer={
-                      isCompleted && (ex.resultReps || ex.resultLoad) ? (
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-[var(--radius-sm)] bg-jade-wash/60 px-3.5 py-2.5">
-                          <span className="eyebrow text-jade-strong">Logged</span>
-                          {ex.resultReps ? (
-                            <span className="metric text-sm text-ink">
-                              {ex.resultReps} reps
-                            </span>
-                          ) : null}
-                          {ex.resultLoad ? (
-                            <span className="metric text-sm text-ink">
-                              @ {ex.resultLoad}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null
+                      isCompleted
+                        ? loggedResult({
+                            sets: ex.resultSets,
+                            reps: ex.resultReps,
+                            load: ex.resultLoad,
+                          })
+                        : null
                     }
                   />
                 </li>

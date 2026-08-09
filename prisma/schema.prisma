@@ -338,7 +338,11 @@ model Exercise {
   // renumber the workout, not one section.
   section String @default("MAIN")
 
-  // Client-logged actuals.
+  // Client-logged actuals. Free-form strings for the same reason the
+  // prescription above is: "3 of 4" and "6,6,6,5" are both honest answers to
+  // what happened, and a number column would force the athlete to round one of
+  // them into a lie.
+  resultSets String?
   resultReps String?
   resultLoad String?
   done       Boolean @default(false)
