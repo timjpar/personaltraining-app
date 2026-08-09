@@ -354,12 +354,95 @@ async function main() {
     ],
   });
 
+  // A conversation each, so the Messages tab opens on something. One direct
+  // thread with a back-and-forth in it, and one group, which is the only way
+  // to see the group affordances without building one first.
+  //
+  // Deleting the threads is what makes this idempotent: participants and
+  // messages cascade from Thread, so the messages below can't stack up on a
+  // re-seed the way a plain createMany would.
+  await prisma.thread.deleteMany({ where: { trainerId: trainer.id } });
+
+  const mariaThread = await prisma.thread.create({
+    data: {
+      kind: "DIRECT",
+      // The same sorted-pair key findOrCreateDirectThread computes. Written
+      // out here rather than imported because seed.ts talks to Prisma
+      // directly and pulls in nothing from src/lib that touches next/server.
+      directKey: [trainer.id, maria.id].sort().join(":"),
+      trainerId: trainer.id,
+      participants: {
+        create: [{ userId: trainer.id }, { userId: maria.id }],
+      },
+    },
+  });
+
+  const squad = await prisma.thread.create({
+    data: {
+      kind: "GROUP",
+      title: "Tuesday squad",
+      trainerId: trainer.id,
+      participants: {
+        create: [
+          { userId: trainer.id },
+          { userId: maria.id },
+          { userId: jordan.id },
+        ],
+      },
+    },
+  });
+
+  // createdAt is set explicitly and ascending, so the thread reads in order
+  // rather than as three messages sent in the same millisecond.
+  const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000);
+
+  await prisma.message.createMany({
+    data: [
+      {
+        threadId: mariaThread.id,
+        senderId: trainer.id,
+        body: "How did the shoulder feel on the press yesterday?",
+        createdAt: minutesAgo(180),
+      },
+      {
+        threadId: mariaThread.id,
+        senderId: maria.id,
+        body: "Much better. Still a bit tight on the way down but no pain at the top.",
+        createdAt: minutesAgo(150),
+      },
+      {
+        threadId: mariaThread.id,
+        senderId: trainer.id,
+        body: "Good. Keep the warm-up sets you did and we'll add load next week.",
+        createdAt: minutesAgo(120),
+      },
+      {
+        threadId: squad.id,
+        senderId: trainer.id,
+        body: "Session moves to 6:30 on Tuesday — the gym has a class in the main room.",
+        createdAt: minutesAgo(45),
+      },
+    ],
+  });
+
+  // The list sorts on this, so it has to match the newest message rather than
+  // the row's own creation time.
+  await prisma.thread.update({
+    where: { id: mariaThread.id },
+    data: { lastMessageAt: minutesAgo(120) },
+  });
+  await prisma.thread.update({
+    where: { id: squad.id },
+    data: { lastMessageAt: minutesAgo(45) },
+  });
+
   console.log("Seeded:");
   console.log("  Trainer  alex@chalkline.dev / trainpass123");
   console.log("  Client   maria@example.com / clientpass123");
   console.log("  Client   jordan@example.com / clientpass123");
   console.log("  Library  4 workouts · 1 program · 1 nutrition plan");
   console.log("  Calendar 3 sessions · 5 events");
+  console.log("  Messages 1 direct thread · 1 group");
 }
 
 main()

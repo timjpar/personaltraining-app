@@ -5,6 +5,7 @@ import { getThemePrefs } from "@/lib/theme-server";
 import { AppHeader } from "@/components/AppHeader";
 import { TimeZoneProbe } from "@/components/TimeZoneProbe";
 import { trainerNav } from "@/lib/nav";
+import { unreadMessageCount } from "@/lib/messaging";
 
 export default async function TrainerLayout({
   children,
@@ -12,9 +13,10 @@ export default async function TrainerLayout({
   children: React.ReactNode;
 }) {
   const user = await requireTrainer();
-  const unread = await prisma.feedItem.count({
-    where: { trainerId: user.id, read: false },
-  });
+  const [unread, unreadMessages] = await Promise.all([
+    prisma.feedItem.count({ where: { trainerId: user.id, read: false } }),
+    unreadMessageCount(user.id),
+  ]);
   const { theme, accent, chosen } = await getThemePrefs();
 
   return (
@@ -22,7 +24,7 @@ export default async function TrainerLayout({
       <AppHeader
         name={user.name}
         roleLabel="Trainer"
-        navItems={trainerNav(unread)}
+        navItems={trainerNav(unread, unreadMessages)}
         theme={theme}
         accent={accent}
         themeChosen={chosen}

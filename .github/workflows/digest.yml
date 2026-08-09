@@ -1,23 +1,24 @@
-# Hourly ping for the daily digest.
+# Hourly ping for everything the app sends on a schedule: the daily digest, and
+# the coach-written messages on /messages/scheduled.
 #
 # Why it lives here rather than in vercel.json: Vercel's Hobby plan refuses any
 # cron expression that fires more than once a day, and per-trainer send times
-# need an hourly tick to resolve against each trainer's own zone. The endpoint
-# is scheduler-agnostic and already accepts the `Authorization: Bearer` header
+# need an hourly tick to resolve against each trainer's own zone. The endpoints
+# are scheduler-agnostic and already accept the `Authorization: Bearer` header
 # Vercel Cron sends, so on a paid plan this file can be deleted and replaced
-# with a `crons` entry — no application code changes.
+# with `crons` entries — no application code changes.
 #
 # Two things to know about GitHub's scheduler:
 #   - Runs are best-effort and routinely slip five to twenty minutes under
-#     load. That's why the endpoint matches `localHour >= digestHour` rather
-#     than an exact hour, and why it claims a day at most once.
+#     load. That's why both endpoints match `localHour >= <the chosen hour>`
+#     rather than an exact hour, and why each claims a day at most once.
 #   - GitHub disables scheduled workflows on a repository with 60 days of no
-#     activity. That is a silent way for digests to stop, so if they go quiet
-#     on a dormant repo, check the Actions tab first.
+#     activity. That is a silent way for these to stop, so if they go quiet on
+#     a dormant repo, check the Actions tab first.
 #
 # Needs two repository settings: a `CRON_SECRET` secret matching the deployed
 # environment variable, and an `APP_URL` variable holding the site origin.
-name: Daily digest
+name: Hourly cron
 
 on:
   schedule:
@@ -34,3 +35,14 @@ jobs:
           curl -fsS --max-time 90 -X POST \
             -H "authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             "${{ vars.APP_URL }}/api/cron/digest"
+
+      # Its own step rather than a second URL on the one above, so a failing
+      # digest is distinguishable from a failing broadcast in the Actions log.
+      # `if: always()` because they are independent: an outage in one is no
+      # reason to skip the other, and skipping means a whole day missed.
+      - name: Trigger scheduled messages
+        if: always()
+        run: |
+          curl -fsS --max-time 90 -X POST \
+            -H "authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.APP_URL }}/api/cron/broadcasts"

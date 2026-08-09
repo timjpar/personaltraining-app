@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Container, PageHeading, Card, Avatar, EmptyState } from "@/components/ui";
+import { avatarUrl } from "@/lib/avatar";
 import { AddClientForm } from "./AddClientForm";
 
 export default async function ClientsPage() {
@@ -42,7 +43,7 @@ export default async function ClientsPage() {
                   href={`/clients/${c.id}`}
                   className="flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-paper"
                 >
-                  <Avatar name={c.name} />
+                  <Avatar name={c.name} src={avatarUrl(c)} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{c.name}</p>
                     <p className="metric truncate text-xs text-ink-soft">{c.email}</p>

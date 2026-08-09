@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin, isOwnerEmail, isAdminUser } from "@/lib/admin";
 import { prisma } from "@/lib/db";
 import { Container, PageHeading, Card, Badge, Avatar } from "@/components/ui";
+import { avatarUrl } from "@/lib/avatar";
 import { formatStamp, formatDate } from "@/lib/format";
 import {
   LOGIN_METHOD,
@@ -41,7 +42,15 @@ export default async function AdminUserPage({
       trainer: { select: { id: true, name: true } },
       clients: {
         orderBy: { name: "asc" },
-        select: { id: true, name: true, email: true, lastLoginAt: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          lastLoginAt: true,
+          // The only avatar in the app behind an explicit select; everywhere
+          // else loads whole user rows and gets this for free.
+          photoUpdatedAt: true,
+        },
       },
       templates: {
         orderBy: { updatedAt: "desc" },
@@ -174,7 +183,7 @@ export default async function AdminUserPage({
                 sub={c.email}
                 meta={c.lastLoginAt ? formatStamp(c.lastLoginAt) : "Never signed in"}
               >
-                <Avatar name={c.name} />
+                <Avatar name={c.name} src={avatarUrl(c)} />
               </Row>
             ))}
           </Section>

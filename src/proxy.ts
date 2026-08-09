@@ -48,6 +48,8 @@ export async function proxy(req: NextRequest) {
   // Keep each role inside its own area.
   const trainerArea =
     pathname.startsWith("/dashboard") ||
+    // The client's copy is /my/messages, which clientArea already covers.
+    pathname.startsWith("/messages") ||
     pathname.startsWith("/calendar") ||
     pathname.startsWith("/clients") ||
     pathname.startsWith("/workouts") ||

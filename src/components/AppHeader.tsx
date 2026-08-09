@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "./Wordmark";
 import { logout } from "./logout-action";
@@ -42,6 +43,23 @@ export function AppHeader({
   const activeHref = navItems
     .filter((i) => pathname === i.href || pathname.startsWith(i.href + "/"))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
+  // What makes the scrolling tab bar below acceptable: whichever cell is
+  // current gets scrolled into view, so a trainer landing on /exercises sees
+  // the tab they're on rather than a row that starts at Activity.
+  //
+  // block: "nearest" is load-bearing — the default would scroll the *page* to
+  // bring a fixed bottom bar into view, which on a long page yanks the reader
+  // to the end of it. inline: "center" rather than "nearest" so the
+  // neighbouring tabs are visible too; the point is orientation, not just
+  // presence.
+  const activeCellRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    activeCellRef.current?.scrollIntoView({
+      inline: "center",
+      block: "nearest",
+    });
+  }, [activeHref]);
 
   return (
     <>
@@ -140,21 +158,38 @@ export function AppHeader({
       </header>
 
       {/* ---- Tab bar (phones and tablets) -----------------------------------
-          Fixed to the bottom, where a thumb actually reaches. Every
-          destination is visible at once — no scrolling, so the active tab is
-          never off-screen the way it was on /library. Labels stay: seven icons
-          alone would be a guessing game, and "Programs" vs "Workouts" is
-          exactly the pair that needs words. At seven cells a label has ~53px
-          on a 375px screen, which is why they're all one short word. */}
+          Fixed to the bottom, where a thumb actually reaches. Labels stay:
+          eight icons alone would be a guessing game, and "Programs" vs
+          "Workouts" is exactly the pair that needs words.
+
+          `min-w-[3.75rem] flex-1` is the whole layout rule, and it does two
+          jobs. When the cells fit they divide the width equally, which is what
+          the bar has always done — the athlete's six still span a 375px screen
+          edge to edge. When they don't, the row scrolls instead of crushing
+          "Nutrition" into three letters. Only the trainer's eight cross that
+          line today.
+
+          Scrolling was previously ruled out here, on the grounds that it put
+          the active tab off-screen the way it did on /library. That objection
+          was right and is answered below rather than ignored: the effect
+          centres the current cell on load, so arriving on a scrolled bar looks
+          the same as arriving on a fixed one. */}
       <nav
         aria-label="Sections"
         className="safe-b fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 backdrop-blur lg:hidden"
       >
-        <ul className="flex items-stretch">
+        {/* The scrollbar is hidden with the same idiom the desktop pill row
+            above uses. It would otherwise sit across the labels on any
+            platform that draws a persistent one. */}
+        <ul className="flex items-stretch overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {navItems.map((item) => {
             const active = activeHref === item.href;
             return (
-              <li key={item.href} className="min-w-0 flex-1">
+              <li
+                key={item.href}
+                ref={active ? activeCellRef : undefined}
+                className="min-w-[3.75rem] flex-1"
+              >
                 <Link
                   href={item.href}
                   aria-current={active ? "page" : undefined}

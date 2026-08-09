@@ -4,6 +4,7 @@ import { getThemePrefs } from "@/lib/theme-server";
 import { AppHeader } from "@/components/AppHeader";
 import { TimeZoneProbe } from "@/components/TimeZoneProbe";
 import { clientNav } from "@/lib/nav";
+import { unreadMessageCount } from "@/lib/messaging";
 
 export default async function ClientLayout({
   children,
@@ -11,14 +12,17 @@ export default async function ClientLayout({
   children: React.ReactNode;
 }) {
   const user = await requireClient();
-  const { theme, accent, chosen } = await getThemePrefs();
+  const [unreadMessages, { theme, accent, chosen }] = await Promise.all([
+    unreadMessageCount(user.id),
+    getThemePrefs(),
+  ]);
 
   return (
     <div className="min-h-svh">
       <AppHeader
         name={user.name}
         roleLabel="Athlete"
-        navItems={clientNav()}
+        navItems={clientNav(unreadMessages)}
         theme={theme}
         accent={accent}
         themeChosen={chosen}

@@ -59,6 +59,21 @@ model User {
   // not the server's. Null until the browser has reported one.
   timeZone String?
 
+  // Which units this person reads numbers in — METRIC | IMPERIAL. A viewer
+  // preference, not a property of whoever is being measured: a coach with
+  // twenty athletes wants one unit across the whole roster, and an athlete
+  // wants the one their bathroom scale shows. Bodies are stored canonical
+  // metric (see ClientProfile), so this only ever decides rendering.
+  //
+  // On User rather than in a cookie like the appearance settings, whose own
+  // comment in theme-actions.ts gives three reasons that each fail here: this
+  // isn't a device preference (the same coach wants kilos on their phone and
+  // their laptop), it has no pre-database read (every page that shows a weight
+  // already has a user in hand), and nothing in the root layout renders a
+  // number, so there is no flash to avoid. On User rather than on
+  // ClientProfile because trainers have no profile and still read the numbers.
+  units String @default("METRIC")
+
   // Which hour of the trainer's own day the digest goes out at, 0-23; null is
   // off. Deliberately NOT the minutes-from-midnight the rest of the app uses
   // for times (see CalendarEvent): the scheduler that fires this runs hourly,
@@ -93,6 +108,19 @@ model User {
   // scalars in the same class as timeZone and isAdmin, and the settings card is
   // supposed to render them.
 
+  // When this account's profile photo was last written; null means it has none.
+  // The bytes themselves are in ProfilePhoto below, for exactly the reason the
+  // paragraph above gives — but the *marker* has to stay here, because every
+  // page that draws an avatar already loads whole user rows and would otherwise
+  // need a join added to each of its queries to find out whether to draw one.
+  // Denormalised in the same spirit as lastLoginAt, and cheap for the same
+  // reason: eight bytes, not fifteen kilobytes.
+  //
+  // It doubles as the cache-busting version in the photo URL (see
+  // src/lib/avatar.ts). The bytes are immutable for a given value of this, so
+  // the image can be served immutable and a new photo simply has a new URL.
+  photoUpdatedAt DateTime?
+
   // A client belongs to one trainer (self-relation).
   trainerId String?
   trainer   User?   @relation("TrainerClients", fields: [trainerId], references: [id])
@@ -117,6 +145,19 @@ model User {
 
   digestRuns DigestRun[] @relation("TrainerDigests")
 
+  // Conversations. `threads` is every thread this user is *in*, whichever role
+  // they hold in it; `threadsAsTrainer` is the narrower set they own. Both are
+  // needed: an athlete reads their inbox through the first, and a coach's
+  // "start a thread" writes through the second.
+  threads          ThreadParticipant[] @relation("UserThreads")
+  threadsAsTrainer Thread[]            @relation("TrainerThreads")
+  messagesSent     Message[]           @relation("SentMessages")
+
+  // The scheduled messages this coach wrote, and the ones naming this athlete
+  // as a recipient.
+  broadcasts            Broadcast[]          @relation("TrainerBroadcasts")
+  broadcastsAsRecipient BroadcastRecipient[] @relation("ClientBroadcasts")
+
   // The trainer's own calendar entries, and the ones that name this user as the
   // client they're about.
   eventsAsTrainer CalendarEvent[] @relation("TrainerEvents")
@@ -127,6 +168,186 @@ model User {
   resets PasswordResetToken[] @relation("UserResets")
 
   googleCalendar GoogleCalendarConnection? @relation("UserGoogleCalendar")
+
+  photo ProfilePhoto? @relation("UserPhoto")
+
+  // The intake file and the weigh-ins behind it. Both are client-side only —
+  // a trainer has neither, which is half the reason the profile isn't a set of
+  // columns on this model.
+  bodyProfile  ClientProfile? @relation("UserBodyProfile")
+  measurements Measurement[]  @relation("ClientMeasurements")
+}
+
+// Everything a coach needs before they can write a meal plan or a training
+// block: the facts that don't move week to week (sex, date of birth, height)
+// and the ones that change with a conversation rather than a scale (the goal,
+// the equipment, the injuries, how they eat).
+//
+// Its own table rather than columns on User, for the reason ProfilePhoto and
+// GoogleCalendarConnection both give: getCurrentUser() does a findUnique with
+// no `select`, so every column of User is loaded on every authenticated
+// request in the app. Seventeen intake columns — several of them
+// health-adjacent — would ride along on all of them. User also carries both
+// roles, so those columns would be permanently null for every coach, and "not
+// intaked yet" is a far more honest state as one absent row than as seventeen
+// nulls that individually mean nothing.
+//
+// Nothing here is denormalised from Measurement. Current weight is the newest
+// measurement — one lookup down an index we need anyway — not a column that
+// every insert, edit and delete has to remember to keep true.
+//
+// Masses and lengths are canonical metric and unrounded. Whether they read as
+// pounds and inches is decided at render from User.units, so one file is
+// legible to a coach in kg and an athlete in lb without a second copy of the
+// numbers. See src/lib/units.ts for why rounding on write would quietly
+// corrupt the round trip.
+model ClientProfile {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation("UserBodyProfile", fields: [userId], references: [id], onDelete: Cascade)
+
+  // The metabolic input to Mifflin–St Jeor (src/lib/body.ts), which is the only
+  // thing that reads it — the form says exactly that under the field. Nullable
+  // because "never asked" has to stay distinguishable from an answer: the
+  // calorie suggestion refuses to compute rather than picking one.
+  sex String? // MALE | FEMALE
+
+  // Local-midnight, the same convention as Workout.scheduledDate. Age is
+  // derived at read time and never stored: a stored age is wrong within a year
+  // and would silently drift every calorie suggestion downstream of it.
+  birthDate DateTime?
+
+  heightCm Float?
+
+  // How much the rest of their life moves. SEDENTARY | LIGHT | MODERATE |
+  // ACTIVE | VERY_ACTIVE; the label lives in constants.ts and the multiplier it
+  // stands for in body.ts. Deliberately the *only* input to the TDEE
+  // multiplier — trainingDaysPerWeek below is programming context, and feeding
+  // both into the same number counts the training twice.
+  activityLevel String?
+
+  goalType     String? // LOSE | MAINTAIN | GAIN
+  goalWeightKg Float?
+
+  // Always a positive magnitude; direction is goalType's job. A signed rate
+  // would let goalType GAIN and a negative rate disagree, and one of the two
+  // would have to win silently.
+  rateKgPerWeek Float?
+
+  // Programming context, read by the coach writing the block rather than by any
+  // formula. 0 is a real answer for someone who hasn't started.
+  trainingDaysPerWeek Int?
+  experience          String? // BEGINNER | INTERMEDIATE | ADVANCED
+
+  // Both, because either alone is useless. The closed set is what a program
+  // filter would ever key on and is one tap at intake; the prose is what
+  // actually decides the session ("adjustable dumbbells to 24kg, no rack").
+  trainingLocation String? // COMMERCIAL_GYM | HOME_GYM | MINIMAL | OUTDOORS
+  equipmentNotes   String?
+
+  // Free text and nothing else. "Left shoulder, no overhead pressing, cleared
+  // for landmine work" is a sentence, and every attempt to make it a list
+  // throws away the half that changes the programming.
+  injuries String?
+
+  // Allergies are kept apart from preferences on purpose: one is a safety fact
+  // and the other is taste. A single "dietary notes" box puts a nut allergy in
+  // the same paragraph as not liking mushrooms, and the plan builder has no way
+  // to tell them apart again.
+  dietPattern  String? // OMNIVORE | VEGETARIAN | VEGAN | PESCATARIAN | OTHER
+  allergies    String?
+  dietaryNotes String?
+
+  // The one number that turns a macro target into a meal plan.
+  mealsPerDay Int?
+
+  // Everything else that belongs in front of the coach: shift work, a 5am
+  // training window, what they're actually training for.
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// One weigh-in. The time-series half of intake — the figures that only mean
+// anything as a sequence — kept apart from ClientProfile, which is the facts
+// that don't move.
+//
+// Shaped after NutritionLog, deliberately: one row per client per day on
+// @@unique([clientId, date]), so re-recording a day edits it instead of
+// stacking a second entry, with the date stored local-midnight like every other
+// day-valued date here. That unique index is also the whole read path — the
+// trend query is `where clientId, orderBy date desc`, exactly the prefix it
+// indexes — which is why there is no second index on this table. When the
+// digest learns to report weigh-ins it will want [clientId, updatedAt], the one
+// NutritionLog carries, and that is the moment to add it rather than now.
+//
+// Every figure is nullable, including the weight: a tape-only entry is a real
+// thing a coach records. A row with nothing in it at all is refused by the
+// parser (src/lib/body-form.ts), not by the column types.
+model Measurement {
+  id String @id @default(cuid())
+
+  clientId String
+  client   User   @relation("ClientMeasurements", fields: [clientId], references: [id], onDelete: Cascade)
+
+  date DateTime
+
+  weightKg   Float?
+  bodyFatPct Float?
+
+  // The seven tape sites, in the order the form and the table both render them
+  // — TAPE_SITES in constants.ts owns that order, so the two can't drift apart.
+  // Columns rather than a JSON blob: it's a fixed set that gets charted and
+  // diffed, and each one wants to be queryable the day someone asks for a waist
+  // trend.
+  neckCm  Float?
+  chestCm Float?
+  waistCm Float?
+  hipsCm  Float?
+  thighCm Float?
+  armCm   Float?
+  calfCm  Float?
+
+  // "First thing, after a bad week of sleep." The context that makes a jump
+  // legible — exactly the job NutritionLog.notes does for a day of food.
+  notes String?
+
+  // TRAINER | CLIENT — who put the number in. Not cosmetic: a coach reads their
+  // own tape reading differently from a figure an athlete typed off a bathroom
+  // scale, and it's the only signal self-logging will ever produce about
+  // whether it gets used. The same call LoggedFood.source makes.
+  source String @default("TRAINER")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, date])
+}
+
+// A profile photo, one row per account that has uploaded one. Its own table for
+// the same decisive reason GoogleCalendarConnection gives below: getCurrentUser()
+// does a findUnique with no `select`, so a Bytes column on User would be read out
+// of the database and into memory on every authenticated request in the app, to
+// be thrown away by all but one of them. Nothing loads this table except the
+// route handler that serves the image.
+//
+// The photo is written already resized — a 256px square, ~15KB — by the browser,
+// and the server refuses anything over MAX_PHOTO_BYTES (src/lib/avatar.ts). One
+// row per user, keyed by userId rather than its own cuid, so replacing a photo
+// overwrites and nothing can accumulate.
+model ProfilePhoto {
+  userId String @id
+  user   User   @relation("UserPhoto", fields: [userId], references: [id], onDelete: Cascade)
+
+  data Bytes
+  // Whatever the browser's canvas actually produced: WebP everywhere current,
+  // JPEG where toBlob wouldn't encode WebP. Stored rather than assumed, because
+  // it's what the Content-Type header has to say.
+  contentType String
+
+  updatedAt DateTime @updatedAt
 }
 
 // One row per account that has connected Google Calendar. Its own table rather
@@ -695,4 +916,166 @@ model CalendarEvent {
 
   @@index([trainerId, date])
   @@index([clientId])
+}
+
+// A conversation. The first thing in this app that isn't attached to a session,
+// a day or a plan — everything a coach and an athlete said to each other before
+// now hung off the thing it was about (Workout.clientComment, Workout.coachNote).
+//
+// One model covers 1:1 and group, distinguished by `kind` and by how many
+// participants there are. The alternative — a DirectThread and a GroupThread —
+// would double every read in src/lib/messaging.ts to answer questions ("what's
+// unread", "what's newest") that don't care which kind a thread is.
+model Thread {
+  id    String  @id @default(cuid())
+  kind  String  @default("DIRECT") // DIRECT | GROUP
+  // Null on a DIRECT thread: its name is whoever else is in it, which depends
+  // on who's reading. Only a group has a name of its own.
+  title String?
+
+  // "<smaller userId>:<larger userId>" on a DIRECT thread, null on a GROUP. The
+  // unique index is what stops a coach and an athlete opening the same
+  // conversation twice from two devices — the pair is the identity, and sorting
+  // the two ids is what makes the key the same from both directions.
+  //
+  // Postgres allows unlimited NULLs in a unique index, so every group coexists
+  // here untouched. The same move FeedItem makes with @@unique([nutritionLogId]),
+  // and for the same reason: it turns "find or create" into one write with no
+  // read-then-write window for two devices to race through.
+  directKey String? @unique
+
+  // Bumped on every send. Denormalised so the thread list sorts on a column
+  // instead of an aggregate over messages — the list is the first screen of the
+  // tab and it loads on every visit.
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  // Every thread is owned by exactly one coach, including a group. An athlete
+  // can reply but can't start one, so there is no thread in the app that isn't
+  // reachable from some trainer — which is also what makes the ownership check
+  // in every action a single comparison.
+  trainerId String
+  trainer   User   @relation("TrainerThreads", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  participants ThreadParticipant[]
+  messages     Message[]
+
+  @@index([trainerId, lastMessageAt])
+}
+
+model ThreadParticipant {
+  id       String @id @default(cuid())
+  threadId String
+  thread   Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation("UserThreads", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Null means never opened. Unread is then "messages newer than this", which
+  // is one timestamp comparison — rather than a read-receipt row per message
+  // per person, which is a table that grows with the product of both and
+  // answers no question this app asks.
+  lastReadAt DateTime?
+  joinedAt   DateTime  @default(now())
+
+  @@unique([threadId, userId])
+  // The badge query starts from "which threads is this user in", on every
+  // authenticated page load of either role.
+  @@index([userId])
+}
+
+model Message {
+  id       String @id @default(cuid())
+  threadId String
+  thread   Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId String
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  body String
+
+  // When the email copy went out, and null when it didn't. The in-app message
+  // is the real one and email is a copy, so a mail outage has to be visible
+  // rather than assumed either way — the thread says "also emailed" only when
+  // this is set.
+  emailedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([threadId, createdAt])
+}
+
+// A message the coach writes once and the app sends on a schedule — the
+// motivational drip. Deliberately not a Message row with a future date: an
+// unsent Message would be visible to every read in messaging.ts and would have
+// to be filtered out of each one, and the filter that got missed is a coach's
+// draft appearing in an athlete's inbox a week early.
+model Broadcast {
+  id        String @id @default(cuid())
+  trainerId String
+  trainer   User   @relation("TrainerBroadcasts", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  // The coach's own name for it in the list ("Monday kick-off"). Never sent.
+  label String
+  body  String
+
+  // 0-23 in the trainer's own zone, and deliberately the same encoding as
+  // User.digestHour rather than the minutes-from-midnight the calendar uses.
+  // The reason is the same one spelled out there: the cron ticks hourly, so a
+  // minute field would promise a precision it cannot keep.
+  hour Int
+  // 0=Sunday .. 6=Saturday, sorted and deduped by parseWeekdays in
+  // src/lib/constants.ts. An Int[] rather than a bitmask so the stored value
+  // and the checkbox row read the same in a query, a log and a psql session.
+  weekdays Int[]
+
+  audience String  @default("ALL") // ALL | PICKED
+  active   Boolean @default(true)
+  // Whether a copy also reaches their inbox. It always lands in the thread —
+  // that's what makes this a message rather than a mailshot, and it's why an
+  // athlete can reply to one.
+  alsoEmail Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipients BroadcastRecipient[]
+  runs       BroadcastRun[]
+
+  @@index([trainerId])
+}
+
+// Only meaningful when audience is PICKED. An ALL broadcast resolves its
+// recipients at send time instead, so a client added on Thursday is included in
+// Friday's send without the coach editing anything.
+model BroadcastRecipient {
+  id          String    @id @default(cuid())
+  broadcastId String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      User      @relation("ClientBroadcasts", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, clientId])
+}
+
+model BroadcastRun {
+  id          String    @id @default(cuid())
+  broadcastId String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  // The trainer's own calendar day, "2026-08-10". A String for exactly the
+  // reason DigestRun.day is one, and worth repeating because it looks like an
+  // inconsistency: this day is resolved in the *trainer's* zone on a server
+  // that may be in another, so a local-midnight DateTime would be ambiguous
+  // about which midnight it meant.
+  day String
+
+  claimedAt DateTime  @default(now())
+  sentAt    DateTime?
+  sent      Int       @default(0)
+  ok        Boolean   @default(false)
+
+  // The mutex, not merely a constraint — identical in role to DigestRun's.
+  // The cron fires hourly and can retry; create() either wins the day or
+  // throws P2002, which isUniqueViolation() in src/lib/db.ts already exists to
+  // recognise. Without it, a scheduler that retries sends the same
+  // motivational message twice.
+  @@unique([broadcastId, day])
 }

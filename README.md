@@ -30,6 +30,12 @@ dashboard the moment it happens. Modeled on the CoachRx workflow.
 - **A daily digest.** One email per coach per day, at an hour they choose,
   covering who trained and who logged. Finished sessions can also email the
   moment they land, for coaches who want that.
+- **Profile photos.** Optional, and deliberately tiny: the browser crops the
+  picked image square and shrinks it to 256px before anything is sent, so a
+  12MB camera shot arrives as about 10KB of WebP. They live in Postgres beside
+  everything else — no bucket, no second credential — and there is one row per
+  account, so replacing a photo overwrites rather than accumulates. Anyone
+  without one keeps their initials.
 - **Calendars for both roles.** The trainer's calendar merges programmed
   sessions with consults, check-ins and blocked-out time; the athlete gets a
   read-only one showing their own training and whatever their coach has booked

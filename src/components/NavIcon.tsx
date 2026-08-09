@@ -8,6 +8,7 @@
 
 export type IconName =
   | "dashboard"
+  | "messages"
   | "calendar"
   | "clients"
   | "workouts"
@@ -15,6 +16,7 @@ export type IconName =
   | "nutrition"
   | "today"
   | "history"
+  | "body"
   | "exercises"
   | "admin";
 
@@ -23,6 +25,16 @@ const paths: Record<IconName, React.ReactNode> = {
   dashboard: (
     <>
       <path d="M3 12.5h3l2.5-6 3 11 2.5-7.5h3" />
+    </>
+  ),
+  // A speech bubble, drawn as one closed path so the tail joins the body
+  // cleanly rather than crossing it. Empty inside on purpose: `body` and
+  // `calendar` are both rounded rectangles at this size, and what separates
+  // this from them is the silhouette — dots or lines in the middle would just
+  // add the interior detail those two already have.
+  messages: (
+    <>
+      <path d="M6.5 14H5.6A2.6 2.6 0 0 1 3 11.4V6.6A2.6 2.6 0 0 1 5.6 4h8.8A2.6 2.6 0 0 1 17 6.6v4.8a2.6 2.6 0 0 1-2.6 2.6h-4l-3.9 3v-3z" />
     </>
   ),
   calendar: (
@@ -70,6 +82,17 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M3.2 8.6A7 7 0 1 1 3 11.2" />
       <path d="M3 4.5v4.2h4.2" />
       <path d="M10 6.4v4l2.6 1.7" />
+    </>
+  ),
+  // A bathroom scale: a rounded square with the dial arc and needle inside it.
+  // Following the rule above — the subject has its own object, so the icon
+  // uses it. The arc opens upward and the needle points off-centre, which is
+  // what keeps it from reading as the History clock at tab-bar size.
+  body: (
+    <>
+      <rect x="3.2" y="3.2" width="13.6" height="13.6" rx="3.2" />
+      <path d="M7 12a3.6 3.6 0 0 1 6 0" />
+      <path d="M10 12 8.4 8.9" />
     </>
   ),
   // The same standing stick figure ExerciseFigure draws, because every row on
