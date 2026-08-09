@@ -8,6 +8,7 @@ import {
   PrescriptionCard,
   SectionHeading,
   exerciseMetrics,
+  loggedResult,
   type Demo,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
@@ -159,23 +160,12 @@ export default async function ClientWorkoutPage({
                         demo={demoFor(ex.name)}
                         logged={ex.done}
                         footer={
-                          ex.resultReps || ex.resultLoad ? (
-                            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-[var(--radius-sm)] bg-jade-wash/60 px-3.5 py-2.5">
-                              <span className="eyebrow text-jade-strong">
-                                You logged
-                              </span>
-                              {ex.resultReps ? (
-                                <span className="metric text-sm text-ink">
-                                  {ex.resultReps} reps
-                                </span>
-                              ) : null}
-                              {ex.resultLoad ? (
-                                <span className="metric text-sm text-ink">
-                                  @ {ex.resultLoad}
-                                </span>
-                              ) : null}
-                            </div>
-                          ) : null
+                          loggedResult({
+                            label: "You logged",
+                            sets: ex.resultSets,
+                            reps: ex.resultReps,
+                            load: ex.resultLoad,
+                          })
                         }
                       />
                     </li>

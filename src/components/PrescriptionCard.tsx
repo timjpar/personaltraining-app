@@ -24,6 +24,45 @@ export function MetricStrip({ metrics }: { metrics: Metric[] }) {
   );
 }
 
+// What the athlete actually logged, read back on a finished session. A plain
+// function rather than a component so "nothing was logged" is a null the
+// caller can pass straight to `footer` — PrescriptionCard only wraps a footer
+// it was given, so an empty element would leave a 16px gap under the card.
+//
+// One of these for all three readers (trainer review, the athlete's own copy,
+// admin) because the only honest difference between them is whose session it
+// is. They were three copies of the same markup until sets needed adding to
+// all of them.
+export function loggedResult({
+  label = "Logged",
+  sets,
+  reps,
+  load,
+}: {
+  label?: string;
+  sets?: string | null;
+  reps?: string | null;
+  load?: string | null;
+}): ReactNode {
+  const parts: Array<[string, string]> = [];
+  if (sets) parts.push(["sets", `${sets} sets`]);
+  if (reps) parts.push(["reps", `${reps} reps`]);
+  // The "@" keeps a bare number from reading as another count.
+  if (load) parts.push(["load", `@ ${load}`]);
+  if (parts.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-[var(--radius-sm)] bg-jade-wash/60 px-3.5 py-2.5">
+      <span className="eyebrow text-jade-strong">{label}</span>
+      {parts.map(([key, text]) => (
+        <span key={key} className="metric text-sm text-ink">
+          {text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // Divider above a warm-up / main / cool-down block. Only rendered when a
 // session actually uses sections — see sectionGroups() callers.
 export function SectionHeading({ label, count }: { label: string; count: number }) {
