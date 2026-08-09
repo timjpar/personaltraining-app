@@ -292,3 +292,341 @@ export function toEventKind(value: unknown): EventKind {
 export const DAYS_PER_WEEK = 7;
 export const PROGRAM_DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
 export const dayLabel = (day: number) => `Day ${day}`;
+
+// A conversation is either between two people or among several. Same contract
+// as toEventKind: DIRECT is the column default, so a row written before groups
+// existed reads as what it is.
+export const THREAD_KINDS = {
+  DIRECT: "DIRECT",
+  GROUP: "GROUP",
+} as const;
+export type ThreadKind = (typeof THREAD_KINDS)[keyof typeof THREAD_KINDS];
+
+export function toThreadKind(value: unknown): ThreadKind {
+  const s = String(value ?? "");
+  return s === THREAD_KINDS.GROUP ? THREAD_KINDS.GROUP : THREAD_KINDS.DIRECT;
+}
+
+// Who a scheduled message goes to. ALL resolves at send time rather than being
+// expanded into recipient rows when it's saved, so a client added on Thursday
+// gets Friday's message without the coach editing anything.
+export const BROADCAST_AUDIENCES = {
+  ALL: "ALL",
+  PICKED: "PICKED",
+} as const;
+export type BroadcastAudience =
+  (typeof BROADCAST_AUDIENCES)[keyof typeof BROADCAST_AUDIENCES];
+
+export function toBroadcastAudience(value: unknown): BroadcastAudience {
+  const s = String(value ?? "");
+  return s === BROADCAST_AUDIENCES.PICKED
+    ? BROADCAST_AUDIENCES.PICKED
+    : BROADCAST_AUDIENCES.ALL;
+}
+
+// Calendar weekdays, 0=Sunday, matching Date.getDay() and the Intl weekday
+// index — unlike PROGRAM_DAYS above, which is a 1..7 offset within a program
+// and has nothing to do with what day it is. Two different things that both
+// look like "day numbers", so they stay far apart in naming.
+export const WEEKDAY_ORDER = [0, 1, 2, 3, 4, 5, 6] as const;
+
+export const WEEKDAY_LABELS: Record<number, string> = {
+  0: "Sun",
+  1: "Mon",
+  2: "Tue",
+  3: "Wed",
+  4: "Thu",
+  5: "Fri",
+  6: "Sat",
+};
+
+// Form data reaching a query, so this is a gate rather than a formality:
+// anything that isn't an integer 0-6 is dropped, duplicates collapse, and the
+// result is sorted so two equivalent selections store identically.
+export function parseWeekdays(value: unknown): number[] {
+  const raw = Array.isArray(value) ? value : [value];
+  const days = new Set<number>();
+  for (const entry of raw) {
+    const n = Number(entry);
+    if (Number.isInteger(n) && n >= 0 && n <= 6) days.add(n);
+  }
+  return [...days].sort((a, b) => a - b);
+}
+
+// Same shape as parseWeekdays' contract, for the hour a scheduled message goes
+// out at. Out-of-range values are rejected rather than clamped: a tampered 99
+// silently becoming 23 would send at a time nobody chose.
+export function parseHour(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 && n <= 23 ? n : null;
+}
+
+// Long enough for anything a coach would type into a chat box, short enough
+// that it can't be used to push a megabyte into a column or an email. Enforced
+// in the action — the textarea's maxLength is a courtesy to the person typing,
+// not a control.
+export const MAX_MESSAGE_LENGTH = 4000;
+
+// ---------------------------------------------------------------------------
+// Body: intake profile and measurements
+//
+// Note which coercers below return null. The ones that fall back to a value do
+// so because their column has a default, so an unrecognised string is a legacy
+// row or a tampered field and there is an honest thing to read it as. The rest
+// follow toCoachReaction: there is no default sex or activity level, and
+// guessing one produces a confidently wrong calorie number (see body.ts).
+// ---------------------------------------------------------------------------
+
+// Which units a person reads numbers in. A *viewer* preference — bodies are
+// stored canonical metric (see ClientProfile in schema.prisma), so this only
+// ever decides rendering.
+export const UNITS = {
+  METRIC: "METRIC",
+  IMPERIAL: "IMPERIAL",
+} as const;
+export type Units = (typeof UNITS)[keyof typeof UNITS];
+
+export const UNIT_LABELS: Record<Units, string> = {
+  METRIC: "Metric (kg, cm)",
+  IMPERIAL: "Imperial (lb, in)",
+};
+
+// Short form for the toggle itself, where the parenthetical is the whole cell.
+export const UNIT_SHORT_LABELS: Record<Units, string> = {
+  METRIC: "kg / cm",
+  IMPERIAL: "lb / in",
+};
+
+export function toUnits(value: unknown): Units {
+  const s = String(value ?? "");
+  return s in UNIT_LABELS ? (s as Units) : UNITS.METRIC;
+}
+
+// The metabolic input to Mifflin–St Jeor, which is the only thing that reads
+// it — the profile form says exactly that under the field. Two values because
+// that is what the equation takes; it is not a question about identity, and
+// labelling it honestly ("Used for the calorie estimate") is the difference
+// between asking for a number and asking someone to categorise themselves.
+export const BIOLOGICAL_SEX = {
+  MALE: "MALE",
+  FEMALE: "FEMALE",
+} as const;
+export type BiologicalSex =
+  (typeof BIOLOGICAL_SEX)[keyof typeof BIOLOGICAL_SEX];
+
+export const SEX_ORDER = ["FEMALE", "MALE"] as const satisfies
+  readonly BiologicalSex[];
+
+export const SEX_LABELS: Record<BiologicalSex, string> = {
+  FEMALE: "Female",
+  MALE: "Male",
+};
+
+export function toBiologicalSex(value: unknown): BiologicalSex | null {
+  const s = String(value ?? "");
+  return s in SEX_LABELS ? (s as BiologicalSex) : null;
+}
+
+// How much the rest of their life moves. Deliberately the *only* input to the
+// TDEE multiplier: ClientProfile.trainingDaysPerWeek is programming context,
+// and feeding both into the same number counts the training twice.
+export const ACTIVITY_LEVELS = {
+  SEDENTARY: "SEDENTARY",
+  LIGHT: "LIGHT",
+  MODERATE: "MODERATE",
+  ACTIVE: "ACTIVE",
+  VERY_ACTIVE: "VERY_ACTIVE",
+} as const;
+export type ActivityLevel =
+  (typeof ACTIVITY_LEVELS)[keyof typeof ACTIVITY_LEVELS];
+
+export const ACTIVITY_ORDER = [
+  "SEDENTARY",
+  "LIGHT",
+  "MODERATE",
+  "ACTIVE",
+  "VERY_ACTIVE",
+] as const satisfies readonly ActivityLevel[];
+
+export const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
+  SEDENTARY: "Sedentary",
+  LIGHT: "Lightly active",
+  MODERATE: "Moderately active",
+  ACTIVE: "Active",
+  VERY_ACTIVE: "Very active",
+};
+
+// The hint is what makes the choice answerable. "Moderately active" means
+// nothing on its own, and the gap between two of these levels is several
+// hundred calories a day — so the description is load-bearing, not decoration.
+export const ACTIVITY_HINTS: Record<ActivityLevel, string> = {
+  SEDENTARY: "Desk job, little deliberate exercise",
+  LIGHT: "Light exercise 1–3 days a week",
+  MODERATE: "Moderate exercise 3–5 days a week",
+  ACTIVE: "Hard exercise 6–7 days a week, or on their feet all day",
+  VERY_ACTIVE: "Physical job plus hard daily training",
+};
+
+export function toActivityLevel(value: unknown): ActivityLevel | null {
+  const s = String(value ?? "");
+  return s in ACTIVITY_LABELS ? (s as ActivityLevel) : null;
+}
+
+// Which direction the plan is going. Paired with ClientProfile.rateKgPerWeek,
+// which is always a positive magnitude — direction is this field's job, so the
+// two can never disagree and leave one of them to win silently.
+export const GOAL_TYPES = {
+  LOSE: "LOSE",
+  MAINTAIN: "MAINTAIN",
+  GAIN: "GAIN",
+} as const;
+export type GoalType = (typeof GOAL_TYPES)[keyof typeof GOAL_TYPES];
+
+export const GOAL_ORDER = ["LOSE", "MAINTAIN", "GAIN"] as const satisfies
+  readonly GoalType[];
+
+export const GOAL_LABELS: Record<GoalType, string> = {
+  LOSE: "Lose weight",
+  MAINTAIN: "Maintain",
+  GAIN: "Gain weight",
+};
+
+export function toGoalType(value: unknown): GoalType | null {
+  const s = String(value ?? "");
+  return s in GOAL_LABELS ? (s as GoalType) : null;
+}
+
+export const EXPERIENCE_LEVELS = {
+  BEGINNER: "BEGINNER",
+  INTERMEDIATE: "INTERMEDIATE",
+  ADVANCED: "ADVANCED",
+} as const;
+export type ExperienceLevel =
+  (typeof EXPERIENCE_LEVELS)[keyof typeof EXPERIENCE_LEVELS];
+
+export const EXPERIENCE_ORDER = [
+  "BEGINNER",
+  "INTERMEDIATE",
+  "ADVANCED",
+] as const satisfies readonly ExperienceLevel[];
+
+export const EXPERIENCE_LABELS: Record<ExperienceLevel, string> = {
+  BEGINNER: "Beginner",
+  INTERMEDIATE: "Intermediate",
+  ADVANCED: "Advanced",
+};
+
+export const EXPERIENCE_HINTS: Record<ExperienceLevel, string> = {
+  BEGINNER: "New to structured training, or coming back after years off",
+  INTERMEDIATE: "Trains consistently, knows the main lifts",
+  ADVANCED: "Years of consistent training, needs specific programming",
+};
+
+export function toExperienceLevel(value: unknown): ExperienceLevel | null {
+  const s = String(value ?? "");
+  return s in EXPERIENCE_LABELS ? (s as ExperienceLevel) : null;
+}
+
+// Where they train. Paired with ClientProfile.equipmentNotes, and both are kept
+// because either alone is useless: the closed set is what a program filter
+// would ever key on and is one tap at intake, while the prose is what actually
+// decides the session ("adjustable dumbbells to 24kg, no rack").
+export const TRAINING_LOCATIONS = {
+  COMMERCIAL_GYM: "COMMERCIAL_GYM",
+  HOME_GYM: "HOME_GYM",
+  MINIMAL: "MINIMAL",
+  OUTDOORS: "OUTDOORS",
+} as const;
+export type TrainingLocation =
+  (typeof TRAINING_LOCATIONS)[keyof typeof TRAINING_LOCATIONS];
+
+export const TRAINING_LOCATION_ORDER = [
+  "COMMERCIAL_GYM",
+  "HOME_GYM",
+  "MINIMAL",
+  "OUTDOORS",
+] as const satisfies readonly TrainingLocation[];
+
+export const TRAINING_LOCATION_LABELS: Record<TrainingLocation, string> = {
+  COMMERCIAL_GYM: "Commercial gym",
+  HOME_GYM: "Home gym",
+  MINIMAL: "Minimal equipment",
+  OUTDOORS: "Outdoors",
+};
+
+export function toTrainingLocation(value: unknown): TrainingLocation | null {
+  const s = String(value ?? "");
+  return s in TRAINING_LOCATION_LABELS ? (s as TrainingLocation) : null;
+}
+
+// How they eat, as a pattern. Allergies are a separate column on purpose: one
+// is a safety fact and the other is taste, and a single "dietary notes" box
+// puts a nut allergy in the same paragraph as not liking mushrooms.
+export const DIET_PATTERNS = {
+  OMNIVORE: "OMNIVORE",
+  VEGETARIAN: "VEGETARIAN",
+  VEGAN: "VEGAN",
+  PESCATARIAN: "PESCATARIAN",
+  OTHER: "OTHER",
+} as const;
+export type DietPattern = (typeof DIET_PATTERNS)[keyof typeof DIET_PATTERNS];
+
+export const DIET_PATTERN_ORDER = [
+  "OMNIVORE",
+  "VEGETARIAN",
+  "PESCATARIAN",
+  "VEGAN",
+  "OTHER",
+] as const satisfies readonly DietPattern[];
+
+export const DIET_PATTERN_LABELS: Record<DietPattern, string> = {
+  OMNIVORE: "Omnivore",
+  VEGETARIAN: "Vegetarian",
+  PESCATARIAN: "Pescatarian",
+  VEGAN: "Vegan",
+  OTHER: "Other",
+};
+
+export function toDietPattern(value: unknown): DietPattern | null {
+  const s = String(value ?? "");
+  return s in DIET_PATTERN_LABELS ? (s as DietPattern) : null;
+}
+
+// Who put a measurement in. Not cosmetic: a coach reads their own tape reading
+// differently from a figure an athlete typed off a bathroom scale, and it is
+// the only signal self-logging will ever produce about whether it gets used.
+// The same call LoggedFood.source makes. TRAINER is the column default, so it
+// is also what any unrecognised value honestly reads as.
+export const MEASUREMENT_SOURCE = {
+  TRAINER: "TRAINER",
+  CLIENT: "CLIENT",
+} as const;
+export type MeasurementSource =
+  (typeof MEASUREMENT_SOURCE)[keyof typeof MEASUREMENT_SOURCE];
+
+export const MEASUREMENT_SOURCE_LABELS: Record<MeasurementSource, string> = {
+  TRAINER: "Coach",
+  CLIENT: "Self-logged",
+};
+
+export function toMeasurementSource(value: unknown): MeasurementSource {
+  const s = String(value ?? "");
+  return s in MEASUREMENT_SOURCE_LABELS
+    ? (s as MeasurementSource)
+    : MEASUREMENT_SOURCE.TRAINER;
+}
+
+// The tape sites, in the order both the weigh-in form and the history table lay
+// them out. One list rather than two literals, so a site can never appear in
+// the form and quietly vanish from the table — the same job SECTION_ORDER and
+// TAPE_SITES' neighbours above do for their own columns.
+export const TAPE_SITES = [
+  { key: "neckCm", label: "Neck" },
+  { key: "chestCm", label: "Chest" },
+  { key: "waistCm", label: "Waist" },
+  { key: "hipsCm", label: "Hips" },
+  { key: "thighCm", label: "Thigh" },
+  { key: "armCm", label: "Arm" },
+  { key: "calfCm", label: "Calf" },
+] as const;
+export type TapeSite = (typeof TAPE_SITES)[number]["key"];

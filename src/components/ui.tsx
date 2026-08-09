@@ -5,20 +5,34 @@ import { initials } from "@/lib/format";
 
 export function Avatar({
   name,
+  src,
   className,
 }: {
   name: string;
+  // Build this with avatarUrl() from src/lib/avatar.ts, never by hand — it
+  // carries the version that makes the image cacheable. Null, which is what
+  // avatarUrl returns for an account with no photo, falls back to initials.
+  src?: string | null;
   className?: string;
 }) {
   return (
     <span
       className={cn(
-        "metric grid h-9 w-9 shrink-0 place-items-center rounded-full border border-jade/15 bg-jade-wash text-xs font-semibold text-jade-strong",
+        "metric grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-jade/15 bg-jade-wash text-xs font-semibold text-jade-strong",
         className,
       )}
       aria-hidden="true"
     >
-      {initials(name)}
+      {src ? (
+        // A plain <img>, not next/image. The optimiser fetches the source
+        // itself, server-side and without the viewer's cookie, so it cannot
+        // read a session-gated route — and there is nothing for it to do
+        // anyway: what's behind this URL is already a 256px square.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        initials(name)
+      )}
     </span>
   );
 }

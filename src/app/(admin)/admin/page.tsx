@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin, isOwnerEmail } from "@/lib/admin";
 import { prisma } from "@/lib/db";
 import { Container, PageHeading, Card, Avatar, Badge } from "@/components/ui";
+import { avatarUrl } from "@/lib/avatar";
 import { addDays, formatStamp, relativeTime } from "@/lib/format";
 import {
   LOGIN_OUTCOME,
@@ -75,7 +76,7 @@ export default async function AdminAccountsPage() {
               href={`/admin/users/${u.id}`}
               className="flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-paper"
             >
-              <Avatar name={u.name} />
+              <Avatar name={u.name} src={avatarUrl(u)} />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 truncate text-sm font-medium text-ink">
                   {u.name}

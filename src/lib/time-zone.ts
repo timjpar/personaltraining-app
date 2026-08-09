@@ -77,3 +77,15 @@ export function localDay(at: Date, timeZone: string): string {
     day: "2-digit",
   }).format(at);
 }
+
+// Which day of the week it is for someone right now, 0=Sunday..6=Saturday —
+// the encoding Broadcast.weekdays stores and Date.getDay() uses.
+//
+// Derived from localDay rather than from a second Intl call with
+// weekday: "short", which would mean mapping localised names back to numbers
+// and could disagree with the day the run is claimed for. Appending Z parses
+// that calendar date at UTC midnight, so getUTCDay reads the weekday of the
+// date itself with no zone shifting it either way.
+export function localWeekday(at: Date, timeZone: string): number {
+  return new Date(`${localDay(at, timeZone)}T00:00:00Z`).getUTCDay();
+}

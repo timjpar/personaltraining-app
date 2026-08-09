@@ -12,6 +12,7 @@ import {
   openCamera,
   supportsBarcodeScanning,
 } from "@/lib/barcode";
+import { fitWithin } from "@/lib/downscale";
 import type { FoodPreset } from "@/lib/food-presets";
 import { FOOD_SOURCE, type FoodSource } from "@/lib/constants";
 
@@ -22,31 +23,6 @@ import { FOOD_SOURCE, type FoodSource } from "@/lib/constants";
 // every action in the app including the workout log.
 const MAX_EDGE = 1024;
 const JPEG_QUALITY = 0.7;
-
-async function downscale(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-  const width = Math.round(bitmap.width * scale);
-  const height = Math.round(bitmap.height * scale);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    bitmap.close();
-    return file;
-  }
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
-  );
-  // Falling back to the original is right: an oversized photo the server
-  // rejects with a clear message beats no scan attempt at all.
-  return blob ?? file;
-}
 
 export function FoodScanner({
   onFoods,
@@ -194,7 +170,7 @@ export function FoodScanner({
   const onPhoto = (file: File) => {
     setMessage(null);
     startTransition(async () => {
-      const blob = await downscale(file);
+      const blob = await fitWithin(file, MAX_EDGE, JPEG_QUALITY);
       const body = new FormData();
       body.append("photo", blob, "photo.jpg");
       const result = await scanFoodPhoto(body);

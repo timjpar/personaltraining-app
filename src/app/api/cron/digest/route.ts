@@ -21,7 +21,7 @@ import { prisma } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db";
 import { buildDigest, sendDigest } from "@/lib/digest";
 import { localDay, localHour, zoneFor } from "@/lib/time-zone";
-import { sha256Hex } from "@/lib/random";
+import { authorizeCron } from "@/lib/cron-auth";
 import { appUrl } from "@/lib/app-url";
 import { ROLES } from "@/lib/constants";
 
@@ -33,23 +33,14 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const expected = process.env.CRON_SECRET;
-
-  // 404 rather than 401 when the secret isn't configured. Direct precedent:
-  // /admin is a 404 for everyone when ADMIN_EMAILS is blank, because an
-  // endpoint nobody has switched on shouldn't announce that it exists.
-  if (!expected) return new NextResponse(null, { status: 404 });
-
-  const header = req.headers.get("authorization") ?? "";
-  const provided = header.toLowerCase().startsWith("bearer ")
-    ? header.slice(7).trim()
-    : (req.headers.get("x-cron-secret") ?? "");
-
-  // Compared as digests, not with ===. Both sides become fixed-length hex, so
-  // the comparison's timing says nothing about how much of the secret matched
-  // or how long it is. sha256Hex is Web Crypto, so this stays runtime-agnostic
-  // rather than being the first node:crypto import in the app.
-  if ((await sha256Hex(provided)) !== (await sha256Hex(expected))) {
+  const auth = await authorizeCron(req);
+  if (!auth.ok) {
+    // 404 rather than 401 when the secret isn't configured. Direct precedent:
+    // /admin is a 404 for everyone when ADMIN_EMAILS is blank, because an
+    // endpoint nobody has switched on shouldn't announce that it exists.
+    if (auth.reason === "unconfigured") {
+      return new NextResponse(null, { status: 404 });
+    }
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

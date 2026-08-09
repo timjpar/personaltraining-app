@@ -16,6 +16,11 @@ import { ResetClientPassword } from "./ResetClientPassword";
 import { assignTemplateToClient } from "@/app/(trainer)/library/actions";
 import { formatDate, toDateInput } from "@/lib/format";
 import { sumMacros } from "@/lib/nutrition-form";
+import { MeasurementForm } from "@/components/MeasurementForm";
+import { WeightTrend, BodyStats } from "@/components/WeightTrend";
+import { saveMeasurement } from "@/app/(trainer)/clients/body-actions";
+import { toUnits } from "@/lib/constants";
+import { avatarUrl } from "@/lib/avatar";
 
 function WorkoutRow({
   id,
@@ -61,42 +66,75 @@ export default async function ClientDetailPage({
   const { id } = await params;
   const trainer = await requireTrainer();
 
-  // All four in parallel. Each scopes itself — the logs and the plan carry the
-  // trainer check in their own where clause rather than leaning on the client
-  // lookup having succeeded, so running them together is safe.
-  const [client, templates, logs, plan] = await Promise.all([
-    prisma.user.findFirst({
-      where: { id, trainerId: trainer.id, role: "CLIENT" },
-      include: {
-        workoutsAsClient: {
-          orderBy: { scheduledDate: "desc" },
-          include: { _count: { select: { exercises: true } } },
+  // All six in parallel. Each scopes itself — the logs, the plan and the body
+  // rows carry the trainer check in their own where clause rather than leaning
+  // on the client lookup having succeeded, so running them together is safe.
+  const [client, templates, logs, plan, profile, measurements] =
+    await Promise.all([
+      prisma.user.findFirst({
+        where: { id, trainerId: trainer.id, role: "CLIENT" },
+        include: {
+          workoutsAsClient: {
+            orderBy: { scheduledDate: "desc" },
+            include: { _count: { select: { exercises: true } } },
+          },
         },
-      },
-    }),
-    prisma.workoutTemplate.findMany({
-      where: { trainerId: trainer.id },
-      orderBy: { updatedAt: "desc" },
-      select: { id: true, title: true },
-    }),
-    prisma.nutritionLog.findMany({
-      where: { clientId: id, client: { trainerId: trainer.id } },
-      orderBy: { date: "desc" },
-      take: 14,
-      include: {
-        foods: {
-          select: { calories: true, protein: true, carbs: true, fat: true },
+      }),
+      prisma.workoutTemplate.findMany({
+        where: { trainerId: trainer.id },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, title: true },
+      }),
+      prisma.nutritionLog.findMany({
+        where: { clientId: id, client: { trainerId: trainer.id } },
+        orderBy: { date: "desc" },
+        take: 14,
+        include: {
+          foods: {
+            select: { calories: true, protein: true, carbs: true, fat: true },
+          },
         },
-      },
-    }),
-    prisma.nutritionPlan.findFirst({
-      where: { clientId: id, trainerId: trainer.id },
-      orderBy: { assignedAt: "desc" },
-      select: { title: true, targetCalories: true },
-    }),
-  ]);
+      }),
+      prisma.nutritionPlan.findFirst({
+        where: { clientId: id, trainerId: trainer.id },
+        orderBy: { assignedAt: "desc" },
+        select: { title: true, targetCalories: true },
+      }),
+      prisma.clientProfile.findFirst({
+        where: { userId: id, user: { trainerId: trainer.id } },
+        select: { goalWeightKg: true, goalType: true },
+      }),
+      // Capped like the nutrition logs beside it. This section is a summary
+      // that links out — the full history has its own route and its own query.
+      prisma.measurement.findMany({
+        where: {
+          clientId: id,
+          client: { trainerId: trainer.id },
+          weightKg: { not: null },
+        },
+        orderBy: { date: "desc" },
+        take: 30,
+        select: { id: true, date: true, weightKg: true },
+      }),
+    ]);
 
   if (!client) notFound();
+
+  const units = toUnits(trainer.units);
+
+  // Narrowed so the trend and the stats can take a plain number — the query
+  // already filtered nulls out, but the type doesn't know that.
+  const weighIns = measurements.filter(
+    (m): m is typeof m & { weightKg: number } => m.weightKg != null,
+  );
+  const current = weighIns[0] ?? null;
+  // "Change in 30 days" compares against the oldest reading inside the window,
+  // not the previous entry — for someone weighing in twice a week the latter
+  // would read as zero and say nothing.
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  const window = weighIns.filter((m) => m.date >= cutoff);
+  const previous = window[window.length - 1] ?? null;
 
   const upcoming = client.workoutsAsClient
     .filter((w) => w.status !== "COMPLETED")
@@ -127,7 +165,11 @@ export default async function ClientDetailPage({
           }
         >
           <span className="flex items-center gap-2">
-            <Avatar name={client.name} className="h-6 w-6 text-[0.625rem]" />
+            <Avatar
+              name={client.name}
+              src={avatarUrl(client)}
+              className="h-6 w-6 text-[0.625rem]"
+            />
             <span className="metric">{client.email}</span>
           </span>
         </PageHeading>
@@ -288,6 +330,86 @@ export default async function ClientDetailPage({
                 </Link>
               );
             })}
+          </Card>
+        )}
+      </section>
+
+      {/* Body. Deliberately a summary that links out — the profile is a long
+          form and the weigh-in history is a long table, and neither belongs on
+          the page you open to see what someone is training. What stays here is
+          the glance, plus the one action a coach takes standing next to a
+          client: type a weight. */}
+      <section className="mt-10">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className="font-display text-lg font-semibold text-ink">Body</h2>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/clients/${client.id}/measurements`}
+              className="text-xs font-medium text-jade-strong hover:underline"
+            >
+              Measurements →
+            </Link>
+            <Link
+              href={`/clients/${client.id}/profile`}
+              className="text-xs font-medium text-jade-strong hover:underline"
+            >
+              Profile →
+            </Link>
+          </div>
+        </div>
+
+        {weighIns.length === 0 ? (
+          <EmptyState
+            title="Nothing measured yet"
+            action={
+              <ButtonLink href={`/clients/${client.id}/profile`} size="sm">
+                Fill in their profile
+              </ButtonLink>
+            }
+          >
+            Height, a goal and a weigh-in are what a meal plan gets written
+            from. Record them and this works out{" "}
+            {client.name.split(/\s+/)[0]}&rsquo;s calorie and macro targets.
+          </EmptyState>
+        ) : (
+          <Card className="p-4 sm:p-5">
+            <BodyStats
+              currentKg={current?.weightKg ?? null}
+              previousKg={
+                previous && previous !== current ? previous.weightKg : null
+              }
+              goalKg={profile?.goalWeightKg ?? null}
+              units={units}
+              sinceLabel="in 30 days"
+            />
+
+            <WeightTrend
+              className="mt-4 h-20 w-full"
+              points={weighIns.map((m) => ({ date: m.date, kg: m.weightKg }))}
+              goalKg={profile?.goalWeightKg ?? null}
+              units={units}
+            />
+
+            <div className="mt-4 border-t border-line pt-4">
+              <MeasurementForm
+                action={saveMeasurement.bind(null, client.id)}
+                units={units}
+                compact
+                values={{
+                  date: toDateInput(new Date()),
+                  weightKg: null,
+                  bodyFatPct: null,
+                  neckCm: null,
+                  chestCm: null,
+                  waistCm: null,
+                  hipsCm: null,
+                  thighCm: null,
+                  armCm: null,
+                  calfCm: null,
+                  notes: null,
+                }}
+              />
+            </div>
           </Card>
         )}
       </section>

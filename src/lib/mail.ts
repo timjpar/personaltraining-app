@@ -34,6 +34,13 @@ export type Mail = {
   // client actually renders.
   text: string;
   html: string;
+  // Where a reply should go, when that isn't the from address. Only the
+  // conversation emails set it, and it's what makes them usable rather than
+  // decorative: an athlete's instinct on reading a message from their coach is
+  // to hit reply, and without this that reaches a no-reply mailbox nobody
+  // watches. Account mail deliberately leaves it unset — there is no person on
+  // the other end of a password reset.
+  replyTo?: string;
 };
 
 export async function sendMail(mail: Mail): Promise<boolean> {
@@ -53,6 +60,9 @@ export async function sendMail(mail: Mail): Promise<boolean> {
         subject: mail.subject,
         text: mail.text,
         html: mail.html,
+        // Omitted entirely when unset rather than sent as null — Resend
+        // rejects a null reply_to, and most mail here has no reply address.
+        ...(mail.replyTo ? { reply_to: mail.replyTo } : {}),
       }),
     });
     if (!res.ok) {
@@ -403,6 +413,117 @@ ${
 <p style="color:#666;font-size:0.9em">This covers everything from today, including anything already emailed.</p>
 <p><a href="${escapeHtml(`${base}/dashboard`)}">Open Chalkline</a></p>`,
   };
+}
+
+// A message someone typed, copied to the other person's inbox.
+//
+// The most attacker-influenced email in this file by some distance: unlike a
+// digest, which quotes short fields, this one exists to carry a block of text
+// that a coach or an athlete wrote freehand. It goes through escapeHtml like
+// everything else — via bodyHtml below, which is the only reason newlines
+// survive at all.
+export function messageEmail(
+  origin: string,
+  m: {
+    recipientName: string;
+    senderName: string;
+    // The group's title, or null on a 1:1. Passed explicitly rather than
+    // inferred from comparing a label against the sender's name — on a direct
+    // thread the label *is* the recipient's name, so that comparison reads
+    // every 1:1 as a group.
+    groupTitle: string | null;
+    body: string;
+    href: string; // role-specific, built by threadHref in src/lib/messaging.ts
+  },
+): Mail {
+  const link = `${appUrl(origin)}${m.href}`;
+  const inGroup = m.groupTitle != null;
+  return {
+    to: "",
+    subject: inGroup
+      ? `${m.senderName} posted in ${m.groupTitle}`
+      : `New message from ${m.senderName}`,
+    text: [
+      `Hi ${m.recipientName},`,
+      "",
+      inGroup
+        ? `${m.senderName} posted in ${m.groupTitle}:`
+        : `${m.senderName} sent you a message:`,
+      "",
+      m.body,
+      "",
+      `Reply in Chalkline: ${link}`,
+      "",
+      "You can also just reply to this email.",
+    ].join("\n"),
+    html: `<p>Hi ${escapeHtml(m.recipientName)},</p>
+<p>${
+      inGroup
+        ? `<strong>${escapeHtml(m.senderName)}</strong> posted in ${escapeHtml(m.groupTitle ?? "")}:`
+        : `<strong>${escapeHtml(m.senderName)}</strong> sent you a message:`
+    }</p>
+${bodyHtml(m.body)}
+<p><a href="${escapeHtml(link)}">Reply in Chalkline</a></p>
+<p style="color:#666;font-size:0.9em">You can also just reply to this email.</p>`,
+  };
+}
+
+// A scheduled message going out on the coach's chosen day and hour.
+//
+// Nearly the same email as the one above, and deliberately not the same
+// function. The difference is that nobody is sitting at a keyboard when this
+// sends: the subject can't say "new message from" about something written three
+// weeks ago, and the footer has to explain why it arrived unprompted — which is
+// what stops the second one being marked as spam.
+export function broadcastEmail(
+  origin: string,
+  m: {
+    recipientName: string;
+    coachName: string;
+    body: string;
+    href: string;
+  },
+): Mail {
+  const link = `${appUrl(origin)}${m.href}`;
+  return {
+    to: "",
+    subject: `A note from ${m.coachName}`,
+    text: [
+      `Hi ${m.recipientName},`,
+      "",
+      m.body,
+      "",
+      `— ${m.coachName}`,
+      "",
+      `Reply in Chalkline: ${link}`,
+      "",
+      `${m.coachName} set this to go out on a schedule. Replying reaches them directly.`,
+    ].join("\n"),
+    html: `<p>Hi ${escapeHtml(m.recipientName)},</p>
+${bodyHtml(m.body)}
+<p>&mdash; ${escapeHtml(m.coachName)}</p>
+<p><a href="${escapeHtml(link)}">Reply in Chalkline</a></p>
+<p style="color:#666;font-size:0.9em">${escapeHtml(
+      m.coachName,
+    )} set this to go out on a schedule. Replying reaches them directly.</p>`,
+  };
+}
+
+// Freehand text as HTML paragraphs. Escaping happens *first* and the tags are
+// added after, which is the only order that is safe: escaping afterwards would
+// destroy the markup we just added, and interleaving the two is how a "<" in
+// someone's message ends up as a live tag.
+//
+// Blank lines separate paragraphs, single newlines become breaks — the shape
+// people actually type in a message box.
+function bodyHtml(body: string): string {
+  return body
+    .split(/\n{2,}/)
+    .map(
+      (para) =>
+        `<p style="white-space:pre-wrap">${escapeHtml(para).replace(/\n/g, "<br>")}</p>`,
+    )
+    .join("\n");
 }
 
 // The name comes from a database column the account holder chose, so it is

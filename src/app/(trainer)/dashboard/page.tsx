@@ -12,6 +12,8 @@ import {
 } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { NotificationsCard } from "@/components/NotificationsCard";
+import { ProfilePhotoCard } from "@/components/ProfilePhotoCard";
+import { avatarUrl } from "@/lib/avatar";
 import { mailConfig } from "@/lib/mail";
 import { zoneFor } from "@/lib/time-zone";
 import { relativeTime, formatDate, formatDateLong, toDateInput } from "@/lib/format";
@@ -197,7 +199,10 @@ export default async function DashboardPage() {
                     }
                   >
                     <div className="flex gap-3.5">
-                      <Avatar name={item.client.name} />
+                      <Avatar
+                        name={item.client.name}
+                        src={avatarUrl(item.client)}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <p className="text-sm leading-snug">{headline}</p>
@@ -258,7 +263,7 @@ export default async function DashboardPage() {
                   href={`/clients/${c.id}`}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-paper"
                 >
-                  <Avatar name={c.name} />
+                  <Avatar name={c.name} src={avatarUrl(c)} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{c.name}</p>
                     <p className="metric text-xs text-ink-soft">
@@ -276,7 +281,7 @@ export default async function DashboardPage() {
 
       {/* Bottom and one column, for the reason the file's header comment gives
           about the feed: nothing goes above the thing this page exists to show. */}
-      <section className="mt-10 max-w-md">
+      <section className="mt-10 flex max-w-md flex-col gap-6">
         <NotificationsCard
           digestHour={trainer.digestHour}
           instantWorkoutEmail={trainer.instantWorkoutEmail}
@@ -284,6 +289,7 @@ export default async function DashboardPage() {
           timeZone={zoneFor(trainer)}
           mailConfigured={mailConfig() !== null}
         />
+        <ProfilePhotoCard name={trainer.name} photoUrl={avatarUrl(trainer)} />
       </section>
     </Container>
   );
