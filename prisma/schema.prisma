@@ -506,16 +506,30 @@ model Workout {
   // neither question. See the trainer calendar's query.
   //
   // Never filters the athlete's own calendar, which shows every session
-  // regardless — from their side there is no difference worth hiding.
+  // regardless — from their side there is no difference worth hiding. It does
+  // decide the colour a session is drawn in on every calendar that shows both.
   //
-  // SOLO is the default because that is what most programming is: templates
-  // and whole programs are assigned in bulk to be done alone, and those paths
-  // create rows without ever naming this column. It is also what every session
-  // written before this column existed reads as, which is the intended
-  // direction — the coach's calendar starts clean and fills as they mark the
-  // sessions they're actually attending, rather than starting with every
-  // workout they have ever written on it.
-  attendance    String    @default("SOLO") // IN_PERSON | SOLO
+  // IN_PERSON is the default, and this shipped the other way round for a day.
+  // The argument for SOLO was that bulk assignment is homework by volume, and
+  // it was wrong about which mistake costs more: a session that should have
+  // been on the coach's calendar and silently wasn't is a missed appointment,
+  // while one that shouldn't be is a row they can see and clear. Defaults
+  // belong on the side of the failure you can notice. Every path that creates
+  // a workout now asks outright anyway, so the default only decides what a
+  // form shows before anyone touches it.
+  attendance    String    @default("IN_PERSON") // IN_PERSON | SOLO
+
+  // How long it's booked for, in minutes — 30, 60, 90 or 120 (SESSION_LENGTHS
+  // in src/lib/constants.ts). Read together with startMinute above: this is a
+  // length, not an end time, so a session that moves an hour earlier doesn't
+  // need two columns updated to stay an hour long. The calendar adds the two
+  // to get the end, the same shape CalendarEvent stores directly.
+  //
+  // Nullable because startMinute is: a session with no time of day has no
+  // block to fill, and every workout written before this column existed is
+  // exactly that. Null renders as it always did — a title on a day, no range.
+  durationMinutes Int?
+
   completedAt   DateTime?
   rpe           Int? // session rating of perceived exertion, 1-10
   clientComment String?

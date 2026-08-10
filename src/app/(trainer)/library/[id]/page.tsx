@@ -143,6 +143,7 @@ export default async function TemplatePage({
             clients={clients}
             submitLabel="Assign workout"
             withDate
+            withSchedule
             defaultDate={toDateInput(new Date())}
           />
         )}

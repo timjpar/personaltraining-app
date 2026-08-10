@@ -38,6 +38,7 @@ export async function createWorkout(
       discipline: data.discipline,
       scheduledDate: data.scheduledDate,
       startMinute: data.startMinute,
+      durationMinutes: data.durationMinutes,
       attendance: data.attendance,
       status: "ASSIGNED",
       clientId,
@@ -82,6 +83,7 @@ export async function updateWorkout(
         discipline: data.discipline,
         scheduledDate: data.scheduledDate,
         startMinute: data.startMinute,
+        durationMinutes: data.durationMinutes,
         attendance: data.attendance,
         exercises: { create: data.exercises },
       },
@@ -105,10 +107,11 @@ export async function updateWorkout(
 // prescription, so re-marking a finished session through it would delete every
 // set the athlete logged. This writes one column.
 //
-// It also has to be one click. Every session written before this column existed
-// reads as SOLO, so the first thing a coach does with this feature is walk their
-// real appointments back onto their calendar — and if that meant opening the
-// builder and re-saving each one, they wouldn't.
+// It also has to be one click, because re-marking is the common case and not
+// the rare one: a session becomes homework when someone cancels, and becomes
+// yours when they ask to be walked through it. If either meant opening the
+// builder and re-saving the whole prescription, neither would happen. Rows
+// written while SOLO was briefly the default are the other caller.
 export async function setWorkoutAttendance(
   workoutId: string,
   next: Attendance,

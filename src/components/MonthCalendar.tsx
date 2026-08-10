@@ -10,7 +10,7 @@ import {
   type CalendarItem,
 } from "@/lib/calendar";
 import { toDateInput } from "@/lib/format";
-import { ATTENDANCE_BADGES } from "@/lib/constants";
+import { ATTENDANCE, ATTENDANCE_BADGES, type Attendance } from "@/lib/constants";
 import { cn } from "@/lib/cn";
 
 // The month view, once. It was written twice — the trainer's calendar and the
@@ -57,11 +57,15 @@ export type MonthCalendarProps = {
   // natural place to put the way out of it.
   emptyAction?: ReactNode;
 
-  // Marks which sessions the coach is in the room for. Off by default: the
-  // coach's own calendar is filtered to in-person upstream, so every chip on it
-  // would carry the same badge, and the athlete's calendar doesn't select the
-  // column at all. It's on for the one view that shows both kinds at once.
+  // Colours the chips by who is in the room, and draws the key that explains
+  // it. Off by default, which is right for the coach's own calendar: that one
+  // is filtered to in-person upstream, so every chip would take the same
+  // colour and the key would describe a distinction the page never draws.
   showAttendance?: boolean;
+  // What the key calls the two, because the same fact reads from both sides:
+  // a coach sees "with you" and the athlete whose calendar it is sees "with
+  // your coach". Defaults to the coach's wording.
+  attendanceLegend?: Record<Attendance, string>;
 };
 
 export function MonthCalendar({
@@ -73,6 +77,7 @@ export function MonthCalendar({
   action,
   emptyAction,
   showAttendance = false,
+  attendanceLegend = ATTENDANCE_BADGES,
 }: MonthCalendarProps) {
   const grid = monthGrid(monthStart);
   const month = monthStart.getMonth();
@@ -277,6 +282,29 @@ export function MonthCalendar({
         })}
       </div>
 
+      {/* A colour that isn't explained is decoration. One line, only on the
+          calendars that actually show both kinds — the coach's own is filtered
+          to in-person, so a key there would describe a distinction it never
+          draws. */}
+      {showAttendance ? (
+        <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.6875rem] text-ink-soft">
+          <span className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-jade"
+            />
+            {attendanceLegend[ATTENDANCE.IN_PERSON]}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink-soft/50"
+            />
+            {attendanceLegend[ATTENDANCE.SOLO]}
+          </span>
+        </p>
+      ) : null}
+
       {/* The agenda carries its own empty state, so this is the grid's. */}
       {inMonthCount === 0 ? (
         <p className="mt-4 hidden text-sm text-ink-soft sm:block">
@@ -300,14 +328,24 @@ function Chip({
 
   const body = (
     <>
-      {/* Filled dot = a programmed workout, hollow = everything else. Kind
-          never gets its own colour: the accent tokens change meaning with the
-          trainer's theme, and amber is spoken for by effort. */}
+      {/* Two signals, one dot. Filled means a programmed workout and hollow
+          means everything else, as it always did; the *colour* of a filled one
+          now says who is in the room — the accent for a session with the
+          coach, plain ink for homework.
+
+          No new hue for either. The accent slot changes meaning with the
+          trainer's chosen theme and amber is spoken for by effort, so the only
+          honest axis left is accent-versus-neutral — which is also the right
+          ranking: a booked hour should be the thing your eye lands on. */}
       <span
         aria-hidden
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full",
-          item.source === "workout" ? "bg-jade" : "border border-line",
+          item.source !== "workout"
+            ? "border border-line"
+            : inPerson
+              ? "bg-jade"
+              : "bg-ink-soft/50",
         )}
       />
       {item.startMinute != null ? (
@@ -315,44 +353,42 @@ function Chip({
           {formatTime(item.startMinute)}
         </span>
       ) : null}
-      {/* min-w-12 rather than min-w-0, which is what the two calendars that
-          draw no badge can afford. Here the badge below is shrink-0, so a
-          title free to shrink to nothing does exactly that in a 150px month
-          cell — the session vanished and left "7:30 AM · With you" standing
-          on its own. A floor of a few characters makes the badge wrap
-          instead. */}
       <span
         className={cn(
-          "min-w-12 flex-1 truncate",
+          "min-w-0 flex-1 truncate",
           item.completed ? "text-ink-soft line-through" : "text-ink",
         )}
       >
         {item.title}
       </span>
-      {/* A ring rather than a second dot or a colour: the dot to its left
-          already means "workout", and the accent palette is spoken for. Only
-          in-person is marked — homework is the ordinary case, and badging both
-          would badge every row. */}
-      {showAttendance && inPerson ? (
-        <span
-          title={ATTENDANCE_BADGES.IN_PERSON}
-          className="metric shrink-0 rounded-full border border-jade/40 px-1 text-[0.5625rem] uppercase tracking-[0.08em] text-jade-strong"
-        >
-          With you
-        </span>
-      ) : null}
     </>
   );
 
-  // flex-wrap so the "With you" badge drops under the title in a narrow month
-  // cell instead of competing with it for the same line. Cells are min-h-28
-  // and hold at most three chips, so there is vertical room to spend and none
-  // horizontally.
-  const shell =
-    "flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-[4px] px-0.5 text-[0.6875rem] leading-tight";
+  // The tint is the "different colour" at chip scale — a 1.5px dot is the right
+  // signal in a dense grid but not something you can pick a week's bookings out
+  // by. Gated on showAttendance rather than applied whenever a session is
+  // in-person: on the coach's own calendar every workout is in-person, so
+  // tinting them all would colour the whole month and say nothing.
+  //
+  // A wash, not a solid fill: these sit three to a cell under a date number,
+  // and a saturated block at that size fights the text inside it.
+  const shell = cn(
+    "flex items-center gap-1 rounded-[4px] px-0.5 text-[0.6875rem] leading-tight",
+    showAttendance && inPerson && item.source === "workout"
+      ? "bg-jade-wash px-1"
+      : "",
+  );
 
   return linked ? (
-    <Link href={item.href} className={cn(shell, "hover:bg-jade-wash/50")}>
+    <Link
+      href={item.href}
+      title={
+        item.source === "workout" && item.attendance
+          ? ATTENDANCE_BADGES[item.attendance]
+          : undefined
+      }
+      className={cn(shell, "hover:bg-jade-wash/50")}
+    >
       {body}
     </Link>
   ) : (
