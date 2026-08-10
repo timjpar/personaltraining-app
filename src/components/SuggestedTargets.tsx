@@ -20,6 +20,13 @@ import type { BodyState } from "@/lib/body-form";
 // The derivation is shown rather than hidden. A bare "2,290 kcal" invites
 // either blind trust or dismissal; BMR → TDEE → deficit is what lets a coach
 // decide whether the estimate is reasonable for the person in front of them.
+//
+// Two callers, and the difference between them is who the file belongs to. On a
+// client's profile the card ends in the two ways a coach accepts the numbers
+// into that client's plan. On the coach's own file (`self`) there is nobody to
+// assign anything to and no plan to apply to — the targets are simply what
+// their own food log measures the day against — so the row of actions is
+// dropped rather than pointed at a plan builder that only takes clients.
 
 type ProfileInput = Parameters<typeof targetInputsFrom>[0];
 
@@ -31,16 +38,22 @@ export function SuggestedTargets({
   units,
   plan,
   applyAction,
+  self = false,
 }: {
   profile: ProfileInput;
   latest: { weightKg: number | null } | null;
-  clientId: string;
-  clientName: string;
+  // Both absent in `self` mode: there is no client, so there is nothing to
+  // name and nowhere to start a plan for.
+  clientId?: string;
+  clientName?: string;
   units: Units;
-  plan: { id: string; title: string } | null;
+  plan?: { id: string; title: string } | null;
   applyAction?: (prev: BodyState, formData: FormData) => Promise<BodyState>;
+  self?: boolean;
 }) {
-  const { inputs, missing } = targetInputsFrom(profile, latest);
+  const { inputs, missing } = targetInputsFrom(profile, latest, {
+    possessive: self ? "your" : "their",
+  });
 
   if (!inputs) {
     return (
@@ -49,8 +62,9 @@ export function SuggestedTargets({
           Suggested daily targets
         </h3>
         <p className="mt-1.5 text-sm text-ink-soft">
-          Once the file has {listOf(missing)}, this works out a calorie and
-          macro target you can drop straight into a plan.
+          Once {self ? "your file" : "the file"} has {listOf(missing)}, this
+          works out a calorie and macro target
+          {self ? " your food log measures the day against" : " you can drop straight into a plan"}.
         </p>
       </Card>
     );
@@ -63,14 +77,16 @@ export function SuggestedTargets({
   const proteinPerUnit =
     units === UNITS.IMPERIAL ? t.proteinPerKg * KG_PER_LB : t.proteinPerKg;
 
-  const params = new URLSearchParams({
-    kcal: String(t.calories),
-    protein: String(t.protein),
-    carbs: String(t.carbs),
-    fat: String(t.fat),
-    title: `${GOAL_LABELS[inputs.goal]} · ${t.calories.toLocaleString()} kcal`,
-    client: clientId,
-  });
+  const params = clientId
+    ? new URLSearchParams({
+        kcal: String(t.calories),
+        protein: String(t.protein),
+        carbs: String(t.carbs),
+        fat: String(t.fat),
+        title: `${GOAL_LABELS[inputs.goal]} · ${t.calories.toLocaleString()} kcal`,
+        client: clientId,
+      })
+    : null;
 
   return (
     <Card className="p-4 sm:p-5">
@@ -125,33 +141,35 @@ export function SuggestedTargets({
         </ul>
       ) : null}
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-start">
-        <ButtonLink
-          href={`/nutrition/new?${params.toString()}`}
-          size="sm"
-          className="shrink-0"
-        >
-          Start a plan from these
-        </ButtonLink>
+      {params ? (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-start">
+          <ButtonLink
+            href={`/nutrition/new?${params.toString()}`}
+            size="sm"
+            className="shrink-0"
+          >
+            Start a plan from these
+          </ButtonLink>
 
-        {plan && applyAction ? (
-          <div className="min-w-0 flex-1">
-            <ApplyTargets
-              action={applyAction}
-              planId={plan.id}
-              planTitle={plan.title}
-            />
-          </div>
-        ) : (
-          <p className="text-xs text-ink-soft sm:self-center">
-            {clientName.split(/\s+/)[0]} has no plan assigned yet — or{" "}
-            <Link href="/nutrition" className="text-jade-strong hover:underline">
-              assign an existing one
-            </Link>
-            .
-          </p>
-        )}
-      </div>
+          {plan && applyAction ? (
+            <div className="min-w-0 flex-1">
+              <ApplyTargets
+                action={applyAction}
+                planId={plan.id}
+                planTitle={plan.title}
+              />
+            </div>
+          ) : (
+            <p className="text-xs text-ink-soft sm:self-center">
+              {(clientName ?? "").split(/\s+/)[0]} has no plan assigned yet — or{" "}
+              <Link href="/nutrition" className="text-jade-strong hover:underline">
+                assign an existing one
+              </Link>
+              .
+            </p>
+          )}
+        </div>
+      ) : null}
 
       <p className="mt-3 text-xs text-ink-soft/80">
         An estimate, not a prescription — Mifflin–St Jeor is ±10% on any one

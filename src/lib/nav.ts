@@ -38,6 +38,12 @@ export function trainerNav(unread: number, unreadMessages: number): NavItem[] {
     { href: "/programs", label: "Programs", icon: "programs" },
     { href: "/nutrition", label: "Nutrition", icon: "nutrition" },
     { href: "/exercises", label: "Exercises", icon: "exercises" },
+    // The coach's own body and food log. Last because it is the one cell that
+    // isn't about the roster, and a scrolling row makes a ninth affordable —
+    // the eight above were already past what a fixed row could hold. "Me"
+    // shares the athlete's body icon on purpose: it is the same tracking,
+    // pointed at the person reading it.
+    { href: "/me", label: "Me", icon: "body" },
   ];
 }
 

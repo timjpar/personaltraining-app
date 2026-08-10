@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
   useTransition,
 } from "react";
-import { lookupBarcode, scanFoodPhoto } from "@/app/(client)/my/nutrition/actions";
+import { lookupBarcode, scanFoodPhoto } from "@/app/food-scan-actions";
 import { Input, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
