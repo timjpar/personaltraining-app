@@ -72,7 +72,10 @@ model User {
   // already has a user in hand), and nothing in the root layout renders a
   // number, so there is no flash to avoid. On User rather than on
   // ClientProfile because trainers have no profile and still read the numbers.
-  units String @default("METRIC")
+  //
+  // Defaults imperial: this is a coach whose clients read pounds off a bathroom
+  // scale, and a default nobody has to find is worth more than a symmetric one.
+  units String @default("IMPERIAL")
 
   // Which hour of the trainer's own day the digest goes out at, 0-23; null is
   // off. Deliberately NOT the minutes-from-midnight the rest of the app uses

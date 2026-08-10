@@ -5,7 +5,10 @@ import { cn } from "@/lib/cn";
 import { saveUnits } from "@/app/units-actions";
 import { UNIT_SHORT_LABELS, UNITS, type Units } from "@/lib/constants";
 
-const ORDER: Units[] = [UNITS.METRIC, UNITS.IMPERIAL];
+// Imperial leads because it is the default (see User.units in schema.prisma),
+// and a two-cell toggle whose selected cell is the second one reads as though
+// someone already changed something.
+const ORDER: Units[] = [UNITS.IMPERIAL, UNITS.METRIC];
 
 // Which units *this viewer* reads. It changes nothing about the stored data —
 // bodies are canonical metric — so it is safe to flip mid-form: the hidden
