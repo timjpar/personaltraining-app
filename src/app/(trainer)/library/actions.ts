@@ -10,7 +10,10 @@ import {
   parseAssignedSlot,
 } from "@/lib/workout-form";
 import { parseDateInput } from "@/lib/format";
-import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
+import {
+  recordExerciseNamesSafely,
+  saveExerciseMediaSafely,
+} from "@/lib/exercise-catalog";
 import type { AssignState } from "@/components/AssignClients";
 
 export type TemplateFormState = { error?: string };
@@ -35,6 +38,12 @@ export async function createTemplate(
   });
 
   await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
+  // After the names, so every movement in the session already has a catalog
+  // row for the demo to attach to.
+  await saveExerciseMediaSafely(trainer.id, data.media);
+  // The list that manages demos is a different page and would otherwise
+  // keep showing the movement as having none.
+  if (data.media.length) revalidatePath("/exercises");
 
   revalidatePath("/library");
   redirect(`/library/${template.id}`);
@@ -72,6 +81,12 @@ export async function updateTemplate(
   // Outside the transaction on purpose: the catalog is a convenience index, and
   // it must never be able to roll back a saved session.
   await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
+  // After the names, so every movement in the session already has a catalog
+  // row for the demo to attach to.
+  await saveExerciseMediaSafely(trainer.id, data.media);
+  // The list that manages demos is a different page and would otherwise
+  // keep showing the movement as having none.
+  if (data.media.length) revalidatePath("/exercises");
 
   revalidatePath("/library");
   revalidatePath(`/library/${templateId}`);

@@ -24,7 +24,10 @@ import {
   type ExerciseSection,
 } from "@/lib/constants";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
-import { SECTION_PRESET_CATEGORY } from "@/lib/exercise-presets";
+import {
+  SECTION_PRESET_CATEGORY,
+  normalizeExerciseName,
+} from "@/lib/exercise-presets";
 
 type BuilderExercise = {
   id: string;
@@ -40,6 +43,15 @@ type BuilderExercise = {
   // Which optional metrics this row is currently showing. Each is added and
   // removed on its own — a row can carry Weight without Rest.
   extras?: OptionalKey[];
+  // The demo link, and the one field on the row that isn't about this session:
+  // it saves against the movement's catalog entry, so every workout that
+  // programs the name gets the video. Undefined means "nobody has touched this
+  // box", which is what lets it keep following the movement the row names;
+  // once it holds a string, that string is what saves.
+  video?: string;
+  // Whether the demo box is open. A row whose movement already has a video
+  // opens on its own — see videoFor — so this only tracks the chip.
+  showVideo?: boolean;
 };
 
 type Initial = {
@@ -163,6 +175,31 @@ export function WorkoutBuilder({
         };
       }),
     }));
+
+  // One updater for the two fields the row owns outright. The metrics stay
+  // uncontrolled — FormData reads them straight off the DOM — but the movement
+  // name and the demo link have to be in state, because each is rendered by
+  // the other's neighbour.
+  const patchRow = (
+    section: ExerciseSection,
+    id: string,
+    patch: Partial<BuilderExercise>,
+  ) =>
+    setRows((r) => ({
+      ...r,
+      [section]: r[section].map((row) =>
+        row.id === id ? { ...row, ...patch } : row,
+      ),
+    }));
+
+  // What the demo box shows: whatever the coach typed, else the video this
+  // movement already has. The fallback is the point — pick "Back Squat" and the
+  // demo you saved months ago is sitting there, rather than an empty box that
+  // implies there isn't one.
+  const videoFor = (row: BuilderExercise) => {
+    const key = normalizeExerciseName(row.name ?? "");
+    return row.video ?? (key ? (catalog.media[key] ?? "") : "");
+  };
 
   // Visible numbering runs 01..N across the three sections, matching the global
   // `order` the server assigns — so the builder and the detail page agree.
@@ -318,6 +355,16 @@ export function WorkoutBuilder({
                 <div className="flex flex-col gap-3">
                   {rows[section].map((row, i) => {
                     const n = offset + i + 1;
+                    const videoValue = videoFor(row);
+                    // Whether the movement itself already carries a demo, as
+                    // opposed to something typed into this row just now.
+                    const savedDemo = Boolean(
+                      catalog.media[normalizeExerciseName(row.name ?? "")],
+                    );
+                    // Open on request, and open on its own when there's already
+                    // a demo to show — a video the coach can't see is one they
+                    // paste a second copy of.
+                    const videoOpen = row.showVideo === true || videoValue !== "";
                     return (
                       <Card key={row.id} className="p-4">
                         <div className="flex items-center gap-3">
@@ -330,6 +377,9 @@ export function WorkoutBuilder({
                             catalog={catalog}
                             preferredCategories={preferred ? [preferred] : undefined}
                             className="flex-1"
+                            onValueChange={(v) =>
+                              patchRow(section, row.id, { name: v })
+                            }
                             aria-label={`Exercise ${n} name`}
                           />
                           <button
@@ -409,7 +459,7 @@ export function WorkoutBuilder({
                                 </div>
                               ) : null}
 
-                              {available.length > 0 ? (
+                              {available.length > 0 || !videoOpen ? (
                                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                                   {available.map((m) => (
                                     <button
@@ -421,11 +471,77 @@ export function WorkoutBuilder({
                                       + {m.label}
                                     </button>
                                   ))}
+                                  {!videoOpen ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        patchRow(section, row.id, { showVideo: true })
+                                      }
+                                      className="eyebrow inline-flex min-h-9 items-center rounded-full border border-line px-3 text-ink-soft transition-colors hover:border-jade hover:text-ink sm:min-h-0 sm:px-2.5 sm:py-1"
+                                    >
+                                      + Video
+                                    </button>
+                                  ) : null}
                                 </div>
                               ) : null}
                             </>
                           );
                         })()}
+
+                        {videoOpen ? (
+                          <label className="mt-2.5 flex flex-col gap-1">
+                            <span className="flex items-center justify-between gap-1">
+                              <span className="eyebrow text-ink-soft/70">Demo video</span>
+                              {/* Only on a box the coach opened. When the
+                                  movement already has a demo the box is
+                                  reporting a fact, and a ✕ that reverts an edit
+                                  but won't close it reads as broken. */}
+                              {savedDemo ? null : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    patchRow(section, row.id, {
+                                      showVideo: false,
+                                      video: undefined,
+                                    })
+                                  }
+                                  aria-label={`Remove the demo link from exercise ${n}`}
+                                  className="text-ink-soft/60 transition-colors hover:text-flag"
+                                >
+                                  <svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden>
+                                    <path
+                                      d="M5 5l10 10M15 5L5 15"
+                                      stroke="currentColor"
+                                      strokeWidth="2.2"
+                                      strokeLinecap="round"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
+                            </span>
+                            <Input
+                              name={`ex_${row.id}_video`}
+                              value={videoValue}
+                              onChange={(e) =>
+                                patchRow(section, row.id, { video: e.target.value })
+                              }
+                              placeholder="https://youtube.com/watch?v=…"
+                              className="text-sm"
+                            />
+                            <span className="text-xs text-ink-soft">
+                              {/* The bit that isn't obvious from the box: this
+                                  is not a field on this session. */}
+                              Saves as the demo for{" "}
+                              {row.name?.trim() ? (
+                                <span className="text-ink">{row.name.trim()}</span>
+                              ) : (
+                                "this movement"
+                              )}{" "}
+                              everywhere you program it. YouTube, Instagram,
+                              Facebook and TikTok play inside Chalkline.
+                            </span>
+                          </label>
+                        ) : null}
 
                         <Input
                           name={`ex_${row.id}_notes`}

@@ -60,7 +60,23 @@ export type ParsedPrescription = {
   // the field (a page left open across this deploy) saves as what it was.
   discipline: Discipline;
   exercises: ParsedExercise[];
+  // Demo links pasted on the rows, beside the exercises rather than on them.
+  // Media hangs off the trainer's catalog entry for the *name* and is shared by
+  // every session that programs it, so it is not part of the prescription and
+  // must not be spread into an Exercise row.
+  media: { name: string; url: string }[];
 };
+
+// Same bar setExerciseMediaLink holds pasted links to: parseable, and https —
+// an http embed would be blocked as mixed content the moment a client opened
+// the session, which is a worse outcome than refusing it here.
+function isHttpsUrl(raw: string): boolean {
+  try {
+    return new URL(raw).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 const idList = (formData: FormData, field: string) =>
   String(formData.get(field) ?? "")
@@ -87,6 +103,7 @@ export function parsePrescription(
   const legacyIds = idList(formData, "rowIds");
 
   const exercises: ParsedExercise[] = [];
+  const media: { name: string; url: string }[] = [];
   for (const section of SECTION_ORDER) {
     const ids = idList(formData, `rowIds_${section}`);
     const rowIds =
@@ -97,6 +114,20 @@ export function parsePrescription(
     for (const id of rowIds) {
       const name = field(id, "name");
       if (!name) continue; // drop empty rows
+
+      // Rejected here rather than dropped quietly on the way to the database:
+      // a coach who pasted something unusable should be told, not left with a
+      // saved session and a movement that still has no demo.
+      const video = field(id, "video");
+      if (video) {
+        if (!isHttpsUrl(video)) {
+          return {
+            error: `The video link on “${name}” needs to be a full https:// address.`,
+          };
+        }
+        media.push({ name, url: video });
+      }
+
       exercises.push({
         // Global 1..N in display order. Because this loop walks SECTION_ORDER,
         // warm-ups number first and cool-downs last without a secondary sort.
@@ -118,7 +149,7 @@ export function parsePrescription(
     return { error: "Add at least one exercise." };
   }
 
-  return { data: { title, notes, discipline, exercises } };
+  return { data: { title, notes, discipline, exercises, media } };
 }
 
 // The three fields that turn a prescription into a booking, parsed once for
