@@ -26,6 +26,7 @@ export function BmrPanel({
   latest,
   earliest,
   units,
+  self = false,
 }: {
   profile: {
     sex: string | null;
@@ -39,8 +40,13 @@ export function BmrPanel({
   // only one reading and there is no change to report yet.
   earliest: { weightKg: number; date: Date } | null;
   units: Units;
+  // Set on a coach's own body page, where every "they" is the reader. The
+  // numbers are identical either way — this is purely the voice.
+  self?: boolean;
 }) {
-  const { inputs, missing } = bmrInputsFrom(profile, latest);
+  const { inputs, missing } = bmrInputsFrom(profile, latest, {
+    possessive: self ? "your" : "their",
+  });
 
   if (!inputs) {
     return (
@@ -52,8 +58,9 @@ export function BmrPanel({
             card uses — and it avoids saying a weigh-in gets added to a
             profile, which is where the more natural phrasing goes wrong. */}
         <p className="mt-1.5 text-sm text-ink-soft">
-          Once the file has {listOf(missing)}, this shows what they burn at
-          rest, and how it moves as the weight does.
+          Once {self ? "your file" : "the file"} has {listOf(missing)}, this
+          shows what {self ? "you" : "they"} burn at rest, and how it moves as
+          the weight does.
         </p>
       </Card>
     );
@@ -109,7 +116,7 @@ export function BmrPanel({
 
       <p className="mt-3 text-xs text-ink-soft">
         Mifflin–St Jeor at {massLabel(inputs.weightKg, units)}
-        {latest ? `, their ${formatDate(latest.date)} weigh-in` : ""}.
+        {latest ? `, ${self ? "your" : "their"} ${formatDate(latest.date)} weigh-in` : ""}.
         {delta != null && delta < 0
           ? " Resting burn falls as weight does — worth revisiting the target when it drifts far enough to matter."
           : ""}

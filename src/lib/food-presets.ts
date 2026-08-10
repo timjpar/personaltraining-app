@@ -354,3 +354,50 @@ export function parseServingLabel(
   }
   return { servings: 1, serving: s };
 }
+
+// Foods this person has logged before, as presets the picker can scale from.
+// Rows come in newest-first; the first spelling of each name wins.
+//
+// The stored quantity is the only record of a multiplier ("2 × 1 medium"), so
+// it's divided back out here to recover the per-serving base — the exact
+// inverse of what servingLabel/scaleMacros did on the way in. Without that, a
+// day where they logged three eggs would come back as a one-serving "egg" worth
+// three eggs' calories.
+//
+// Here rather than beside one day view because both of them build it: the
+// athlete's log and the coach's own. Pure, like everything else in this file.
+export function recentFoods(
+  rows: {
+    name: string;
+    quantity: string | null;
+    calories: number | null;
+    protein: number | null;
+    carbs: number | null;
+    fat: number | null;
+  }[],
+  limit = 25,
+): FoodPreset[] {
+  const seen = new Set<string>();
+  const out: FoodPreset[] = [];
+  for (const r of rows) {
+    const key = normalizeFoodName(r.name);
+    if (!key || seen.has(key)) continue;
+    // A preset with no calories can't fill anything in, so it would be a row
+    // that looks like a shortcut and behaves like typing the name yourself.
+    if (r.calories == null) continue;
+    seen.add(key);
+
+    const parsed = parseServingLabel(r.quantity);
+    const per = parsed?.servings ?? 1;
+    out.push({
+      name: r.name,
+      serving: parsed?.serving ?? (r.quantity || "1 serving"),
+      calories: Math.round(r.calories / per),
+      protein: Math.round((r.protein ?? 0) / per),
+      carbs: Math.round((r.carbs ?? 0) / per),
+      fat: Math.round((r.fat ?? 0) / per),
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}

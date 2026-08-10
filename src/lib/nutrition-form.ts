@@ -6,6 +6,13 @@
 // the athlete's day log (parseNutritionLogForm). sumMacros serves both.
 import { toFoodSource, type FoodSource } from "@/lib/constants";
 
+// The state every day-log action returns. It lives here rather than beside one
+// role's actions for the reason BodyState gives in body-form.ts: two actions
+// now return it — the athlete's saveNutritionLog and the coach's own
+// saveMyNutritionLog — and the one form both render has no business importing a
+// type out of either route group.
+export type LogState = { error?: string; ok?: string };
+
 export type ParsedFood = {
   name: string;
   quantity: string | null;

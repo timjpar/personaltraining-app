@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useId, useMemo, useState } from "react";
-import type { LogState } from "@/app/(client)/my/nutrition/actions";
+import type { LogState } from "@/lib/nutrition-form";
 import { FoodPicker } from "@/components/FoodPicker";
 import { FoodScanner } from "@/components/FoodScanner";
 import { MacroBar } from "@/components/MacroBar";
@@ -103,6 +103,7 @@ export function NutritionLogForm({
   targets,
   recent,
   photoEnabled,
+  self = false,
 }: {
   action: (state: LogState, formData: FormData) => Promise<LogState>;
   initial?: { notes: string | null; entries: InitialEntry[] };
@@ -112,10 +113,13 @@ export function NutritionLogForm({
     carbs: number | null;
     fat: number | null;
   } | null;
-  // What this athlete has logged before, shown above the catalog in the picker.
+  // What this person has logged before, shown above the catalog in the picker.
   recent?: FoodPreset[];
   // Whether GEMINI_API_KEY is set, read on the server and passed down.
   photoEnabled: boolean;
+  // Set when a coach is logging their own day — see the notes field below,
+  // which is the only thing it changes.
+  self?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const mealListId = useId();
@@ -393,7 +397,14 @@ export function NutritionLogForm({
         <MacroBar totals={totals} targets={targets} />
       </Card>
 
-      <Field label="Notes for your coach" htmlFor="log-notes">
+      {/* The label is the one place this form knows who reads the day. An
+          athlete's notes go to somebody; a coach logging their own go to
+          nobody, and promising a reader who doesn't exist is worse than a
+          plainer label. */}
+      <Field
+        label={self ? "Notes" : "Notes for your coach"}
+        htmlFor="log-notes"
+      >
         <Textarea
           id="log-notes"
           name="notes"

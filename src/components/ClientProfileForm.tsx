@@ -66,15 +66,22 @@ export function ClientProfileForm({
   action,
   units,
   values,
+  self = false,
 }: {
   action: (prev: BodyState, formData: FormData) => Promise<BodyState>;
   units: Units;
   values: ProfileValues;
+  // Set when a coach is filling this in about themselves. Four hints below
+  // describe the person being programmed for, and on your own file every one
+  // of them means you.
+  self?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
   const mass = massUnit(units);
   const imperial = units === UNITS.IMPERIAL;
   const height = heightInputs(values.heightCm);
+  const they = self ? "you" : "they";
+  const their = self ? "your" : "their";
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -158,7 +165,7 @@ export function ClientProfileForm({
                 ? ACTIVITY_HINTS[
                     values.activityLevel as keyof typeof ACTIVITY_HINTS
                   ]
-                : "Everything outside their training — this is what scales the estimate."
+                : `Everything outside ${their} training — this is what scales the estimate.`
             }
             htmlFor="p-activity"
           >
@@ -259,7 +266,7 @@ export function ClientProfileForm({
             </Select>
           </Field>
 
-          <Field label="Where they train" htmlFor="p-location">
+          <Field label={`Where ${they} train`} htmlFor="p-location">
             <Select
               id="p-location"
               name="trainingLocation"
@@ -290,7 +297,7 @@ export function ClientProfileForm({
 
         <Field
           label="Injuries and limitations"
-          hint="What changes the programming — and what they're cleared for."
+          hint={`What changes the programming — and what ${they}'re cleared for.`}
           htmlFor="p-injuries"
         >
           <Textarea
@@ -369,7 +376,7 @@ export function ClientProfileForm({
       <Section title="Anything else">
         <Field
           label="Notes"
-          hint="Shift work, a 5am training window, what they're actually training for."
+          hint={`Shift work, a 5am training window, what ${they}'re actually training for.`}
           htmlFor="p-notes"
         >
           <Textarea

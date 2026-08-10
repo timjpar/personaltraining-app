@@ -269,6 +269,17 @@ export type BmrInputs = {
   age: number;
 };
 
+// Both gates below return the missing pieces as prose, so they need to know
+// whose body is being described: a coach reads "their height" about a client
+// and "your height" about themselves. `on` rides along in the same object
+// rather than staying a positional date — it is the testing seam for age, and
+// nothing in the app passes either, so one options bag is cheaper to read than
+// two trailing arguments nobody supplies.
+export type InputsOptions = {
+  on?: Date;
+  possessive?: "their" | "your";
+};
+
 // The gate in front of bmr(), and deliberately a lower bar than
 // targetInputsFrom below: resting burn is a fact about a body, so it needs
 // only sex, age, height and a weight. No goal, no activity level, no target
@@ -281,15 +292,15 @@ export function bmrInputsFrom(
     heightCm: number | null;
   } | null,
   latest: { weightKg: number | null } | null,
-  on: Date = new Date(),
+  { on = new Date(), possessive = "their" }: InputsOptions = {},
 ): { inputs?: BmrInputs; missing: string[] } {
   const missing: string[] = [];
 
   const sex =
     profile?.sex === "MALE" || profile?.sex === "FEMALE" ? profile.sex : null;
   if (!sex) missing.push("whether to use the male or female equation");
-  if (!profile?.birthDate) missing.push("their date of birth");
-  if (profile?.heightCm == null) missing.push("their height");
+  if (!profile?.birthDate) missing.push(`${possessive} date of birth`);
+  if (profile?.heightCm == null) missing.push(`${possessive} height`);
   if (latest?.weightKg == null) missing.push("a weigh-in");
 
   if (
@@ -327,15 +338,15 @@ export function targetInputsFrom(
     rateKgPerWeek: number | null;
   } | null,
   latest: { weightKg: number | null } | null,
-  on: Date = new Date(),
+  { on = new Date(), possessive = "their" }: InputsOptions = {},
 ): { inputs?: TargetInputs; missing: string[] } {
   const missing: string[] = [];
 
   if (!profile) {
     return {
       missing: [
-        "their date of birth",
-        "their height",
+        `${possessive} date of birth`,
+        `${possessive} height`,
         "whether to use the male or female equation",
         "an activity level",
         "a goal",
@@ -346,8 +357,8 @@ export function targetInputsFrom(
 
   const sex = profile.sex === "MALE" || profile.sex === "FEMALE" ? profile.sex : null;
   if (!sex) missing.push("whether to use the male or female equation");
-  if (!profile.birthDate) missing.push("their date of birth");
-  if (profile.heightCm == null) missing.push("their height");
+  if (!profile.birthDate) missing.push(`${possessive} date of birth`);
+  if (profile.heightCm == null) missing.push(`${possessive} height`);
 
   const activity =
     profile.activityLevel && profile.activityLevel in ACTIVITY_LABELS

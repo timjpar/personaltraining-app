@@ -50,6 +50,14 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/dashboard") ||
     // The client's copy is /my/messages, which clientArea already covers.
     pathname.startsWith("/messages") ||
+    // The coach's own body and food log. Trainer-only despite being the same
+    // tracking an athlete gets on /my: an athlete already has those pages, and
+    // sending them to a second copy of their own weigh-ins would be two URLs
+    // for one thing. Listed as an exact match plus a "/me/" prefix rather than
+    // startsWith("/me"), which would also swallow /messages — harmless today,
+    // since that is trainer-only too, and a trap the first time it isn't.
+    pathname === "/me" ||
+    pathname.startsWith("/me/") ||
     pathname.startsWith("/calendar") ||
     pathname.startsWith("/clients") ||
     pathname.startsWith("/workouts") ||
