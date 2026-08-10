@@ -22,10 +22,23 @@ export function startOfMonth(d: Date): Date {
 }
 
 // Monday-first, matching the dashboard's week stat — and it's a training app.
+// The calendar strip an athlete scrubs through wants the opposite; see
+// startOfWeekSunday below.
 export function startOfWeek(d: Date): Date {
   const start = new Date(d);
   start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  return start;
+}
+
+// Sunday-first, for the day strips a person reads as a calendar rather than as
+// a training week. Kept separate rather than parameterising startOfWeek: the
+// two have different reasons for their first day, and a boolean argument at the
+// call site would say which one was passed without saying why.
+export function startOfWeekSunday(d: Date): Date {
+  const start = new Date(d);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - start.getDay());
   return start;
 }
 
