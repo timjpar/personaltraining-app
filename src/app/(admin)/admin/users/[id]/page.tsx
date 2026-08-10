@@ -26,15 +26,15 @@ export default async function AdminUserPage({
   const admin = await requireAdmin();
   const { id } = await params;
 
-  // Everything this account owns, fetched here rather than linked to: the
-  // trainer-facing pages for templates, programs and nutrition all scope by
-  // `trainerId: <the signed-in trainer>`, so they'd 404 on someone else's work.
+  // Everything this account owns. Every list here links through to a read-only
+  // page under /admin — never to the trainer-facing route, which scopes its
+  // lookup by `trainerId: <the signed-in trainer>` and so would 404 on someone
+  // else's work (and is fenced into the trainer area by src/proxy.ts anyway).
   //
-  // Workouts are the exception, and only because they earned their own admin
-  // route: reading what a coach actually programmed is the thing this page is
-  // most often opened for, and a title with no way through to the session is a
-  // dead end. See /admin/workouts/[id] — same render as the trainer's review
-  // page, without the edit controls or the unread-clearing side effect.
+  // See /admin/{workouts,templates,programs,nutrition}/[id]: each renders what
+  // the coach wrote, minus the edit controls, the assign pickers, and — on
+  // workouts — the unread-clearing side effect that would empty the coach's
+  // review queue just because an owner looked.
   const [user, trainers] = await Promise.all([
     prisma.user.findUnique({
     where: { id },
@@ -192,6 +192,7 @@ export default async function AdminUserPage({
             {user.templates.map((t) => (
               <Row
                 key={t.id}
+                href={`/admin/templates/${t.id}`}
                 title={t.title}
                 sub={t.notes ?? undefined}
                 meta={`${t._count.exercises} exercise${t._count.exercises === 1 ? "" : "s"}`}
@@ -203,6 +204,7 @@ export default async function AdminUserPage({
             {user.programs.map((p) => (
               <Row
                 key={p.id}
+                href={`/admin/programs/${p.id}`}
                 title={p.title}
                 sub={p.notes ?? undefined}
                 meta={`${p.weeks} week${p.weeks === 1 ? "" : "s"} · ${p._count.slots} session${p._count.slots === 1 ? "" : "s"}`}
@@ -214,6 +216,7 @@ export default async function AdminUserPage({
             {user.nutritionTemplates.map((n) => (
               <Row
                 key={n.id}
+                href={`/admin/nutrition/${n.id}`}
                 title={n.title}
                 sub={
                   n.client
