@@ -63,6 +63,27 @@ export class GoogleApiError extends Error {
   }
 }
 
+// Google's error bodies are JSON with the one useful sentence buried at
+// error.message, and for the failure that actually bites here it *is* the fix:
+// "Google Calendar API has not been used in project N before or it is
+// disabled. Enable it by visiting <url> then retry." A 403 with that inside it
+// is indistinguishable from every other 403 unless something digs it out.
+export function googleErrorDetail(err: unknown): string {
+  if (!(err instanceof GoogleApiError)) {
+    return err instanceof Error ? err.message : String(err);
+  }
+  try {
+    const body = JSON.parse(err.detail) as { error?: { message?: unknown } };
+    const message = body.error?.message;
+    if (typeof message === "string" && message.trim()) {
+      return `${err.status}: ${message.trim()}`;
+    }
+  } catch {
+    // Not JSON — an HTML page from a proxy, say. The raw message will do.
+  }
+  return err.message;
+}
+
 type GoogleTime = { date?: string; dateTime?: string; timeZone?: string };
 
 export type GoogleEvent = {

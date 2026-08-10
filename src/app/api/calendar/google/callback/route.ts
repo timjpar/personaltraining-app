@@ -11,6 +11,7 @@ import { exchangeCode, seal } from "@/lib/google-tokens";
 import {
   CALENDAR_SCOPE,
   createCalendar,
+  googleErrorDetail,
   type GcalMessage,
 } from "@/lib/google-calendar";
 import { syncGoogleCalendarSafely } from "@/lib/calendar-sync";
@@ -87,20 +88,34 @@ export async function GET(req: NextRequest) {
   });
 
   if (!connection.calendarId) {
+    let calendarId: string;
     try {
-      const calendarId = await createCalendar(grant.accessToken);
-      await prisma.googleCalendarConnection.update({
-        where: { id: connection.id },
-        data: { calendarId },
-      });
+      calendarId = await createCalendar(grant.accessToken);
     } catch (err) {
       console.error("Failed to create the Chalkline calendar", err);
+      // Kept on the row, not just logged. Every cause of this is something
+      // only the person running the app can fix — most often the Calendar API
+      // being switched off in the Google Cloud project — and Google says which
+      // in the response body. Dropping that on the floor leaves the card
+      // saying "it didn't work" with no way to find out why, which is how this
+      // integration can sit broken indefinitely.
+      await noteError(connection.id, googleErrorDetail(err));
       // Not "exchange": the grant is already stored above, so the connection
       // exists and only the calendar is missing. googleCalendarState reports
       // that row as `incomplete` and the card offers to finish the job, which
       // lands back here to run exactly this block again.
       return done(req, home, "nocalendar");
     }
+
+    // Deliberately outside the try. A failure *here* means Google made the
+    // calendar and only our note of it was lost — reporting that as "couldn't
+    // create the calendar" would send the next click off to make a second one,
+    // and the trainer would end up with duplicate Chalkline calendars and no
+    // idea why. Let it surface as the server error it is.
+    await prisma.googleCalendarConnection.update({
+      where: { id: connection.id },
+      data: { calendarId, lastError: null },
+    });
   }
 
   // The backfill, off the response path — a year of history can be hundreds of
@@ -109,6 +124,21 @@ export async function GET(req: NextRequest) {
   after(() => syncGoogleCalendarSafely(userId, { full: true }));
 
   return done(req, home, "connected");
+}
+
+// Best effort, and swallowed on purpose: this runs on the failure path, so a
+// second failure while recording the first must not turn a bad connection into
+// a broken redirect. Truncated because Google's messages are a paragraph and
+// the column is read by a card, not a log aggregator.
+async function noteError(id: string, detail: string) {
+  try {
+    await prisma.googleCalendarConnection.update({
+      where: { id },
+      data: { lastError: detail.slice(0, 500) },
+    });
+  } catch (err) {
+    console.error("Failed to record the calendar error", err);
+  }
 }
 
 function done(req: NextRequest, home: string, code: GcalMessage) {
