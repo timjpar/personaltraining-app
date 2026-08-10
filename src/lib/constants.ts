@@ -442,9 +442,12 @@ export const UNIT_SHORT_LABELS: Record<Units, string> = {
   IMPERIAL: "lb / in",
 };
 
+// Falls back to the same value the column defaults to, so "no answer" means
+// one thing across the app rather than two. Reached only by garbage: the column
+// is non-null with a default, and every body form carries a hidden units field.
 export function toUnits(value: unknown): Units {
   const s = String(value ?? "");
-  return s in UNIT_LABELS ? (s as Units) : UNITS.METRIC;
+  return s in UNIT_LABELS ? (s as Units) : UNITS.IMPERIAL;
 }
 
 // The metabolic input to Mifflin–St Jeor, which is the only thing that reads
