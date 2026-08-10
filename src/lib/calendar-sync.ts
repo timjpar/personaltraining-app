@@ -458,7 +458,13 @@ export async function googleCalendarState(user: {
 
   const connection = await prisma.googleCalendarConnection.findUnique({
     where: { userId: user.id },
-    select: { email: true, status: true, syncedAt: true, calendarId: true },
+    select: {
+      email: true,
+      status: true,
+      syncedAt: true,
+      calendarId: true,
+      lastError: true,
+    },
   });
 
   if (!connection) return { kind: "disconnected", timeZone: zoneFor(user) };
@@ -475,6 +481,10 @@ export async function googleCalendarState(user: {
       kind: "incomplete",
       email: connection.email,
       timeZone: zoneFor(user),
+      // What Google said when it refused. Carried all the way to the card
+      // because every fix for this lives outside the app — in the Google Cloud
+      // project, usually — and "try again" is not advice, it's a shrug.
+      lastError: connection.lastError,
     };
   }
   return {

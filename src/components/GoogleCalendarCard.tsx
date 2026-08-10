@@ -12,7 +12,12 @@ export type GoogleCalendarState =
   | { kind: "disconnected"; timeZone: string }
   | { kind: "revoked"; email: string }
   // Connected, but with no calendar to write to — see googleCalendarState.
-  | { kind: "incomplete"; email: string; timeZone: string }
+  | {
+      kind: "incomplete";
+      email: string;
+      timeZone: string;
+      lastError: string | null;
+    }
   | { kind: "connected"; email: string; timeZone: string; syncedAt: Date | null };
 
 // Lives at the top of both calendar pages rather than on a settings page. This
@@ -112,12 +117,23 @@ function Body({ state }: { state: GoogleCalendarState }) {
 
     case "incomplete":
       return (
-        <p className="mt-1 text-sm text-ink-soft">
-          Connected as <span className="metric">{state.email}</span>, but the{" "}
-          <span className="metric">Chalkline</span> calendar was never created,
-          so nothing is syncing. Times will be sent as{" "}
-          <span className="metric">{state.timeZone}</span> once it is.
-        </p>
+        <>
+          <p className="mt-1 text-sm text-ink-soft">
+            Connected as <span className="metric">{state.email}</span>, but the{" "}
+            <span className="metric">Chalkline</span> calendar was never
+            created, so nothing is syncing. Times will be sent as{" "}
+            <span className="metric">{state.timeZone}</span> once it is.
+          </p>
+          {/* Google's own words, verbatim. Ugly next to the rest of this card,
+              and worth it: this failure is almost always a switch in the
+              Google Cloud project, and the message names the switch and links
+              to it. Anything we paraphrased would be a guess. */}
+          {state.lastError ? (
+            <p className="mt-1 break-words text-xs text-ink-soft/80">
+              Google said: <span className="metric">{state.lastError}</span>
+            </p>
+          ) : null}
+        </>
       );
 
     case "disconnected":
