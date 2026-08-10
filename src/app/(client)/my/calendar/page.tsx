@@ -52,6 +52,8 @@ export default async function MyCalendarPage({
         title: true,
         scheduledDate: true,
         startMinute: true,
+        durationMinutes: true,
+        attendance: true,
         status: true,
         client: { select: { id: true, name: true } },
       },
@@ -88,6 +90,14 @@ export default async function MyCalendarPage({
           monthHref={(key) => `/my/calendar?m=${key}`}
           todayHref="/my/calendar"
           dayHref={(key) => `/my/calendar/${key}`}
+          // Which sessions the coach is actually turning up to is the athlete's
+          // question as much as the coach's — it's the difference between a
+          // 7am appointment and a note to get it done sometime.
+          showAttendance
+          attendanceLegend={{
+            IN_PERSON: "With your coach",
+            SOLO: "On your own",
+          }}
         />
       </div>
     </Container>

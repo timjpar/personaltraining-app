@@ -231,9 +231,8 @@ export const ATTENDANCE = {
 } as const;
 export type Attendance = (typeof ATTENDANCE)[keyof typeof ATTENDANCE];
 
-// Solo second, despite being the default. The order is the order the radio
-// pair reads in, and "I'm coaching this" is the choice being made — SOLO is
-// what you get by not choosing.
+// In person first: it's the default, and it's the one the coach's calendar is
+// built around.
 export const ATTENDANCE_ORDER = [
   "IN_PERSON",
   "SOLO",
@@ -258,12 +257,44 @@ export const ATTENDANCE_BADGES: Record<Attendance, string> = {
   SOLO: "On their own",
 };
 
-// Same contract as toExerciseSection. SOLO is the fallback because it's the
-// column default: an unrecognised value is a forged post or a hand-edited row,
-// and reading it as homework keeps a session nobody chose off the coach's day.
+// Same contract as toExerciseSection: IN_PERSON is the fallback because it's
+// the column default, so a form posted without the field — a page left open
+// across this deploy — saves as what the form would have shown.
 export function toAttendance(value: unknown): Attendance {
   const s = String(value ?? "");
-  return s in ATTENDANCE_LABELS ? (s as Attendance) : ATTENDANCE.SOLO;
+  return s in ATTENDANCE_LABELS ? (s as Attendance) : ATTENDANCE.IN_PERSON;
+}
+
+// How long a session is booked for. A closed set rather than a free number of
+// minutes: these are the four blocks a coach actually sells, and a free field
+// invites 45s and 75s that make two sessions impossible to line up in a day.
+//
+// Minutes, matching startMinute and every other time in the app — never an end
+// time. A session that moves an hour earlier stays the length it was.
+export const SESSION_LENGTHS = [30, 60, 90, 120] as const;
+export type SessionLength = (typeof SESSION_LENGTHS)[number];
+
+// An hour, because it's the block almost everything is sold in.
+export const DEFAULT_SESSION_LENGTH = 60;
+
+export function sessionLengthLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const hourLabel = `${hours} hour${hours === 1 ? "" : "s"}`;
+  return rest === 0 ? hourLabel : `${hourLabel} ${rest} min`;
+}
+
+// Null-returning, like toCoachReaction: "no set length" is a real state — every
+// session written before this column existed, and every one with no time of day
+// to hang a block off. Anything that isn't one of the four offered is refused
+// rather than rounded, so a tampered 37 can't become an appointment nobody
+// chose.
+export function toSessionLength(value: unknown): SessionLength | null {
+  const n = Number(value);
+  return (SESSION_LENGTHS as readonly number[]).includes(n)
+    ? (n as SessionLength)
+    : null;
 }
 
 // Where an exercise sits in the session. A grouping label, not an ordering key:

@@ -62,6 +62,8 @@ export default async function CalendarPage({
         title: true,
         scheduledDate: true,
         startMinute: true,
+        durationMinutes: true,
+        attendance: true,
         status: true,
         client: { select: { id: true, name: true } },
       },

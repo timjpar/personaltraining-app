@@ -14,9 +14,13 @@ import {
   ATTENDANCE_ORDER,
   ATTENDANCE_LABELS,
   ATTENDANCE_HINTS,
+  SESSION_LENGTHS,
+  DEFAULT_SESSION_LENGTH,
+  sessionLengthLabel,
   toExerciseSection,
   toDiscipline,
   toAttendance,
+  toSessionLength,
   type ExerciseSection,
 } from "@/lib/constants";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
@@ -45,9 +49,13 @@ type Initial = {
   notes?: string | null;
   discipline?: string | null;
   // IN_PERSON | SOLO. Absent on a template, and on a new session — where
-  // toAttendance turns it into SOLO, so the radio pair always has exactly one
-  // option checked rather than starting with neither.
+  // toAttendance turns it into IN_PERSON, so the radio pair always has exactly
+  // one option checked rather than starting with neither.
   attendance?: string | null;
+  // Absent on a template and on anything scheduled before lengths existed;
+  // both fall back to the default hour rather than showing a blank option
+  // that would save as "no length" the moment someone touches the form.
+  durationMinutes?: number | null;
   exercises?: BuilderExercise[];
 };
 
@@ -181,7 +189,7 @@ export function WorkoutBuilder({
           </Field>
         </div>
         {showDate ? (
-          <div className="grid grid-cols-[1fr_auto] gap-3">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-3">
             <Field label="Date" htmlFor="scheduledDate">
               <Input
                 id="scheduledDate"
@@ -202,6 +210,24 @@ export function WorkoutBuilder({
                 defaultValue={initial?.startTime ?? ""}
                 className="metric"
               />
+            </Field>
+            {/* Beside the time it measures from, and ignored on save when
+                that's blank — an all-day session has no block to be long. */}
+            <Field label="Length" htmlFor="duration">
+              <Select
+                id="duration"
+                name="duration"
+                defaultValue={String(
+                  toSessionLength(initial?.durationMinutes) ??
+                    DEFAULT_SESSION_LENGTH,
+                )}
+              >
+                {SESSION_LENGTHS.map((m) => (
+                  <option key={m} value={m}>
+                    {sessionLengthLabel(m)}
+                  </option>
+                ))}
+              </Select>
             </Field>
           </div>
         ) : null}

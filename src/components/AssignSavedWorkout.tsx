@@ -7,6 +7,9 @@ import {
   ATTENDANCE,
   ATTENDANCE_ORDER,
   ATTENDANCE_LABELS,
+  SESSION_LENGTHS,
+  DEFAULT_SESSION_LENGTH,
+  sessionLengthLabel,
 } from "@/lib/constants";
 
 // The reverse of AssignClients: the client is fixed (this page), the trainer
@@ -31,8 +34,18 @@ export function AssignSavedWorkout({
         </p>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
-        <Field label="Saved workout" htmlFor="assign-template">
+      {/* Wraps rather than a fixed column count. This row went from three
+          controls to six when time, length and attendance arrived, and six
+          tracks laid out from the sm breakpoint up gives each about 90px —
+          enough to truncate "Choose a workout…" down to nothing on a tablet.
+          Flowing them lets the wide ones keep their width and the row grow a
+          line taller instead. */}
+      <div className="flex flex-wrap items-end gap-3">
+        <Field
+          label="Saved workout"
+          htmlFor="assign-template"
+          className="min-w-56 flex-1"
+        >
           <Select id="assign-template" name="templateId" defaultValue="" required>
             <option value="" disabled>
               Choose a workout…
@@ -53,15 +66,35 @@ export function AssignSavedWorkout({
             required
           />
         </Field>
+        <Field label="Time" htmlFor="assign-template-time">
+          <Input
+            id="assign-template-time"
+            name="startTime"
+            type="time"
+            className="metric"
+          />
+        </Field>
+        <Field label="Length" htmlFor="assign-template-duration">
+          <Select
+            id="assign-template-duration"
+            name="duration"
+            defaultValue={String(DEFAULT_SESSION_LENGTH)}
+          >
+            {SESSION_LENGTHS.map((m) => (
+              <option key={m} value={m}>
+                {sessionLengthLabel(m)}
+              </option>
+            ))}
+          </Select>
+        </Field>
         {/* A select rather than the builder's radio pair with its hints: this
             is one inline row and two stacked options with explanations would
-            be taller than everything beside it. Defaults to SOLO, which is
-            what dropping a saved workout onto someone usually is. */}
+            be taller than everything beside it. */}
         <Field label="How" htmlFor="assign-template-attendance">
           <Select
             id="assign-template-attendance"
             name="attendance"
-            defaultValue={ATTENDANCE.SOLO}
+            defaultValue={ATTENDANCE.IN_PERSON}
           >
             {ATTENDANCE_ORDER.map((a) => (
               <option key={a} value={a}>

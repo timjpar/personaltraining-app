@@ -105,6 +105,7 @@ export default async function ProgramPage({
             clients={clients}
             submitLabel="Assign program"
             withDate
+            withSchedule
             dateLabel="Start date"
             defaultDate={toDateInput(new Date())}
           />

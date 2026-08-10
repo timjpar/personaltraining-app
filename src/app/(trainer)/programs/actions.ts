@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { DAYS_PER_WEEK } from "@/lib/constants";
 import { parseDateInput, addDays } from "@/lib/format";
-import { exerciseRowsFrom } from "@/lib/workout-form";
+import { exerciseRowsFrom, parseAssignedSlot } from "@/lib/workout-form";
 import type { AssignState } from "@/components/AssignClients";
 
 export type ProgramFormState = { error?: string };
@@ -169,6 +169,14 @@ export async function assignProgram(
   });
   if (clients.length === 0) return { error: "Those clients weren't found." };
 
+  // One time of day, one length and one answer to "am I there" across the whole
+  // block. A program is a training week repeated, so the session that lands on
+  // week 1 Tuesday and the one on week 4 Tuesday are the same appointment a
+  // month apart — and a coach who trains someone at 6am trains them at 6am.
+  // Per-slot times would be a scheduling grid, which is a different feature and
+  // belongs on the program builder rather than on the assign form.
+  const slotDefaults = parseAssignedSlot(formData);
+
   const creates = [];
   for (const c of clients) {
     for (const slot of program.slots) {
@@ -182,6 +190,7 @@ export async function assignProgram(
             // a strength day, and each session should say which it is.
             discipline: slot.template.discipline,
             scheduledDate: addDays(startDate, offset),
+            ...slotDefaults,
             status: "ASSIGNED",
             clientId: c.id,
             trainerId: trainer.id,

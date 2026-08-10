@@ -131,7 +131,9 @@ export type CalendarItem = {
   title: string;
   date: Date;
   startMinute: number | null;
-  endMinute: number | null; // always null for workouts
+  // On an event this is stored; on a workout it's startMinute plus the booked
+  // length. Null on either when there's no time of day to hang it off.
+  endMinute: number | null;
   clientId: string | null;
   clientName: string | null;
   kind: EventKind | null; // null for workouts
@@ -181,11 +183,13 @@ export function workoutItem(
     title: string;
     scheduledDate: Date;
     startMinute: number | null;
+    durationMinutes: number | null;
     status: string;
-    // Optional so the two calendars that filter on it upstream — and so never
-    // need it back — can leave it out of their select. Absent reads as SOLO,
-    // the column default, exactly as toAttendance does.
-    attendance?: string;
+    // Required, unlike the optional it started as. Every calendar now draws
+    // this — the coach's filters on it, the other two colour by it — so a
+    // caller that forgets to select it should hear about it from the compiler
+    // rather than silently render a roster of in-person sessions.
+    attendance: string;
     client: { id: string; name: string } | null;
   },
   links: ItemLinks,
@@ -196,7 +200,14 @@ export function workoutItem(
     title: w.title,
     date: w.scheduledDate,
     startMinute: w.startMinute,
-    endMinute: null,
+    // Derived, never stored: Workout keeps a length and CalendarEvent keeps an
+    // end, and this is where the two become the same shape. Clamped to the end
+    // of the day so a 2-hour block booked at 11pm doesn't render as a negative
+    // span the following morning.
+    endMinute:
+      w.startMinute == null || w.durationMinutes == null
+        ? null
+        : Math.min(w.startMinute + w.durationMinutes, 24 * 60 - 1),
     clientId: w.client?.id ?? null,
     clientName: w.client?.name ?? null,
     kind: null,

@@ -9,10 +9,12 @@ import {
   toExerciseSection,
   toDiscipline,
   toAttendance,
+  toSessionLength,
   SECTION_LABELS,
   type ExerciseSection,
   type Discipline,
   type Attendance,
+  type SessionLength,
 } from "@/lib/constants";
 import { minutesFromTimeInput } from "@/lib/calendar";
 
@@ -41,10 +43,12 @@ export type ParsedWorkout = ParsedPrescription & {
   startMinute: number | null;
   // Here rather than on ParsedPrescription, and that split is the point: a
   // template is a prescription with no date and nobody to meet, so "am I in the
-  // room for this" is a question only a scheduled session can answer. Never
-  // null — toAttendance falls back to SOLO, so a builder page left open across
-  // this deploy saves as homework rather than booking an hour nobody chose.
+  // room for this" and "how long is it booked for" are questions only a
+  // scheduled session can answer.
   attendance: Attendance;
+  // Null for a session with no set length, which is also what a session with no
+  // start time gets — there is no block to draw without a time to start it.
+  durationMinutes: SessionLength | null;
 };
 
 // The prescription (title + notes + exercise rows) shared by dated workouts and
@@ -117,6 +121,32 @@ export function parsePrescription(
   return { data: { title, notes, discipline, exercises } };
 }
 
+// The three fields that turn a prescription into a booking, parsed once for
+// every form that schedules one: the builder, the client page's assign row, and
+// the two bulk "assign to clients" forms.
+//
+// Shared because of the invariant in the middle. A length with no start time
+// can't be drawn and would leave every reader checking startMinute before
+// trusting durationMinutes; enforcing it here means no caller can store the
+// pair inconsistently. Four call sites, four chances to forget.
+export type AssignedSlot = {
+  startMinute: number | null;
+  durationMinutes: SessionLength | null;
+  attendance: Attendance;
+};
+
+export function parseAssignedSlot(formData: FormData): AssignedSlot {
+  // A blank or unparseable time is simply no time — never an error. The field
+  // is optional and a session without one still works everywhere.
+  const startMinute = minutesFromTimeInput(formData.get("startTime"));
+  return {
+    startMinute,
+    durationMinutes:
+      startMinute == null ? null : toSessionLength(formData.get("duration")),
+    attendance: toAttendance(formData.get("attendance")),
+  };
+}
+
 export function parseWorkoutForm(
   formData: FormData,
 ): { data?: ParsedWorkout; error?: string } {
@@ -131,15 +161,8 @@ export function parseWorkoutForm(
     return { error: "That date doesn't look right." };
   }
 
-  // A blank or unparseable time is simply no time — never an error. The field
-  // is optional and a session without one still works everywhere.
   return {
-    data: {
-      ...data,
-      scheduledDate,
-      startMinute: minutesFromTimeInput(formData.get("startTime")),
-      attendance: toAttendance(formData.get("attendance")),
-    },
+    data: { ...data, scheduledDate, ...parseAssignedSlot(formData) },
   };
 }
 

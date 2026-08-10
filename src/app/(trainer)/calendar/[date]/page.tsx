@@ -52,6 +52,8 @@ export default async function CalendarDayPage({
         title: true,
         scheduledDate: true,
         startMinute: true,
+        durationMinutes: true,
+        attendance: true,
         status: true,
         client: { select: { id: true, name: true } },
       },
@@ -119,7 +121,13 @@ export default async function CalendarDayPage({
           </p>
         ) : (
           items.map((item) => (
-            <Card key={`${item.source}-${item.id}`} className="flex items-start gap-3 p-4">
+            <Card
+              key={`${item.source}-${item.id}`}
+              // relative + the stretched link below: the whole card is the hit
+              // target, but the anchor stays a plain inline link, so the Edit
+              // and Delete controls beside it aren't nested inside it.
+              className="relative flex items-start gap-3 p-4 transition-colors hover:bg-paper"
+            >
               <span
                 aria-hidden
                 className={
@@ -135,13 +143,12 @@ export default async function CalendarDayPage({
                     : EVENT_KIND_LABELS[item.kind ?? "SESSION"]}
                 </p>
                 <p className="mt-0.5 font-medium text-ink">
-                  {item.source === "workout" ? (
-                    <Link href={item.href} className="hover:text-jade-strong">
-                      {item.title}
-                    </Link>
-                  ) : (
-                    item.title
-                  )}
+                  <Link
+                    href={item.href}
+                    className="after:absolute after:inset-0 hover:text-jade-strong"
+                  >
+                    {item.title}
+                  </Link>
                 </p>
                 <p className="metric mt-1 text-xs text-ink-soft">
                   {item.startMinute == null
@@ -158,21 +165,25 @@ export default async function CalendarDayPage({
                 ) : null}
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
+              {/* relative, so these sit above the stretched link rather than
+                  under it — otherwise the card swallows every click. */}
+              <div className="relative flex shrink-0 items-center gap-2">
                 {item.completed ? <Badge tone="jade">Done</Badge> : null}
+                <Link
+                  href={
+                    item.source === "workout"
+                      ? `/workouts/${item.id}/edit`
+                      : `/calendar/${dayValue}?edit=${item.id}`
+                  }
+                  className="metric inline-flex min-h-11 items-center rounded-[var(--radius-sm)] px-2 text-xs text-ink-soft transition-colors hover:text-ink sm:min-h-0 sm:px-1.5 sm:py-1"
+                >
+                  Edit
+                </Link>
                 {item.source === "event" ? (
-                  <>
-                    <Link
-                      href={`/calendar/${dayValue}?edit=${item.id}`}
-                      className="metric inline-flex min-h-11 items-center rounded-[var(--radius-sm)] px-2 text-xs text-ink-soft transition-colors hover:text-ink sm:min-h-0 sm:px-1.5 sm:py-1"
-                    >
-                      Edit
-                    </Link>
-                    <DeleteWorkoutForm
-                      action={deleteCalendarEvent.bind(null, item.id)}
-                      confirmMessage="Delete this event? This can't be undone."
-                    />
-                  </>
+                  <DeleteWorkoutForm
+                    action={deleteCalendarEvent.bind(null, item.id)}
+                    confirmMessage="Delete this event? This can't be undone."
+                  />
                 ) : null}
               </div>
             </Card>

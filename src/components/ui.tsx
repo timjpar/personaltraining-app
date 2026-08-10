@@ -100,14 +100,21 @@ export function Field({
   hint,
   children,
   htmlFor,
+  className,
 }: {
   label: string;
   hint?: string;
   children: ReactNode;
   htmlFor?: string;
+  // For callers laying fields out in a flex row, where how much space a field
+  // may take is the row's business rather than the field's.
+  className?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1.5" htmlFor={htmlFor}>
+    <label
+      className={cn("flex flex-col gap-1.5", className)}
+      htmlFor={htmlFor}
+    >
       <span className="eyebrow text-ink-soft">{label}</span>
       {children}
       {hint ? <span className="text-xs text-ink-soft">{hint}</span> : null}

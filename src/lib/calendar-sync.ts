@@ -105,6 +105,7 @@ async function snapshot(
         notes: true,
         scheduledDate: true,
         startMinute: true,
+        durationMinutes: true,
         status: true,
         client: { select: { name: true } },
       },
@@ -133,7 +134,14 @@ async function snapshot(
       sourceId: w.id,
       date: w.scheduledDate,
       startMinute: w.startMinute,
-      endMinute: null,
+      // The booked length, so a session occupies its hour in Google rather
+      // than landing as a point in time that looks free either side of it.
+      // Same derivation workoutItem does; the clamp keeps a late-evening block
+      // inside its own day, which toGoogleTimes has no way to fix afterwards.
+      endMinute:
+        w.startMinute == null || w.durationMinutes == null
+          ? null
+          : Math.min(w.startMinute + w.durationMinutes, 24 * 60 - 1),
       // On a coach's calendar a bare title is useless — six clients can all
       // have "Upper Body A" on the same Tuesday. On the athlete's own calendar
       // their name on every row is noise.

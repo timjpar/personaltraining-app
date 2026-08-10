@@ -167,6 +167,7 @@ export default async function ClientDetailPage({
           title: true,
           scheduledDate: true,
           startMinute: true,
+          durationMinutes: true,
           status: true,
           attendance: true,
           client: { select: { id: true, name: true } },
@@ -368,6 +369,7 @@ export default async function ClientDetailPage({
           monthHref={(key) => `/clients/${client.id}?m=${key}#schedule`}
           todayHref={`/clients/${client.id}#schedule`}
           showAttendance
+          attendanceLegend={{ IN_PERSON: "With you", SOLO: "On their own" }}
         />
       </section>
 

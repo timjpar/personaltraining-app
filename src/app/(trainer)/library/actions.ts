@@ -4,10 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
-import { parsePrescription, exerciseRowsFrom } from "@/lib/workout-form";
+import {
+  parsePrescription,
+  exerciseRowsFrom,
+  parseAssignedSlot,
+} from "@/lib/workout-form";
 import { parseDateInput } from "@/lib/format";
 import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
-import { toAttendance } from "@/lib/constants";
 import type { AssignState } from "@/components/AssignClients";
 
 export type TemplateFormState = { error?: string };
@@ -121,6 +124,7 @@ export async function assignTemplate(
   if (clients.length === 0) return { error: "Those clients weren't found." };
 
   const rows = exerciseRowsFrom(template.exercises);
+  const slot = parseAssignedSlot(formData);
 
   await prisma.$transaction(
     clients.map((c) =>
@@ -132,6 +136,11 @@ export async function assignTemplate(
           // materialise into strength sessions.
           discipline: template.discipline,
           scheduledDate,
+          // The same time, length and attendance for everyone in the batch.
+          // Assigning one session to six people at 6am is a group session, and
+          // that is exactly the case this form exists for; anyone needing six
+          // different times is scheduling six sessions, not one.
+          ...slot,
           status: "ASSIGNED",
           clientId: c.id,
           trainerId: trainer.id,
@@ -143,6 +152,7 @@ export async function assignTemplate(
 
   revalidatePath("/dashboard");
   for (const c of clients) revalidatePath(`/clients/${c.id}`);
+  revalidatePath("/calendar");
 
   const n = clients.length;
   return { ok: `Assigned “${template.title}” to ${n} client${n === 1 ? "" : "s"}.` };
@@ -178,12 +188,7 @@ export async function assignTemplateToClient(
       notes: template.notes,
       discipline: template.discipline,
       scheduledDate,
-      // The one assignment path that asks. Its neighbours above — and program
-      // assignment — write several sessions to several people at once, which
-      // is bulk homework by definition and takes the SOLO column default; this
-      // one is a coach putting a single session on a single day, which is
-      // exactly when "I'll be there for that" is worth a field.
-      attendance: toAttendance(formData.get("attendance")),
+      ...parseAssignedSlot(formData),
       status: "ASSIGNED",
       clientId: client.id,
       trainerId: trainer.id,
@@ -193,8 +198,6 @@ export async function assignTemplateToClient(
 
   revalidatePath(`/clients/${client.id}`);
   revalidatePath("/dashboard");
-  // This one can now land on the coach's own calendar, which the bulk paths
-  // above never could.
   revalidatePath("/calendar");
 
   return { ok: `Assigned “${template.title}” to ${client.name}.` };

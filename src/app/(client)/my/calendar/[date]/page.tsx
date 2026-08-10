@@ -38,6 +38,8 @@ export default async function MyCalendarDayPage({
         title: true,
         scheduledDate: true,
         startMinute: true,
+        durationMinutes: true,
+        attendance: true,
         status: true,
         client: { select: { id: true, name: true } },
       },
