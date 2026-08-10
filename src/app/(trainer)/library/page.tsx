@@ -18,9 +18,12 @@ export default async function LibraryPage() {
         eyebrow="Workout library"
         title="Workouts"
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <ButtonLink href="/exercises" variant="outline">
               My exercises
+            </ButtonLink>
+            <ButtonLink href="/exercises/new" variant="outline">
+              New exercise
             </ButtonLink>
             <ButtonLink href="/library/new">New workout</ButtonLink>
           </div>
