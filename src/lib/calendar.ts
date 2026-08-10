@@ -21,9 +21,10 @@ export function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-// Monday-first, matching the dashboard's week stat — and it's a training app.
-// The calendar strip an athlete scrubs through wants the opposite; see
-// startOfWeekSunday below.
+// Monday-first, for the *training* week — the dashboard's "done this week"
+// counter, which is asking about a block of work rather than about dates. The
+// surfaces people read as calendars are Sunday-first; see startOfWeekSunday
+// below and monthGrid further down.
 export function startOfWeek(d: Date): Date {
   const start = new Date(d);
   start.setHours(0, 0, 0, 0);
@@ -32,9 +33,10 @@ export function startOfWeek(d: Date): Date {
 }
 
 // Sunday-first, for the day strips a person reads as a calendar rather than as
-// a training week. Kept separate rather than parameterising startOfWeek: the
-// two have different reasons for their first day, and a boolean argument at the
-// call site would say which one was passed without saying why.
+// a training week — the same first day the month grid uses. Kept separate
+// rather than parameterising startOfWeek: the two have different reasons for
+// their first day, and a boolean argument at the call site would say which one
+// was passed without saying why.
 export function startOfWeekSunday(d: Date): Date {
   const start = new Date(d);
   start.setHours(0, 0, 0, 0);
@@ -63,12 +65,16 @@ export function shiftMonth(monthStart: Date, delta: number): Date {
 // jump height as you page through months, which is worse than one trailing row
 // of greyed-out days.
 //
+// Sunday-first — getDay() is already 0 for Sunday, so the offset is the day
+// number itself. MonthCalendar's column headings are ordered to match, and the
+// two have to move together: the grid decides which date lands in column one
+// and the headings only claim what it is.
+//
 // The day maths goes through addDays (setDate), never millisecond arithmetic —
 // a spring-forward day is 23 hours long and adding 86_400_000 drifts the grid
 // by an hour until it eventually lands on the wrong date.
 export function monthGrid(monthStart: Date): Date[] {
-  const offset = (monthStart.getDay() + 6) % 7;
-  const first = addDays(monthStart, -offset);
+  const first = addDays(monthStart, -monthStart.getDay());
   return Array.from({ length: CELLS }, (_, i) => addDays(first, i));
 }
 

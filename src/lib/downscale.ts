@@ -2,11 +2,13 @@
 // module touches document and createImageBitmap, so it is client-side and
 // nothing on the server may import it.
 //
-// Two callers with deliberately different contracts:
+// Three callers with deliberately different contracts:
 //
 //   fitWithin  — used by the food scanner. Falls back to the original file if
 //                the canvas won't cooperate, because an oversized photo the
 //                server rejects with a clear message beats no scan attempt.
+//   frameToBlob— also the food scanner, grabbing a still off the live camera,
+//                and throws: there is no original to fall back to.
 //   squareCrop — used by the profile photo card, and throws instead. There is
 //                no useful fallback: handing the action a 4MB original would
 //                fail the size cap and report the wrong reason.
@@ -51,6 +53,40 @@ export async function fitWithin(
     canvas.toBlob(resolve, "image/jpeg", quality),
   );
   return blob ?? file;
+}
+
+// One frame off a playing <video>, fitted to maxEdge on the way out so the
+// result is interchangeable with what fitWithin returns for a picked file.
+//
+// The source size comes from videoWidth/videoHeight, never the element's CSS
+// box: the preview is object-cover cropped to a short strip, and drawing from
+// the box would capture that crop rather than what the camera actually sees.
+export async function frameToBlob(
+  video: HTMLVideoElement,
+  maxEdge: number,
+  quality: number,
+): Promise<Blob> {
+  // Zero until the first frame decodes — a capture in that window would encode
+  // a blank canvas, and a plausible-looking blank photo is worse than an error.
+  if (!video.videoWidth || !video.videoHeight) {
+    throw new Error("The camera hasn't sent a picture yet. Try again.");
+  }
+
+  const scale = Math.min(
+    1,
+    maxEdge / Math.max(video.videoWidth, video.videoHeight),
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(video.videoWidth * scale);
+  canvas.height = Math.round(video.videoHeight * scale);
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("This browser can't take a picture.");
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  const blob = await encode(canvas, "image/jpeg", quality);
+  if (!blob) throw new Error("This browser can't take a picture.");
+  return blob;
 }
 
 // Centre-crops to a square of `size` and encodes it. WebP where the browser can
