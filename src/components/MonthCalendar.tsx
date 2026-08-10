@@ -10,7 +10,13 @@ import {
   type CalendarItem,
 } from "@/lib/calendar";
 import { toDateInput } from "@/lib/format";
-import { ATTENDANCE, ATTENDANCE_BADGES, type Attendance } from "@/lib/constants";
+import {
+  ATTENDANCE,
+  ATTENDANCE_BADGES,
+  WEEKDAY_LABELS,
+  WEEKDAY_ORDER,
+  type Attendance,
+} from "@/lib/constants";
 import { cn } from "@/lib/cn";
 
 // The month view, once. It was written twice — the trainer's calendar and the
@@ -24,7 +30,13 @@ import { cn } from "@/lib/cn";
 // A server component. It renders links and text, holds no state, and both of
 // its callers are already server components that did this inline.
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+// Columns are Sunday-first, which is WEEKDAY_ORDER as it stands — the shared
+// constant rather than a local array, so this grid and the broadcast day picker
+// can't come to disagree about what Tuesday is called. Indexing straight by
+// getDay() means the headings can't drift out of step with the dates either:
+// monthGrid puts a Sunday in column one, and column one is labelled by the same
+// number.
+const MONTH_COLUMNS = WEEKDAY_ORDER;
 
 // Chips per cell. Fixed at every breakpoint on purpose: a count that changed
 // with the viewport would make the "+N more" label wrong at one of them.
@@ -156,7 +168,7 @@ export function MonthCalendar({
                 )}
               >
                 <span className="text-[0.5625rem] uppercase tracking-[0.14em] opacity-70">
-                  {WEEKDAYS[(day.getDay() + 6) % 7]}
+                  {WEEKDAY_LABELS[day.getDay()]}
                 </span>
                 <span className="mt-1 text-base font-semibold">
                   {day.getDate()}
@@ -214,9 +226,9 @@ export function MonthCalendar({
       {/* gap-px over a line-coloured container draws the hairline separators,
           so no cell needs a border of its own and nothing doubles up. */}
       <div className="mt-3 hidden grid-cols-7 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line sm:grid">
-        {WEEKDAYS.map((d) => (
+        {MONTH_COLUMNS.map((d) => (
           <div key={d} className="bg-card px-2 py-1.5">
-            <span className="eyebrow text-ink-soft/70">{d}</span>
+            <span className="eyebrow text-ink-soft/70">{WEEKDAY_LABELS[d]}</span>
           </div>
         ))}
 

@@ -83,6 +83,12 @@ export async function detectFrom(
 export const CAMERA_UNAVAILABLE =
   "We couldn't open the camera. Enter the barcode number instead.";
 
+// The identical failure on the photo path, where the barcode advice is no use:
+// a plate of food has no digits to type. Two constants rather than one generic
+// sentence, because the half that matters is the way out, not the diagnosis.
+export const PHOTO_CAMERA_UNAVAILABLE =
+  "We couldn't open the camera. Upload a photo instead.";
+
 export async function openCamera(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
     // `ideal`, never `exact`: a laptop with only a front camera throws
@@ -90,6 +96,40 @@ export async function openCamera(): Promise<MediaStream> {
     video: { facingMode: { ideal: "environment" } },
     audio: false,
   });
+}
+
+// Whether to offer an in-page camera for *photos* — a laptop, in practice.
+//
+// Less a capability check than a check on whether one is needed. The photo
+// input carries capture="environment", and on a phone that hands you the OS
+// camera, which focuses, exposes and resolves the small print on a nutrition
+// label far better than a <video> preview and a canvas grab ever will. Desktop
+// browsers ignore the attribute and open a file browser instead — so the
+// person who wants to point a webcam at their lunch has no way to do it, which
+// is the gap this opens.
+//
+// `pointer: fine` is the dividing line rather than a user-agent string: it asks
+// the question that actually matters — is this thing driven by a mouse — and a
+// touchscreen laptop still reports `fine` for its primary pointer. Both ways of
+// being wrong are survivable: a phone read as a laptop gets an in-page camera
+// that works, and a laptop read as a phone gets the file browser it has today.
+const MOUSE_DRIVEN = "(pointer: fine)";
+
+export function supportsInPageCamera(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!navigator.mediaDevices?.getUserMedia) return false;
+  return window.matchMedia(MOUSE_DRIVEN).matches;
+}
+
+// The subscribe half of the pair, so the answer can be read with
+// useSyncExternalStore rather than latched into state by an effect. It also
+// happens to be correct where a one-shot check isn't: an iPad that gains a
+// trackpad, or a laptop in tablet mode, changes its answer mid-session.
+export function watchPointer(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const query = window.matchMedia(MOUSE_DRIVEN);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
 }
 
 // Both halves matter. Without stop() the camera indicator stays lit after the
