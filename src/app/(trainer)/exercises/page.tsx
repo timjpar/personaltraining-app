@@ -76,17 +76,11 @@ export default async function ExercisesPage() {
           </div>
         }
       >
-        {/* One expression, so JSX can't trim the space between the count and
-            the noun the way it does after a bare {expr} at a line break. */}
-        {`${PRESET_NAMES.length} movements`}, grouped by how you&rsquo;d train
-        them — strength, cardio, climbing and mobility. Every one of them is in
-        the exercise picker, so you can program any of them straight into a
-        session.
+        Attach a demo video to any movement and keep your own exercises here.
+        The full list of built-in movements is further down.
       </PageHeading>
 
-      <ExerciseCatalog custom={customMovements} />
-
-      <div className="mt-12 border-t border-line pt-9">
+      <div className="mt-6">
         <ExerciseMediaManager catalog={catalog} rows={withMedia} />
       </div>
 
@@ -128,6 +122,22 @@ export default async function ExercisesPage() {
             </ul>
           </Card>
         )}
+      </div>
+
+      <div className="mt-12 border-t border-line pt-9">
+        <h2 className="font-display text-base font-semibold text-ink">
+          All movements
+        </h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          {/* One expression, so JSX can't trim the space between the count and
+              the noun the way it does after a bare {expr} at a line break. */}
+          {`${PRESET_NAMES.length} movements`}, grouped by how you&rsquo;d train
+          them — strength, cardio, climbing and mobility. Every one of them is in
+          the exercise picker, so you can program any of them straight into a
+          session.
+        </p>
+
+        <ExerciseCatalog custom={customMovements} />
       </div>
     </Container>
   );
