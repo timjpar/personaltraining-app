@@ -7,6 +7,7 @@ import { requireTrainer } from "@/lib/auth";
 import { parsePrescription, exerciseRowsFrom } from "@/lib/workout-form";
 import { parseDateInput } from "@/lib/format";
 import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
+import { toAttendance } from "@/lib/constants";
 import type { AssignState } from "@/components/AssignClients";
 
 export type TemplateFormState = { error?: string };
@@ -177,6 +178,12 @@ export async function assignTemplateToClient(
       notes: template.notes,
       discipline: template.discipline,
       scheduledDate,
+      // The one assignment path that asks. Its neighbours above — and program
+      // assignment — write several sessions to several people at once, which
+      // is bulk homework by definition and takes the SOLO column default; this
+      // one is a coach putting a single session on a single day, which is
+      // exactly when "I'll be there for that" is worth a field.
+      attendance: toAttendance(formData.get("attendance")),
       status: "ASSIGNED",
       clientId: client.id,
       trainerId: trainer.id,
@@ -186,6 +193,9 @@ export async function assignTemplateToClient(
 
   revalidatePath(`/clients/${client.id}`);
   revalidatePath("/dashboard");
+  // This one can now land on the coach's own calendar, which the bulk paths
+  // above never could.
+  revalidatePath("/calendar");
 
   return { ok: `Assigned “${template.title}” to ${client.name}.` };
 }

@@ -1,21 +1,27 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import {
-  saveProfilePhoto,
-  removeProfilePhoto,
-  type PhotoState,
-} from "@/app/profile-photo-actions";
+import type { PhotoState } from "@/app/profile-photo-actions";
 import { Avatar, Card, FormError, buttonClass } from "@/components/ui";
 import { squareCrop } from "@/lib/downscale";
 import { PHOTO_EDGE, PHOTO_QUALITY } from "@/lib/avatar";
 import { cn } from "@/lib/cn";
 
-// Your own photo, on the page you already live on rather than a settings
-// screen — the call NotificationsCard and GoogleCalendarCard both make, and the
-// reason this renders on /dashboard for a coach and /my for an athlete. Down at
-// the bottom with the other once-in-a-while controls, where nothing it does
-// pushes the day's actual work further down the page.
+// A photo, the picker that replaces it and the button that clears it. Two
+// callers with the same shape and different subjects:
+//
+//   your own  — on the page you already live on rather than a settings screen,
+//               the call NotificationsCard and GoogleCalendarCard both make,
+//               which is why it renders on /dashboard for a coach and /my for
+//               an athlete. Down at the bottom with the other once-in-a-while
+//               controls.
+//   a client's — on their client page, where a coach who signed them up at a
+//               desk can put a face on the file.
+//
+// The actions arrive as props rather than being imported here, and that is the
+// whole design: this component never knows whose photo it is holding, so it has
+// no permission decision it could get wrong. Its two callers do — one has a
+// user id it proves it owns, the other refuses to accept an id at all.
 
 // Rendered from the resized blob, so it's what the server is about to be sent
 // and not what came off the camera roll.
@@ -26,10 +32,21 @@ function sizeLabel(bytes: number) {
 export function ProfilePhotoCard({
   name,
   photoUrl,
+  save,
+  remove,
+  title = "Profile photo",
+  blurb = "Shown next to your name wherever you appear. Optional — your initials work fine.",
 }: {
   name: string;
   // Null when there's no photo yet; see avatarUrl().
   photoUrl: string | null;
+  // Pre-bound by the caller when it needs to name a subject —
+  // saveClientPhoto.bind(null, client.id). The signature stays FormData-only
+  // so this component has nothing to pass but the photo.
+  save: (formData: FormData) => Promise<PhotoState>;
+  remove: () => Promise<PhotoState>;
+  title?: string;
+  blurb?: string;
 }) {
   const [state, setState] = useState<PhotoState>({});
   const [pending, startTransition] = useTransition();
@@ -54,7 +71,7 @@ export function ProfilePhotoCard({
 
       const body = new FormData();
       body.append("photo", blob, "photo");
-      const result = await saveProfilePhoto(body);
+      const result = await save(body);
 
       if (result.ok) {
         setPreview(URL.createObjectURL(blob));
@@ -66,8 +83,11 @@ export function ProfilePhotoCard({
   const onRemove = () => {
     setState({});
     startTransition(async () => {
-      setPreview(null);
-      setState(await removeProfilePhoto());
+      const result = await remove();
+      // Only drop the local preview once the server agrees it's gone —
+      // clearing it first made a failed removal look like it had worked.
+      if (result.ok) setPreview(null);
+      setState(result);
     });
   };
 
@@ -75,13 +95,8 @@ export function ProfilePhotoCard({
 
   return (
     <Card className="p-5">
-      <h2 className="font-display text-base font-semibold text-ink">
-        Profile photo
-      </h2>
-      <p className="mt-1.5 text-sm text-ink-soft">
-        Shown next to your name wherever you appear. Optional — your initials
-        work fine.
-      </p>
+      <h2 className="font-display text-base font-semibold text-ink">{title}</h2>
+      <p className="mt-1.5 text-sm text-ink-soft">{blurb}</p>
 
       <div className="mt-4 flex items-center gap-4">
         <Avatar name={name} src={shown} className="h-16 w-16 text-lg" />

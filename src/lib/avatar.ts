@@ -53,6 +53,46 @@ export function sniffImageType(bytes: Uint8Array): string | null {
   return null;
 }
 
+// Turning the posted form into bytes we're willing to store, or into the
+// sentence explaining why not. Every rule about what an upload may be lives
+// here, so the two actions that accept one — your own photo, and a coach
+// setting a client's — cannot enforce different ones.
+//
+// Still no DOM and no database: this takes a FormData and returns a verdict,
+// which keeps the module importable from the client component that renders the
+// picker as well as from the server actions.
+// The buffer type is pinned rather than left as the default ArrayBufferLike:
+// these bytes go straight into a Prisma Bytes column, whose type rejects the
+// wider one because a SharedArrayBuffer can't back it.
+export async function readPhotoUpload(
+  formData: FormData,
+): Promise<
+  | { bytes: Uint8Array<ArrayBuffer>; contentType: string; error?: undefined }
+  | { error: string; bytes?: undefined; contentType?: undefined }
+> {
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "We didn't get a photo. Try again." };
+  }
+
+  // Checked before the bytes are read into memory, so an enormous upload is
+  // refused rather than buffered. The browser resizes to ~15KB first, so
+  // reaching this means the resize didn't run.
+  if (file.size > MAX_PHOTO_BYTES) {
+    return { error: "That photo is too big. Try a smaller one." };
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  // The declared type is client-supplied text; this reads the actual header.
+  const contentType = sniffImageType(bytes);
+  if (!contentType) {
+    return { error: "That file isn't an image we can use." };
+  }
+
+  return { bytes, contentType };
+}
+
 // The <img src> for someone's photo, or null when they haven't got one — which
 // is the signal Avatar uses to fall back to initials.
 //

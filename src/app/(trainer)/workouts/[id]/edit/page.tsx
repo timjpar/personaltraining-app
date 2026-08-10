@@ -53,6 +53,7 @@ export default async function EditWorkoutPage({
             title: workout.title,
             notes: workout.notes,
             discipline: workout.discipline,
+            attendance: workout.attendance,
             scheduledDate: toDateInput(workout.scheduledDate),
             startTime: timeInputFromMinutes(workout.startMinute),
             exercises: workout.exercises.map((ex) => ({
