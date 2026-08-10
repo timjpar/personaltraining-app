@@ -89,33 +89,35 @@ export async function frameToBlob(
   return blob;
 }
 
-// Centre-crops to a square of `size` and encodes it. WebP where the browser can
-// (about 30% smaller than JPEG at the same quality), JPEG where it can't —
-// Safari below 14 being the case that's left. The caller stores whichever came
-// back, which is why ProfilePhoto has a contentType column rather than assuming.
-export async function squareCrop(
-  file: File,
+// The centre square of a source, drawn at `size` and encoded. WebP where the
+// browser can (about 30% smaller than JPEG at the same quality), JPEG where it
+// can't — Safari below 14 being the case that's left. The caller stores
+// whichever came back, which is why ProfilePhoto has a contentType column
+// rather than assuming.
+//
+// Dimensions are passed in rather than read off the source: a bitmap keeps them
+// on width/height and a video on videoWidth/videoHeight, and that one
+// difference is the only thing separating the two public functions below.
+async function squareFrom(
+  source: CanvasImageSource,
+  width: number,
+  height: number,
   size: number,
   quality: number,
 ): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    bitmap.close();
-    throw new Error("This browser can't resize images.");
-  }
+  if (!ctx) throw new Error("This browser can't resize images.");
 
   // The largest square the source contains, taken from its middle — a face in a
   // portrait photo survives this, where squashing to a square wouldn't.
-  const edge = Math.min(bitmap.width, bitmap.height);
+  const edge = Math.min(width, height);
   ctx.drawImage(
-    bitmap,
-    (bitmap.width - edge) / 2,
-    (bitmap.height - edge) / 2,
+    source,
+    (width - edge) / 2,
+    (height - edge) / 2,
     edge,
     edge,
     0,
@@ -123,11 +125,46 @@ export async function squareCrop(
     size,
     size,
   );
-  bitmap.close();
 
   const blob =
     (await encode(canvas, "image/webp", quality)) ??
     (await encode(canvas, "image/jpeg", quality));
   if (!blob) throw new Error("This browser can't resize images.");
   return blob;
+}
+
+// Centre-crops a picked file.
+export async function squareCrop(
+  file: File,
+  size: number,
+  quality: number,
+): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  // finally, so a throw out of squareFrom still frees the decoded bitmap — it
+  // holds the full-resolution image, which on a modern phone camera is tens of
+  // megabytes.
+  try {
+    return await squareFrom(bitmap, bitmap.width, bitmap.height, size, quality);
+  } finally {
+    bitmap.close();
+  }
+}
+
+// The same crop taken off a live camera, encoded once rather than routed
+// through a JPEG on its way to becoming a WebP.
+export async function squareCropFrame(
+  video: HTMLVideoElement,
+  size: number,
+  quality: number,
+): Promise<Blob> {
+  if (!video.videoWidth || !video.videoHeight) {
+    throw new Error("The camera hasn't sent a picture yet. Try again.");
+  }
+  return squareFrom(
+    video,
+    video.videoWidth,
+    video.videoHeight,
+    size,
+    quality,
+  );
 }

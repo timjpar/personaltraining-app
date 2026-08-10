@@ -89,30 +89,36 @@ export const CAMERA_UNAVAILABLE =
 export const PHOTO_CAMERA_UNAVAILABLE =
   "We couldn't open the camera. Upload a photo instead.";
 
-export async function openCamera(): Promise<MediaStream> {
+// Which way the camera points. "environment" for a thing you're holding — a
+// barcode, a plate — and "user" for a face.
+export type CameraFacing = "environment" | "user";
+
+export async function openCamera(
+  facing: CameraFacing = "environment",
+): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
     // `ideal`, never `exact`: a laptop with only a front camera throws
     // OverconstrainedError on exact and the scanner never opens at all.
-    video: { facingMode: { ideal: "environment" } },
+    video: { facingMode: { ideal: facing } },
     audio: false,
   });
 }
 
-// Whether to offer an in-page camera for *photos* — a laptop, in practice.
+// *How* a "Take a photo" button should behave, not whether to show one. Both
+// platforms get both options — take one, or pick an existing one — and they
+// differ only in the mechanism that serves each best:
 //
-// Less a capability check than a check on whether one is needed. The photo
-// input carries capture="environment", and on a phone that hands you the OS
-// camera, which focuses, exposes and resolves the small print on a nutrition
-// label far better than a <video> preview and a canvas grab ever will. Desktop
-// browsers ignore the attribute and open a file browser instead — so the
-// person who wants to point a webcam at their lunch has no way to do it, which
-// is the gap this opens.
+//   phones   — an <input capture>, which hands over the OS camera. It focuses,
+//              exposes and resolves the small print on a nutrition label far
+//              better than a <video> preview and a canvas grab ever will.
+//   desktop  — an in-page camera, because desktop browsers ignore `capture`
+//              entirely and would otherwise open a second file browser.
 //
 // `pointer: fine` is the dividing line rather than a user-agent string: it asks
 // the question that actually matters — is this thing driven by a mouse — and a
 // touchscreen laptop still reports `fine` for its primary pointer. Both ways of
-// being wrong are survivable: a phone read as a laptop gets an in-page camera
-// that works, and a laptop read as a phone gets the file browser it has today.
+// being wrong are survivable, which is the point of choosing a mechanism rather
+// than an offering: whichever branch you land in, you can still take a photo.
 const MOUSE_DRIVEN = "(pointer: fine)";
 
 export function supportsInPageCamera(): boolean {

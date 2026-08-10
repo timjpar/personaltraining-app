@@ -8,15 +8,14 @@ import {
   useSyncExternalStore,
   useTransition,
 } from "react";
+import { useCamera } from "@/lib/use-camera";
 import { lookupBarcode, scanFoodPhoto } from "@/app/food-scan-actions";
 import { Input, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
   CAMERA_UNAVAILABLE,
-  closeCamera,
   createDetector,
   detectFrom,
-  openCamera,
   PHOTO_CAMERA_UNAVAILABLE,
   supportsBarcodeScanning,
   supportsInPageCamera,
@@ -55,10 +54,15 @@ export function FoodScanner({
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const cancelledRef = useRef(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const { videoRef, cancelledRef, start, stop } = useCamera(() =>
+    setCamera(null),
+  );
+
+  // Two inputs, not one with a toggled attribute: `capture` is read when the
+  // picker opens and React reuses the same DOM node, so flipping it between
+  // clicks is a race nobody can see. Two nodes have no state to get wrong.
+  const cameraRef = useRef<HTMLInputElement | null>(null);
+  const libraryRef = useRef<HTMLInputElement | null>(null);
 
   // The capability check is async, so the button can't be gated inline. Gating
   // on the resolved value means it simply doesn't render where it can't work,
@@ -73,38 +77,15 @@ export function FoodScanner({
     };
   }, []);
 
-  // Not an effect, because this one is a value the browser already knows and
-  // can change its mind about — false on the server, read on the client, and
-  // re-read if a pointer is plugged in.
-  const canShoot = useSyncExternalStore(
+  // Whether "Take a photo" opens a camera here or hands off to the phone's —
+  // not whether it appears. Not an effect, because this is a value the browser
+  // already knows and can change its mind about: false on the server, read on
+  // the client, re-read if a pointer is plugged in.
+  const inPageCamera = useSyncExternalStore(
     watchPointer,
     supportsInPageCamera,
     () => false,
   );
-
-  const stop = useCallback(() => {
-    cancelledRef.current = true;
-    closeCamera(streamRef.current, videoRef.current);
-    streamRef.current = null;
-  }, []);
-
-  // Unmount is the teardown that gets forgotten, and it's the one that leaves
-  // the camera light on.
-  useEffect(() => stop, [stop]);
-
-  // Backgrounding the tab should release the camera too — a scanner still
-  // holding it while the athlete answers a message is indistinguishable from
-  // one that's spying.
-  useEffect(() => {
-    const onHide = () => {
-      if (document.visibilityState === "hidden") {
-        stop();
-        setCamera(null);
-      }
-    };
-    document.addEventListener("visibilitychange", onHide);
-    return () => document.removeEventListener("visibilitychange", onHide);
-  }, [stop]);
 
   const finish = useCallback(
     (foods: FoodPreset[], source: FoodSource) => {
@@ -133,14 +114,9 @@ export function FoodScanner({
   const startCamera = useCallback(
     async (mode: "barcode" | "photo") => {
       setMessage(null);
-      // Switching straight from one job to the other has to release the first
-      // stream, or the second getUserMedia contends with a camera we still hold.
-      stop();
+      // Set before the await, so React has the <video> mounted by the time the
+      // permission prompt resolves and start() has somewhere to put the stream.
       setCamera(mode);
-      // Cleared before the await, not after: stop() can run while the permission
-      // prompt is up, and setting the flag afterwards would overwrite the very
-      // cancellation we need to see below.
-      cancelledRef.current = false;
 
       // Built before the camera opens, so a browser that could never decode a
       // barcode says so instead of asking for permission first and then failing.
@@ -151,13 +127,9 @@ export function FoodScanner({
         return;
       }
 
-      let stream: MediaStream;
-      try {
-        stream = await openCamera();
-      } catch {
-        // NotAllowedError, NotFoundError and NotReadableError all collapse to
-        // one message. Which one depends on where you were headed: the barcode
-        // path can point at the number field below, the photo path can't.
+      if (!(await start("environment"))) {
+        // One failure, two ways out: the barcode path can point at the number
+        // field below, the photo path at the upload button.
         setMessage(
           mode === "barcode" ? CAMERA_UNAVAILABLE : PHOTO_CAMERA_UNAVAILABLE,
         );
@@ -165,25 +137,11 @@ export function FoodScanner({
         return;
       }
 
-      // Closed, unmounted or backgrounded while the prompt was up — the stream
-      // we've just been granted has to be released or the light stays on.
-      const video = videoRef.current;
-      if (cancelledRef.current || !video) {
-        closeCamera(stream, null);
-        return;
-      }
-
-      streamRef.current = stream;
-      video.srcObject = stream;
-      try {
-        await video.play();
-      } catch {
-        /* autoplay can reject; the frames still arrive once it settles */
-      }
-
       // Photo mode is done here: the stream is on screen and the next move is the
       // athlete's. Everything below is the barcode loop.
       if (!detector) return;
+      const video = videoRef.current;
+      if (!video) return;
 
       // requestAnimationFrame rather than setInterval: it pauses when the tab is
       // backgrounded, so the loop stops costing anything for free.
@@ -204,7 +162,7 @@ export function FoodScanner({
       };
       requestAnimationFrame(tick);
     },
-    [stop, submitBarcode],
+    [cancelledRef, start, submitBarcode, videoRef],
   );
 
   // Shared by the file picker and the shutter. By the time a photo reaches
@@ -284,40 +242,13 @@ export function FoodScanner({
           </button>
         ) : null}
 
-        {/* Only where the file input wouldn't already do this — see
-            supportsInPageCamera. A phone has no need of it: the input below
-            hands you the camera app, which takes a better picture of a
-            nutrition label than a <video> frame can. A laptop ignores that
-            attribute and drops you in a file browser, which is no help at all
-            when the food is in front of you and the photo doesn't exist yet. */}
-        {canShoot ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (camera === "photo") {
-                stop();
-                setCamera(null);
-              } else if (!photoEnabled) {
-                setMessage("Photo scanning isn't set up on this server.");
-              } else {
-                startCamera("photo");
-              }
-            }}
-            disabled={pending}
-            className={cn(
-              buttonClass("outline", "sm"),
-              !photoEnabled && "opacity-60",
-            )}
-          >
-            {camera === "photo" ? "Close camera" : "Take a photo"}
-          </button>
-        ) : null}
-
-        {/* capture="environment" opens the camera directly on a phone with no
-            getUserMedia involved, which is what keeps the photo path working
-            on iOS where BarcodeDetector doesn't exist. */}
+        {/* capture="environment" hands a phone straight to its camera app with
+            no getUserMedia involved — which is both the best picture of a
+            nutrition label you can get and the only photo path iOS has, since
+            it ships no BarcodeDetector. Desktop browsers ignore the attribute,
+            so there the button opens the in-page camera instead. */}
         <input
-          ref={fileRef}
+          ref={cameraRef}
           type="file"
           accept="image/*"
           capture="environment"
@@ -329,6 +260,47 @@ export function FoodScanner({
             if (file) onPhoto(file);
           }}
         />
+        {/* No capture, so this one is always the library — the photo of last
+            night's dinner you already have. */}
+        <input
+          ref={libraryRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) onPhoto(file);
+          }}
+        />
+
+        {/* Both offered on both, because "take one" and "pick one I have" are
+            different intentions and neither device makes the other unnecessary.
+            All that changes is the mechanism behind this button — see
+            supportsInPageCamera. */}
+        <button
+          type="button"
+          onClick={() => {
+            if (camera === "photo") {
+              stop();
+              setCamera(null);
+            } else if (!photoEnabled) {
+              setMessage("Photo scanning isn't set up on this server.");
+            } else if (inPageCamera) {
+              startCamera("photo");
+            } else {
+              cameraRef.current?.click();
+            }
+          }}
+          disabled={pending}
+          className={cn(
+            buttonClass("outline", "sm"),
+            !photoEnabled && "opacity-60",
+          )}
+        >
+          {camera === "photo" ? "Close camera" : "Take a photo"}
+        </button>
+
         <button
           type="button"
           onClick={() => {
@@ -336,7 +308,7 @@ export function FoodScanner({
               setMessage("Photo scanning isn't set up on this server.");
               return;
             }
-            fileRef.current?.click();
+            libraryRef.current?.click();
           }}
           disabled={pending}
           // Rendered even when the key is missing, and says so when pressed —
@@ -347,11 +319,7 @@ export function FoodScanner({
             !photoEnabled && "opacity-60",
           )}
         >
-          {/* Named for what it does on the device you're holding. Beside a
-              "Take a photo" button, "Photo of food" would be two buttons
-              claiming the same job; on a phone, where it *is* the camera,
-              "Upload" would describe the wrong half of what happens. */}
-          {canShoot ? "Upload a photo" : "Photo of food"}
+          Upload a photo
         </button>
 
         {pending ? (
