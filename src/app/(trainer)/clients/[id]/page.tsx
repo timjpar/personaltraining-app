@@ -21,6 +21,22 @@ import { WeightTrend, BodyStats } from "@/components/WeightTrend";
 import { saveMeasurement } from "@/app/(trainer)/clients/body-actions";
 import { toUnits } from "@/lib/constants";
 import { avatarUrl } from "@/lib/avatar";
+import { MonthCalendar } from "@/components/MonthCalendar";
+import { ProfilePhotoCard } from "@/components/ProfilePhotoCard";
+import {
+  saveClientPhoto,
+  removeClientPhoto,
+} from "@/app/(trainer)/clients/photo-actions";
+import {
+  eventItem,
+  gridRange,
+  groupByDay,
+  monthGrid,
+  parseMonthKey,
+  startOfMonth,
+  workoutItem,
+  TRAINER_LINKS,
+} from "@/lib/calendar";
 
 function WorkoutRow({
   id,
@@ -60,17 +76,36 @@ function WorkoutRow({
 
 export default async function ClientDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  // Which month the schedule section is showing. A query param rather than
+  // component state because the calendar is server-rendered from a date-range
+  // query, exactly as the two full calendar pages are.
+  searchParams: Promise<{ m?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { m }] = await Promise.all([params, searchParams]);
   const trainer = await requireTrainer();
 
-  // All six in parallel. Each scopes itself — the logs, the plan and the body
-  // rows carry the trainer check in their own where clause rather than leaning
-  // on the client lookup having succeeded, so running them together is safe.
-  const [client, templates, logs, plan, profile, measurements] =
-    await Promise.all([
+  const monthStart = parseMonthKey(m) ?? startOfMonth(new Date());
+  // The whole visible grid, not the month — the leading and trailing cells
+  // belong to the neighbouring months and would otherwise come back empty.
+  const { start: monthFrom, end: monthTo } = gridRange(monthGrid(monthStart));
+
+  // All eight in parallel. Each scopes itself — the logs, the plan, the body
+  // rows and the two calendar queries carry the trainer check in their own
+  // where clause rather than leaning on the client lookup having succeeded, so
+  // running them together is safe.
+  const [
+    client,
+    templates,
+    logs,
+    plan,
+    profile,
+    measurements,
+    monthWorkouts,
+    monthEvents,
+  ] = await Promise.all([
       prisma.user.findFirst({
         where: { id, trainerId: trainer.id, role: "CLIENT" },
         include: {
@@ -116,11 +151,45 @@ export default async function ClientDetailPage({
         take: 30,
         select: { id: true, date: true, weightKg: true },
       }),
+      // This client's month, both kinds of session. Deliberately unfiltered by
+      // attendance where the coach's own calendar filters hard: that one
+      // answers "what am I doing this week" and this one answers "what has she
+      // got on", which is the question you open a client's file to ask. The
+      // chips mark which are with the coach.
+      prisma.workout.findMany({
+        where: {
+          clientId: id,
+          trainerId: trainer.id,
+          scheduledDate: { gte: monthFrom, lt: monthTo },
+        },
+        select: {
+          id: true,
+          title: true,
+          scheduledDate: true,
+          startMinute: true,
+          status: true,
+          attendance: true,
+          client: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.calendarEvent.findMany({
+        where: {
+          clientId: id,
+          trainerId: trainer.id,
+          date: { gte: monthFrom, lt: monthTo },
+        },
+        include: { client: { select: { id: true, name: true } } },
+      }),
     ]);
 
   if (!client) notFound();
 
   const units = toUnits(trainer.units);
+
+  const byDay = groupByDay([
+    ...monthWorkouts.map((w) => workoutItem(w, TRAINER_LINKS)),
+    ...monthEvents.map((e) => eventItem(e, TRAINER_LINKS)),
+  ]);
 
   // Narrowed so the trend and the stats can take a plain number — the query
   // already filtered nulls out, but the type doesn't know that.
@@ -164,11 +233,16 @@ export default async function ClientDetailPage({
             </ButtonLink>
           }
         >
-          <span className="flex items-center gap-2">
+          {/* Bigger than the 24px it was. This is the one page in the app
+              that is about a single person, so their face is worth more than a
+              favicon — and it's the "view" half of being able to set one from
+              here, the control for which is down with the other account
+              things. */}
+          <span className="flex items-center gap-2.5">
             <Avatar
               name={client.name}
               src={avatarUrl(client)}
-              className="h-6 w-6 text-[0.625rem]"
+              className="h-10 w-10 text-xs"
             />
             <span className="metric">{client.email}</span>
           </span>
@@ -260,6 +334,42 @@ export default async function ClientDetailPage({
           )}
         </section>
       </div>
+
+      {/* Their calendar, on their file. The two lists above answer "what has
+          she been given" and this answers "when" — the shape of a month is the
+          thing a list of dates can't show, and it's how you spot a week with
+          four sessions stacked on Tuesday.
+
+          The id is what the month arrows scroll back to: this sits well down a
+          long page, and stepping a month is a page load that would otherwise
+          dump you at the top every time. */}
+      <section id="schedule" className="mt-10 scroll-mt-4">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className="font-display text-lg font-semibold text-ink">
+            Schedule
+          </h2>
+          {/* The {" "} is load-bearing: a text chunk that runs onto a second
+              line loses its leading space in the JSX transform, so "Maria" and
+              "has" ran together. Same reason the assign card above writes
+              `or{" "}` rather than trusting the line break. */}
+          <p className="text-xs text-ink-soft">
+            Everything {client.name.split(/\s+/)[0]}{" "}
+            has on, whether or not you&rsquo;re there for it.
+          </p>
+        </div>
+
+        {/* No dayHref: there is no "this client, this date" page to open, and
+            inventing one to point at the coach's own day — which shows their
+            whole roster — would answer a different question. Without it every
+            chip becomes its own link instead, straight to the session. */}
+        <MonthCalendar
+          monthStart={monthStart}
+          byDay={byDay}
+          monthHref={(key) => `/clients/${client.id}?m=${key}#schedule`}
+          todayHref={`/clients/${client.id}#schedule`}
+          showAttendance
+        />
+      </section>
 
       <section className="mt-10">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -414,9 +524,20 @@ export default async function ClientDetailPage({
         )}
       </section>
 
-      {/* Account admin, kept to the bottom and to one column: it's the thing you
-          reach for once in a while, not what this page is about. */}
-      <section className="mt-10 max-w-md">
+      {/* Account admin, kept to the bottom: the things you reach for once in a
+          while, not what this page is about. The same placement the photo card
+          gets on /dashboard and /my, which is where a coach has already met
+          it — and half a roster never sets one themselves, because they were
+          signed up at a desk and have never opened their own settings. */}
+      <section className="mt-10 grid gap-4 lg:grid-cols-2">
+        <ProfilePhotoCard
+          name={client.name}
+          photoUrl={avatarUrl(client)}
+          save={saveClientPhoto.bind(null, client.id)}
+          remove={removeClientPhoto.bind(null, client.id)}
+          title={`${client.name.split(/\s+/)[0]}'s photo`}
+          blurb={`Shown wherever ${client.name.split(/\s+/)[0]} appears — your roster, the feed, their own app. They can change or remove it themselves.`}
+        />
         <ResetClientPassword
           clientId={client.id}
           firstName={client.name.split(/\s+/)[0]}

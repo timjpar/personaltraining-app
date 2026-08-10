@@ -221,6 +221,51 @@ export function toDiscipline(value: unknown): Discipline {
     : DISCIPLINES.STRENGTH;
 }
 
+// Whether the coach is in the room. The one field that decides whether a
+// programmed session lands on the *coach's* calendar — see Workout.attendance,
+// which spells out why SOLO is the default and why the athlete's own calendar
+// ignores this entirely.
+export const ATTENDANCE = {
+  IN_PERSON: "IN_PERSON",
+  SOLO: "SOLO",
+} as const;
+export type Attendance = (typeof ATTENDANCE)[keyof typeof ATTENDANCE];
+
+// Solo second, despite being the default. The order is the order the radio
+// pair reads in, and "I'm coaching this" is the choice being made — SOLO is
+// what you get by not choosing.
+export const ATTENDANCE_ORDER = [
+  "IN_PERSON",
+  "SOLO",
+] as const satisfies readonly Attendance[];
+
+export const ATTENDANCE_LABELS: Record<Attendance, string> = {
+  IN_PERSON: "In person with me",
+  SOLO: "On their own",
+};
+
+// What the choice actually costs, which is the part that isn't obvious from
+// the label: one of these takes an hour of the coach's day and the other
+// doesn't, and that is the whole reason the field exists.
+export const ATTENDANCE_HINTS: Record<Attendance, string> = {
+  IN_PERSON: "Books the time on your calendar",
+  SOLO: "Assigned as homework — stays off your calendar",
+};
+
+// Short form for a badge, where the row already says whose session it is.
+export const ATTENDANCE_BADGES: Record<Attendance, string> = {
+  IN_PERSON: "In person",
+  SOLO: "On their own",
+};
+
+// Same contract as toExerciseSection. SOLO is the fallback because it's the
+// column default: an unrecognised value is a forged post or a hand-edited row,
+// and reading it as homework keeps a session nobody chose off the coach's day.
+export function toAttendance(value: unknown): Attendance {
+  const s = String(value ?? "");
+  return s in ATTENDANCE_LABELS ? (s as Attendance) : ATTENDANCE.SOLO;
+}
+
 // Where an exercise sits in the session. A grouping label, not an ordering key:
 // `order` stays global 1..N across the whole workout (see workout-form.ts).
 export const EXERCISE_SECTIONS = {

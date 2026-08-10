@@ -33,7 +33,7 @@ import {
   toGoogleTimes,
   type GoogleEvent,
 } from "./google-calendar";
-import { WORKOUT_STATUS } from "./constants";
+import { ATTENDANCE, WORKOUT_STATUS } from "./constants";
 
 // The window a normal pass reconciles. A week back so a just-completed session
 // still gets its tick, and four months forward, which is past any program
@@ -81,9 +81,23 @@ async function snapshot(
   const base = appUrl(origin);
 
   const [workouts, events] = await Promise.all([
+    // The trainer half carries the same in-person filter the app's own
+    // calendar applies, and has to: this is the same calendar seen through
+    // Google, and a coach whose phone buzzes for twenty athletes' homework
+    // would disconnect the integration rather than debug it.
+    //
+    // Sessions that lose IN_PERSON aren't just skipped here — they stop
+    // appearing in the snapshot, which is precisely what the reconcile pass
+    // reads as "deleted locally", so it withdraws the Google event. Marking a
+    // session as homework takes it off the coach's Google calendar too,
+    // without a single line of delete handling written for this feature.
     prisma.workout.findMany({
       where: isTrainer
-        ? { trainerId: userId, scheduledDate: { gte: start, lt: end } }
+        ? {
+            trainerId: userId,
+            attendance: ATTENDANCE.IN_PERSON,
+            scheduledDate: { gte: start, lt: end },
+          }
         : { clientId: userId, scheduledDate: { gte: start, lt: end } },
       select: {
         id: true,

@@ -13,6 +13,10 @@ import {
 import { SubmitButton } from "@/components/SubmitButton";
 import { NotificationsCard } from "@/components/NotificationsCard";
 import { ProfilePhotoCard } from "@/components/ProfilePhotoCard";
+import {
+  saveProfilePhoto,
+  removeProfilePhoto,
+} from "@/app/profile-photo-actions";
 import { avatarUrl } from "@/lib/avatar";
 import { mailConfig } from "@/lib/mail";
 import { zoneFor } from "@/lib/time-zone";
@@ -289,7 +293,12 @@ export default async function DashboardPage() {
           timeZone={zoneFor(trainer)}
           mailConfigured={mailConfig() !== null}
         />
-        <ProfilePhotoCard name={trainer.name} photoUrl={avatarUrl(trainer)} />
+        <ProfilePhotoCard
+          name={trainer.name}
+          photoUrl={avatarUrl(trainer)}
+          save={saveProfilePhoto}
+          remove={removeProfilePhoto}
+        />
       </section>
     </Container>
   );

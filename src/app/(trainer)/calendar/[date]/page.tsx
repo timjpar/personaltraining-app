@@ -16,7 +16,7 @@ import {
   workoutItem,
   TRAINER_LINKS,
 } from "@/lib/calendar";
-import { EVENT_KIND_LABELS, toEventKind } from "@/lib/constants";
+import { ATTENDANCE, EVENT_KIND_LABELS, toEventKind } from "@/lib/constants";
 import { addDays, formatDateLong, toDateInput } from "@/lib/format";
 import {
   createCalendarEvent,
@@ -39,9 +39,12 @@ export default async function CalendarDayPage({
   const next = addDays(day, 1);
 
   const [workouts, events, clients] = await Promise.all([
+    // In-person only, matching the month grid this day page is opened from —
+    // a day that shows more than the cell you clicked reads as a bug.
     prisma.workout.findMany({
       where: {
         trainerId: trainer.id,
+        attendance: ATTENDANCE.IN_PERSON,
         scheduledDate: { gte: day, lt: next },
       },
       select: {

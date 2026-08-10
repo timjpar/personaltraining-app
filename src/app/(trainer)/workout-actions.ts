@@ -7,7 +7,12 @@ import { requireTrainer } from "@/lib/auth";
 import { parseWorkoutForm } from "@/lib/workout-form";
 import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
 import { syncAfterMutation } from "@/lib/calendar-sync";
-import { WORKOUT_STATUS, toCoachReaction } from "@/lib/constants";
+import {
+  WORKOUT_STATUS,
+  toAttendance,
+  toCoachReaction,
+  type Attendance,
+} from "@/lib/constants";
 
 export type WorkoutFormState = { error?: string };
 
@@ -33,6 +38,7 @@ export async function createWorkout(
       discipline: data.discipline,
       scheduledDate: data.scheduledDate,
       startMinute: data.startMinute,
+      attendance: data.attendance,
       status: "ASSIGNED",
       clientId,
       trainerId: trainer.id,
@@ -76,6 +82,7 @@ export async function updateWorkout(
         discipline: data.discipline,
         scheduledDate: data.scheduledDate,
         startMinute: data.startMinute,
+        attendance: data.attendance,
         exercises: { create: data.exercises },
       },
     }),
@@ -89,6 +96,45 @@ export async function updateWorkout(
   revalidatePath(`/clients/${workout.clientId}`);
   revalidatePath("/calendar");
   redirect(`/workouts/${workoutId}`);
+}
+
+// Flip a session between "I'm coaching this" and "homework", and nothing else.
+//
+// Its own action rather than a trip through updateWorkout, for the reason that
+// one already gives about saveCoachFeedback: updateWorkout replaces the whole
+// prescription, so re-marking a finished session through it would delete every
+// set the athlete logged. This writes one column.
+//
+// It also has to be one click. Every session written before this column existed
+// reads as SOLO, so the first thing a coach does with this feature is walk their
+// real appointments back onto their calendar — and if that meant opening the
+// builder and re-saving each one, they wouldn't.
+export async function setWorkoutAttendance(
+  workoutId: string,
+  next: Attendance,
+) {
+  const trainer = await requireTrainer();
+
+  const workout = await prisma.workout.findFirst({
+    where: { id: workoutId, trainerId: trainer.id },
+    select: { id: true, clientId: true },
+  });
+  if (!workout) redirect("/dashboard");
+
+  await prisma.workout.update({
+    where: { id: workout.id },
+    // Coerced rather than trusted: `next` is bound into a form action, which
+    // means it arrives over the wire and is as forgeable as any other field.
+    data: { attendance: toAttendance(next) },
+  });
+
+  // Both calendars, because this is exactly the column that decides whether the
+  // session appears on the coach's — in Google as much as in the app.
+  syncAfterMutation(trainer.id, workout.clientId);
+
+  revalidatePath(`/workouts/${workoutId}`);
+  revalidatePath(`/clients/${workout.clientId}`);
+  revalidatePath("/calendar");
 }
 
 export type CoachFeedbackState = { error?: string; ok?: string };

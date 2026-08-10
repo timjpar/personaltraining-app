@@ -10,6 +10,10 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { ProfilePhotoCard } from "@/components/ProfilePhotoCard";
+import {
+  saveProfilePhoto,
+  removeProfilePhoto,
+} from "@/app/profile-photo-actions";
 import { formatDate, formatDateLong } from "@/lib/format";
 import { formatTime } from "@/lib/calendar";
 import { avatarUrl } from "@/lib/avatar";
@@ -183,7 +187,12 @@ export default async function ClientHomePage() {
           the coach's side: the thing you set once and then forget, kept below
           the training this page is actually for. */}
       <section className="mt-10 max-w-md">
-        <ProfilePhotoCard name={client.name} photoUrl={avatarUrl(client)} />
+        <ProfilePhotoCard
+          name={client.name}
+          photoUrl={avatarUrl(client)}
+          save={saveProfilePhoto}
+          remove={removeProfilePhoto}
+        />
       </section>
     </Container>
   );

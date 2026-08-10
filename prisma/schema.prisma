@@ -495,6 +495,24 @@ model Workout {
   // from the template or program slot a session is assigned from, so a climbing
   // template can't materialise into strength sessions.
   discipline    String    @default("STRENGTH") // STRENGTH | CARDIO | CLIMBING | MOBILITY | OTHER
+
+  // Whether the coach is in the room for this one. IN_PERSON | SOLO, and the
+  // only thing that decides whether a session reaches the *coach's* calendar:
+  // a programmed session the athlete does alone is their commitment, not an
+  // hour out of the coach's day, and a calendar that lists both answers
+  // neither question. See the trainer calendar's query.
+  //
+  // Never filters the athlete's own calendar, which shows every session
+  // regardless — from their side there is no difference worth hiding.
+  //
+  // SOLO is the default because that is what most programming is: templates
+  // and whole programs are assigned in bulk to be done alone, and those paths
+  // create rows without ever naming this column. It is also what every session
+  // written before this column existed reads as, which is the intended
+  // direction — the coach's calendar starts clean and fills as they mark the
+  // sessions they're actually attending, rather than starting with every
+  // workout they have ever written on it.
+  attendance    String    @default("SOLO") // IN_PERSON | SOLO
   completedAt   DateTime?
   rpe           Int? // session rating of perceived exertion, 1-10
   clientComment String?

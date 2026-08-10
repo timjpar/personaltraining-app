@@ -10,13 +10,23 @@ import {
   loggedResult,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
-import { DISCIPLINE_LABELS, toDiscipline, toCoachReaction } from "@/lib/constants";
+import {
+  DISCIPLINE_LABELS,
+  ATTENDANCE_BADGES,
+  toDiscipline,
+  toAttendance,
+  toCoachReaction,
+} from "@/lib/constants";
+import { SubmitButton } from "@/components/SubmitButton";
 import { CoachFeedbackForm } from "@/components/CoachFeedbackForm";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { RpeMeter } from "@/components/RpeMeter";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
-import { deleteWorkout } from "@/app/(trainer)/workout-actions";
+import {
+  deleteWorkout,
+  setWorkoutAttendance,
+} from "@/app/(trainer)/workout-actions";
 import { formatDate, relativeTime } from "@/lib/format";
 import { formatTime } from "@/lib/calendar";
 
@@ -39,6 +49,9 @@ export default async function WorkoutReviewPage({
 
   const isCompleted = workout.status === "COMPLETED";
   const showSections = usesSections(workout.exercises);
+
+  const attendance = toAttendance(workout.attendance);
+  const opposite = attendance === "IN_PERSON" ? "SOLO" : "IN_PERSON";
 
   // The coach sees their own attached demos here too — otherwise there's
   // nowhere to check that a link actually plays before a client meets it.
@@ -94,6 +107,19 @@ export default async function WorkoutReviewPage({
           <span className="flex flex-wrap items-center gap-2">
             <span className="metric">{workout.client.name}</span>
             <Badge>{DISCIPLINE_LABELS[toDiscipline(workout.discipline)]}</Badge>
+            <Badge tone={attendance === "IN_PERSON" ? "jade" : undefined}>
+              {ATTENDANCE_BADGES[attendance]}
+            </Badge>
+            {/* The flip, next to the badge that states the current answer
+                rather than down with Edit — this is a fact about the session
+                being corrected, not the programming being rewritten. */}
+            <form action={setWorkoutAttendance.bind(null, workout.id, opposite)}>
+              <SubmitButton variant="ghost" size="sm" pendingLabel="Moving…">
+                {attendance === "IN_PERSON"
+                  ? "Make it homework"
+                  : "I'm coaching this"}
+              </SubmitButton>
+            </form>
           </span>
         </PageHeading>
       </div>

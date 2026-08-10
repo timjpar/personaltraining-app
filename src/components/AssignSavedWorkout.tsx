@@ -3,6 +3,11 @@
 import { useActionState } from "react";
 import type { AssignState } from "@/components/AssignClients";
 import { Field, Input, Select, FormError, buttonClass } from "@/components/ui";
+import {
+  ATTENDANCE,
+  ATTENDANCE_ORDER,
+  ATTENDANCE_LABELS,
+} from "@/lib/constants";
 
 // The reverse of AssignClients: the client is fixed (this page), the trainer
 // picks one of their saved workouts and a date. Used on the client detail page.
@@ -26,7 +31,7 @@ export function AssignSavedWorkout({
         </p>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
         <Field label="Saved workout" htmlFor="assign-template">
           <Select id="assign-template" name="templateId" defaultValue="" required>
             <option value="" disabled>
@@ -47,6 +52,23 @@ export function AssignSavedWorkout({
             defaultValue={defaultDate ?? ""}
             required
           />
+        </Field>
+        {/* A select rather than the builder's radio pair with its hints: this
+            is one inline row and two stacked options with explanations would
+            be taller than everything beside it. Defaults to SOLO, which is
+            what dropping a saved workout onto someone usually is. */}
+        <Field label="How" htmlFor="assign-template-attendance">
+          <Select
+            id="assign-template-attendance"
+            name="attendance"
+            defaultValue={ATTENDANCE.SOLO}
+          >
+            {ATTENDANCE_ORDER.map((a) => (
+              <option key={a} value={a}>
+                {ATTENDANCE_LABELS[a]}
+              </option>
+            ))}
+          </Select>
         </Field>
         <button type="submit" disabled={pending} className={buttonClass("primary")}>
           {pending ? "Assigning…" : "Assign"}

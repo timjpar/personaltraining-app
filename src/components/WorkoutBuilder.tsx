@@ -11,8 +11,12 @@ import {
   SECTION_LABELS,
   DISCIPLINE_ORDER,
   DISCIPLINE_LABELS,
+  ATTENDANCE_ORDER,
+  ATTENDANCE_LABELS,
+  ATTENDANCE_HINTS,
   toExerciseSection,
   toDiscipline,
+  toAttendance,
   type ExerciseSection,
 } from "@/lib/constants";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
@@ -40,6 +44,10 @@ type Initial = {
   startTime?: string; // "HH:MM", blank for a session with no set time
   notes?: string | null;
   discipline?: string | null;
+  // IN_PERSON | SOLO. Absent on a template, and on a new session — where
+  // toAttendance turns it into SOLO, so the radio pair always has exactly one
+  // option checked rather than starting with neither.
+  attendance?: string | null;
   exercises?: BuilderExercise[];
 };
 
@@ -213,6 +221,36 @@ export function WorkoutBuilder({
             ))}
           </Select>
         </Field>
+        {/* Only on a dated session. A template has no date and nobody to meet,
+            so "am I in the room" is a question it can't answer — the choice is
+            made when the session is scheduled, not when it's written. */}
+        {showDate ? (
+          <div className="sm:col-span-2">
+            <p className="eyebrow text-ink-soft">How it happens</p>
+            <div className="mt-1.5 flex flex-col gap-2">
+              {ATTENDANCE_ORDER.map((a) => (
+                <label key={a} className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="attendance"
+                    value={a}
+                    defaultChecked={toAttendance(initial?.attendance) === a}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-jade"
+                  />
+                  <span className="text-sm text-ink">
+                    {ATTENDANCE_LABELS[a]}
+                    {/* The hint is the load-bearing half: both options put the
+                        session in front of the athlete, and only this says
+                        which one costs the coach an hour. */}
+                    <span className="mt-0.5 block text-xs text-ink-soft">
+                      {ATTENDANCE_HINTS[a]}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="sm:col-span-2">
           <Field label="Notes for the athlete" htmlFor="notes">
             <Textarea

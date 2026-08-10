@@ -3,7 +3,13 @@
 // this module has its own types and its own merge rules. It builds on format.ts
 // rather than reimplementing any of it.
 
-import { toEventKind, WORKOUT_STATUS, type EventKind } from "@/lib/constants";
+import {
+  toAttendance,
+  toEventKind,
+  WORKOUT_STATUS,
+  type Attendance,
+  type EventKind,
+} from "@/lib/constants";
 import { addDays, parseDateInput, toDateInput } from "@/lib/format";
 
 // ?m=2026-08
@@ -130,6 +136,12 @@ export type CalendarItem = {
   clientName: string | null;
   kind: EventKind | null; // null for workouts
   completed: boolean; // workouts only
+  // Workouts only; null on events, which are the coach's own time by
+  // definition. Carried on the item rather than left in the query because the
+  // one calendar that shows both kinds — a client's, on their client page —
+  // has to draw them differently: the coach's own calendar filters this out
+  // upstream and never reads it.
+  attendance: Attendance | null;
   href: string;
 };
 
@@ -170,6 +182,10 @@ export function workoutItem(
     scheduledDate: Date;
     startMinute: number | null;
     status: string;
+    // Optional so the two calendars that filter on it upstream — and so never
+    // need it back — can leave it out of their select. Absent reads as SOLO,
+    // the column default, exactly as toAttendance does.
+    attendance?: string;
     client: { id: string; name: string } | null;
   },
   links: ItemLinks,
@@ -185,6 +201,7 @@ export function workoutItem(
     clientName: w.client?.name ?? null,
     kind: null,
     completed: w.status === WORKOUT_STATUS.COMPLETED,
+    attendance: toAttendance(w.attendance),
     href: links.workout(w.id),
   };
 }
@@ -212,6 +229,9 @@ export function eventItem(
     clientName: e.client?.name ?? null,
     kind: toEventKind(e.kind),
     completed: false,
+    // An event is time the coach has booked — there is no version of one they
+    // aren't part of, so the question workouts answer here doesn't apply.
+    attendance: null,
     href: links.event(e.id, toDateInput(e.date)),
   };
 }

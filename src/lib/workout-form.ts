@@ -8,9 +8,11 @@ import {
   SECTION_ORDER,
   toExerciseSection,
   toDiscipline,
+  toAttendance,
   SECTION_LABELS,
   type ExerciseSection,
   type Discipline,
+  type Attendance,
 } from "@/lib/constants";
 import { minutesFromTimeInput } from "@/lib/calendar";
 
@@ -37,6 +39,12 @@ export type ParsedWorkout = ParsedPrescription & {
   // Minutes from midnight, or null for a session with no set time. Optional in
   // the form on purpose: templates and programs create workouts without one.
   startMinute: number | null;
+  // Here rather than on ParsedPrescription, and that split is the point: a
+  // template is a prescription with no date and nobody to meet, so "am I in the
+  // room for this" is a question only a scheduled session can answer. Never
+  // null — toAttendance falls back to SOLO, so a builder page left open across
+  // this deploy saves as homework rather than booking an hour nobody chose.
+  attendance: Attendance;
 };
 
 // The prescription (title + notes + exercise rows) shared by dated workouts and
@@ -130,6 +138,7 @@ export function parseWorkoutForm(
       ...data,
       scheduledDate,
       startMinute: minutesFromTimeInput(formData.get("startTime")),
+      attendance: toAttendance(formData.get("attendance")),
     },
   };
 }
