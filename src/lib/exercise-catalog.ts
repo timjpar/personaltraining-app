@@ -4,17 +4,22 @@
 
 import { prisma } from "@/lib/db";
 import { normalizeExerciseName, PRESET_SLUGS } from "@/lib/exercise-presets";
+import { parseVideoUrl } from "@/lib/video-embed";
 
 // What the picker needs: the trainer's most recent names, and the ones that
 // aren't shipped presets. Both come from a single query.
 export type PickerCatalog = {
   recent: string[];
   custom: string[];
+  // nameKey → the demo URL saved against it, for every movement that has one.
+  // Carried with the picker so the workout builder can tell a coach that the
+  // movement they just typed already has a video, without a request per row.
+  media: Record<string, string>;
 };
 
 export const RECENT_LIMIT = 10;
 
-export const EMPTY_CATALOG: PickerCatalog = { recent: [], custom: [] };
+export const EMPTY_CATALOG: PickerCatalog = { recent: [], custom: [], media: {} };
 
 export async function getPickerCatalog(
   trainerId: string,
@@ -22,11 +27,14 @@ export async function getPickerCatalog(
   const rows = await prisma.trainerExercise.findMany({
     where: { trainerId },
     orderBy: { lastUsedAt: "desc" },
-    select: { name: true },
+    select: { name: true, nameKey: true, mediaUrl: true },
   });
 
   return {
     recent: rows.slice(0, RECENT_LIMIT).map((r) => r.name),
+    media: Object.fromEntries(
+      rows.filter((r) => r.mediaUrl).map((r) => [r.nameKey, r.mediaUrl as string]),
+    ),
     // Custom is computed, not stored: a name promoted into the preset list in a
     // later release should leave "My exercises" on its own rather than showing
     // up in both places forever.
@@ -85,6 +93,58 @@ export async function recordExerciseNames(
     where: { trainerId, nameKey: { in: [...seen.keys()] } },
     data: { lastUsedAt: new Date() },
   });
+}
+
+// Demo links pasted onto builder rows. Media belongs to the *name*, not to the
+// session that happened to carry the link, so this writes the trainer's catalog
+// entry — the same row and column the Exercises page manages.
+//
+// Runs after recordExerciseNames, which guarantees a row exists for every name
+// in the session; the upsert's create branch is only there for the ordering to
+// stop mattering. A blank field is not a removal: taking media off a movement
+// is its own deliberate act on /exercises, and inferring it from an empty box
+// would let one re-saved session quietly strip a demo off every other one.
+export async function saveExerciseMedia(
+  trainerId: string,
+  media: { name: string; url: string }[],
+): Promise<void> {
+  const seen = new Map<string, { name: string; url: string }>();
+  for (const m of media) {
+    const nameKey = normalizeExerciseName(m.name);
+    if (!nameKey || !m.url) continue;
+    seen.set(nameKey, { name: m.name.trim(), url: m.url });
+  }
+  if (seen.size === 0) return;
+
+  for (const [nameKey, { name, url }] of seen) {
+    await prisma.trainerExercise.upsert({
+      where: { trainerId_nameKey: { trainerId, nameKey } },
+      // Kind is recorded for the label on the manage list; playback always
+      // re-derives from the URL, so this never goes stale.
+      update: { mediaUrl: url, mediaKind: parseVideoUrl(url).provider },
+      create: {
+        trainerId,
+        name,
+        nameKey,
+        mediaUrl: url,
+        mediaKind: parseVideoUrl(url).provider,
+      },
+    });
+  }
+}
+
+// Same bargain recordExerciseNamesSafely strikes, for the same reason: a demo
+// link that failed to attach is a far better outcome than losing the session it
+// was pasted into.
+export async function saveExerciseMediaSafely(
+  trainerId: string,
+  media: { name: string; url: string }[],
+): Promise<void> {
+  try {
+    await saveExerciseMedia(trainerId, media);
+  } catch (err) {
+    console.error("Failed to save exercise media", err);
+  }
 }
 
 // The variant the actions call. This table is a convenience index, not the

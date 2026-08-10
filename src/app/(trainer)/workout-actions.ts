@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { parseWorkoutForm } from "@/lib/workout-form";
-import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
+import {
+  recordExerciseNamesSafely,
+  saveExerciseMediaSafely,
+} from "@/lib/exercise-catalog";
 import { syncAfterMutation } from "@/lib/calendar-sync";
 import {
   WORKOUT_STATUS,
@@ -48,6 +51,12 @@ export async function createWorkout(
   });
 
   await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
+  // After the names, so every movement in the session already has a catalog
+  // row for the demo to attach to.
+  await saveExerciseMediaSafely(trainer.id, data.media);
+  // The list that manages demos is a different page and would otherwise
+  // keep showing the movement as having none.
+  if (data.media.length) revalidatePath("/exercises");
 
   syncAfterMutation(trainer.id, clientId);
 
@@ -91,6 +100,12 @@ export async function updateWorkout(
   ]);
 
   await recordExerciseNamesSafely(trainer.id, data.exercises.map((e) => e.name));
+  // After the names, so every movement in the session already has a catalog
+  // row for the demo to attach to.
+  await saveExerciseMediaSafely(trainer.id, data.media);
+  // The list that manages demos is a different page and would otherwise
+  // keep showing the movement as having none.
+  if (data.media.length) revalidatePath("/exercises");
 
   syncAfterMutation(trainer.id, workout.clientId);
 

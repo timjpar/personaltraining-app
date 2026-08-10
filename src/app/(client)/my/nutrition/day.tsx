@@ -9,7 +9,7 @@ import { NutritionPlanView } from "@/components/NutritionPlanView";
 import { saveNutritionLog } from "./actions";
 import { geminiConfig } from "@/lib/gemini";
 import { addDays, formatDate, toDateInput } from "@/lib/format";
-import { startOfWeek } from "@/lib/calendar";
+import { startOfWeekSunday } from "@/lib/calendar";
 import type { FoodPreset } from "@/lib/food-presets";
 import { normalizeFoodName, parseServingLabel } from "@/lib/food-presets";
 
@@ -62,7 +62,7 @@ export async function NutritionDay({
   clientId: string;
   day: Date;
 }) {
-  const weekStart = startOfWeek(day);
+  const weekStart = startOfWeekSunday(day);
   const weekEnd = addDays(weekStart, 7);
 
   const [log, plan, recentRows, weekLogs] = await Promise.all([
@@ -116,6 +116,11 @@ export async function NutritionDay({
   const logged = new Set(weekLogs.map((l) => toDateInput(l.date)));
   const dayKey = toDateInput(day);
   const todayKey = toDateInput(new Date());
+  // Every day in the week is reachable, including the ones that haven't
+  // happened — looking ahead at the plan is a reason to open Thursday. Logging
+  // still isn't: saveNutritionLog refuses a future date, so the form is
+  // replaced rather than shown and left to fail on submit.
+  const isFuture = dayKey > todayKey;
 
   return (
     <div className="flex flex-col gap-7">
@@ -132,12 +137,22 @@ export async function NutritionDay({
       <div className="grid gap-7 lg:grid-cols-[1.4fr_1fr] lg:items-start">
         <section>
           <h2 className="font-display text-lg font-semibold text-ink">
-            What you ate
+            {isFuture ? "Not yet" : "What you ate"}
           </h2>
           <p className="mt-1 text-sm text-ink-soft">
             {formatDate(day)}
             {dayKey === todayKey ? " · today" : ""}
           </p>
+          {isFuture ? (
+            <Card className="mt-4 p-5">
+              <p className="text-sm text-ink-soft">
+                This day hasn&rsquo;t happened yet, so there&rsquo;s nothing to
+                log against it. Your plan for it is right here whenever you want
+                to look ahead — come back on the day to record what you actually
+                ate.
+              </p>
+            </Card>
+          ) : (
           <div className="mt-4">
             <NutritionLogForm
               action={saveNutritionLog.bind(null, dayKey)}
@@ -165,6 +180,7 @@ export async function NutritionDay({
               photoEnabled={geminiConfig() !== null}
             />
           </div>
+          )}
         </section>
 
         <section>
@@ -269,24 +285,22 @@ function WeekStrip({
             </>
           );
 
-          const className =
-            "flex min-h-14 flex-col items-center justify-center rounded-[var(--radius-sm)] border px-1 py-2 " +
-            (isCurrent
-              ? "border-ink bg-ink text-paper"
-              : "border-line bg-card text-ink-soft");
-
-          // A day that hasn't happened can't be logged, and the action rejects
-          // it — so it isn't a link either, rather than one that leads to a
-          // form that refuses to save.
-          return isFuture ? (
-            <div key={key} className={className + " opacity-40"}>
-              {cell}
-            </div>
-          ) : (
+          // Every day in the week is a link, the ones ahead included: the day
+          // page shows the coach's plan whether or not there's anything to log
+          // against it, and "what am I eating Thursday" is a fair question to
+          // click for. A day that hasn't happened is dimmed rather than dead —
+          // it opens, it just has no log form on it.
+          return (
             <Link
               key={key}
               href={`/my/nutrition/${key}`}
-              className={className + " transition-colors hover:border-ink/40"}
+              className={
+                "flex min-h-14 flex-col items-center justify-center rounded-[var(--radius-sm)] border px-1 py-2 transition-colors hover:border-ink/40 " +
+                (isCurrent
+                  ? "border-ink bg-ink text-paper"
+                  : "border-line bg-card text-ink-soft") +
+                (isFuture && !isCurrent ? " opacity-60" : "")
+              }
             >
               {cell}
             </Link>

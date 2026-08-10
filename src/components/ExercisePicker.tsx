@@ -24,11 +24,17 @@ export function ExercisePicker({
   preferredCategories,
   placeholder = "Exercise name",
   className,
+  onValueChange,
   "aria-label": ariaLabel,
 }: {
   name: string;
   defaultValue?: string | null;
   catalog: PickerCatalog;
+  // Optional, and only for callers that render something *else* off the chosen
+  // name — the workout builder's demo field. The input stays uncontrolled from
+  // the form's point of view either way: this is a notification, not a source
+  // of truth, so a caller that ignores it loses nothing.
+  onValueChange?: (value: string) => void;
   // Preset category labels to float to the top — a warm-up row opens on
   // warm-up movements. Everything else stays reachable below.
   preferredCategories?: readonly string[];
@@ -103,6 +109,7 @@ export function ExercisePicker({
 
   const commit = (next: string) => {
     setValue(next);
+    onValueChange?.(next);
     setOpen(false);
     setActive(-1);
   };
@@ -166,6 +173,7 @@ export function ExercisePicker({
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
+          onValueChange?.(e.target.value);
           setOpen(true);
           setActive(-1);
         }}
