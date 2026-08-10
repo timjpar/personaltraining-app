@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 import type { PhotoState } from "@/app/profile-photo-actions";
 import { Avatar, Card, FormError, buttonClass } from "@/components/ui";
-import { squareCrop } from "@/lib/downscale";
+import { squareCrop, squareCropFrame } from "@/lib/downscale";
+import { supportsInPageCamera, watchPointer } from "@/lib/barcode";
+import { useCamera } from "@/lib/use-camera";
 import { PHOTO_EDGE, PHOTO_QUALITY } from "@/lib/avatar";
-import { cn } from "@/lib/cn";
 
 // A photo, the picker that replaces it and the button that clears it. Two
 // callers with the same shape and different subjects:
@@ -56,6 +57,37 @@ export function ProfilePhotoCard({
   // photo URL is versioned and the new version only arrives with the refresh.
   const [preview, setPreview] = useState<string | null>(null);
 
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const { videoRef, start, stop } = useCamera(() => setCameraOpen(false));
+
+  // Whether "Take a photo" opens a camera here or hands off to the phone's.
+  // Both buttons show either way; only the mechanism differs.
+  const inPageCamera = useSyncExternalStore(
+    watchPointer,
+    supportsInPageCamera,
+    () => false,
+  );
+
+  // Two inputs rather than one with a toggled attribute — `capture` is read
+  // when the picker opens, so flipping it between clicks on a reused DOM node
+  // is a race nobody can see.
+  const cameraRef = useRef<HTMLInputElement | null>(null);
+  const libraryRef = useRef<HTMLInputElement | null>(null);
+
+  // Everything past the crop is the same whichever way the photo arrived.
+  const upload = async (blob: Blob) => {
+    const body = new FormData();
+    body.append("photo", blob, "photo");
+    const result = await save(body);
+
+    if (result.ok) {
+      setPreview(URL.createObjectURL(blob));
+      stop();
+      setCameraOpen(false);
+    }
+    setState(result);
+  };
+
   const onPick = (file: File) => {
     setState({});
     startTransition(async () => {
@@ -68,15 +100,39 @@ export function ProfilePhotoCard({
         setState({ error: "We couldn't read that image. Try another one." });
         return;
       }
+      await upload(blob);
+    });
+  };
 
-      const body = new FormData();
-      body.append("photo", blob, "photo");
-      const result = await save(body);
+  const openCameraPanel = async () => {
+    setState({});
+    // Before the await, so the <video> is mounted by the time the permission
+    // prompt resolves and the stream has somewhere to land.
+    setCameraOpen(true);
+    if (!(await start("user"))) {
+      setState({ error: "We couldn't open the camera. Upload a photo instead." });
+      setCameraOpen(false);
+    }
+  };
 
-      if (result.ok) {
-        setPreview(URL.createObjectURL(blob));
+  const takePhoto = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    setState({});
+    startTransition(async () => {
+      let blob: Blob;
+      try {
+        blob = await squareCropFrame(video, PHOTO_EDGE, PHOTO_QUALITY);
+      } catch (err) {
+        setState({
+          error:
+            err instanceof Error
+              ? err.message
+              : "We couldn't take that picture.",
+        });
+        return;
       }
-      setState(result);
+      await upload(blob);
     });
   };
 
@@ -102,28 +158,64 @@ export function ProfilePhotoCard({
         <Avatar name={name} src={shown} className="h-16 w-16 text-lg" />
 
         <div className="flex min-w-0 flex-col items-start gap-2">
-          {/* A label styled as the button, with the input itself visually
-              hidden. A bare file input can't be styled to match anything else
-              on the page, and wrapping it in a real <button> would need a
-              click-forwarding ref for no gain. */}
-          <label
-            className={cn(buttonClass("outline", "sm"), pending && "opacity-60")}
-          >
-            {shown ? "Change photo" : "Upload a photo"}
-            <input
-              type="file"
-              accept="image/*"
-              disabled={pending}
-              className="sr-only"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                // Cleared so picking the same file twice still fires a change,
-                // which is how someone retries after an error.
-                e.target.value = "";
-                if (file) onPick(file);
+          {/* capture="user" points a phone at its front camera — this is a
+              face, not a barcode. Desktop browsers ignore it, which is why the
+              button falls through to the in-page camera there instead. */}
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              // Cleared so picking the same file twice still fires a change,
+              // which is how someone retries after an error.
+              e.target.value = "";
+              if (file) onPick(file);
+            }}
+          />
+          {/* No capture: always the library. */}
+          <input
+            ref={libraryRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) onPick(file);
+            }}
+          />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (cameraOpen) {
+                  stop();
+                  setCameraOpen(false);
+                } else if (inPageCamera) {
+                  openCameraPanel();
+                } else {
+                  cameraRef.current?.click();
+                }
               }}
-            />
-          </label>
+              disabled={pending}
+              className={buttonClass("outline", "sm")}
+            >
+              {cameraOpen ? "Close camera" : "Take a photo"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => libraryRef.current?.click()}
+              disabled={pending}
+              className={buttonClass("outline", "sm")}
+            >
+              {shown ? "Change photo" : "Upload a photo"}
+            </button>
+          </div>
 
           {shown ? (
             <button
@@ -137,6 +229,35 @@ export function ProfilePhotoCard({
           ) : null}
         </div>
       </div>
+
+      {/* The same preview-and-shutter the food scanner uses, so the one camera
+          gesture in this app looks like itself wherever you meet it. */}
+      {cameraOpen ? (
+        <div className="mt-4 overflow-hidden rounded-[var(--radius-sm)] border border-line bg-ink/5">
+          {/* object-contain, not cover: the shutter keeps the middle square of
+              the *frame*, and a preview that cropped differently would hand
+              back a photo nobody had seen. */}
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            className="h-64 w-full object-contain"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-card px-3 py-2">
+            <span className="text-xs text-ink-soft">
+              Only the middle square is kept.
+            </span>
+            <button
+              type="button"
+              onClick={takePhoto}
+              disabled={pending}
+              className={buttonClass("primary", "sm")}
+            >
+              Take the picture
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4 flex flex-col gap-2">
         <FormError>{state.error}</FormError>
