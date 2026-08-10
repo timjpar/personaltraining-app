@@ -66,9 +66,14 @@ export default async function ExercisesPage() {
         eyebrow="Exercise library"
         title="Exercises"
         action={
-          <ButtonLink href="/library/new" variant="outline" size="sm">
-            Build a workout
-          </ButtonLink>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ButtonLink href="/library/new" variant="outline" size="sm">
+              Build a workout
+            </ButtonLink>
+            <ButtonLink href="/exercises/new" size="sm">
+              New exercise
+            </ButtonLink>
+          </div>
         }
       >
         {/* One expression, so JSX can't trim the space between the count and
@@ -89,10 +94,10 @@ export default async function ExercisesPage() {
         Your custom movements
       </h2>
       <p className="mt-1 text-sm text-ink-soft">
-        Any exercise you type that isn&rsquo;t one of the built-in movements
-        gets saved here automatically. Removing one doesn&rsquo;t change
-        workouts you&rsquo;ve already written — and it comes back if you program
-        it again.
+        Add one here, or just type it into a workout — any exercise that
+        isn&rsquo;t one of the built-in movements gets saved to this list either
+        way. Removing one doesn&rsquo;t change workouts you&rsquo;ve already
+        written — and it comes back if you program it again.
       </p>
 
       <div className="mt-3">
@@ -100,13 +105,13 @@ export default async function ExercisesPage() {
           <EmptyState
             title="Nothing custom yet"
             action={
-              <ButtonLink href="/library/new" size="sm">
-                Build a workout
+              <ButtonLink href="/exercises/new" size="sm">
+                New exercise
               </ButtonLink>
             }
           >
-            Type a movement the built-in list doesn&rsquo;t have — a machine
-            variation, a nickname your gym uses — and it will show up here.
+            A machine variation, a nickname your gym uses — add it here, or type
+            it into a session and it will show up on its own.
           </EmptyState>
         ) : (
           <Card>

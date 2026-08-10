@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { normalizeExerciseName, PRESET_SLUGS } from "@/lib/exercise-presets";
@@ -81,6 +82,48 @@ export async function removeExerciseMedia(id: string) {
   if (count === 0) return;
 
   revalidatePath("/exercises");
+}
+
+// The deliberate way to add a movement. Programming an unknown name still
+// creates one on its own (recordExerciseNames), and that stays the common path —
+// this is for the coach who wants the entry to exist *before* they write a
+// session around it, and who has no workout open to type it into.
+export async function createCustomExercise(
+  _prev: ExerciseFormState,
+  formData: FormData,
+): Promise<ExerciseFormState> {
+  const trainer = await requireTrainer();
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { error: "Give the exercise a name." };
+
+  const nameKey = normalizeExerciseName(name);
+  // Adding one of the built-ins would produce a row that the custom list
+  // filters straight back out — an entry that vanishes on save reads as a bug.
+  if (PRESET_SLUGS.has(nameKey)) {
+    return { error: "That's already a built-in exercise — it's in the picker." };
+  }
+
+  try {
+    await prisma.trainerExercise.create({
+      data: {
+        trainerId: trainer.id,
+        name,
+        nameKey,
+        discipline: toDiscipline(formData.get("discipline")),
+      },
+    });
+  } catch (err) {
+    if ((err as { code?: string })?.code === "P2002") {
+      return { error: "You already have an exercise with that name." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/exercises");
+  // Back to the list, which is where the movement can be renamed, given a demo
+  // video, or deleted.
+  redirect("/exercises");
 }
 
 export async function deleteCustomExercise(id: string) {
