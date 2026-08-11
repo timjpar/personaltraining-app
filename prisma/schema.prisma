@@ -598,6 +598,14 @@ model Exercise {
   // prescription above is: "3 of 4" and "6,6,6,5" are both honest answers to
   // what happened, and a number column would force the athlete to round one of
   // them into a lie.
+  //
+  // The log form logs a set at a time, so reps and load are comma-separated,
+  // one value per set, in set order — "6,6,6,5" with "60,60,65,65". A list that
+  // says the same thing in every position collapses to that one thing, which is
+  // also the shape of every result logged before per-set rows existed, so a
+  // lone "60kg" reads as the load for all of them. resultSets carries the count
+  // that tells you how many. Packed and unpacked in src/lib/exercise-sets.ts —
+  // nothing else should be splitting these on commas.
   resultSets String?
   resultReps String?
   resultLoad String?

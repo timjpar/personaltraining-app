@@ -10,7 +10,8 @@ import {
 } from "@/components/PrescriptionCard";
 import { Card, Textarea, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import type { LogHints } from "@/lib/exercise-progression";
+import type { SetHint } from "@/lib/exercise-progression";
+import { MAX_SETS, parseSetCount } from "@/lib/exercise-sets";
 import { groupBySection, usesSections } from "@/lib/workout-form";
 
 type LogExercise = {
@@ -26,19 +27,113 @@ type LogExercise = {
   notes: string | null;
   section: string;
   demo?: Demo;
-  // What this athlete logged against this movement last time, already worded
-  // for the placeholder by logHints(). Undefined on a movement they have never
-  // logged, and individual keys are missing for boxes they left blank then.
-  hints?: LogHints;
+  // What this athlete logged against this movement last time, set by set and
+  // already worded for the placeholder by logHints(). Undefined on a movement
+  // they have never logged; individual entries are empty for sets they never
+  // got to, or boxes they left blank then.
+  hints?: SetHint[];
 };
 
-// The two result boxes. Typed values keep the tabular mono of a program sheet,
-// but the hint is prose, so the placeholder drops to the body face — and to
-// 12px on phones, where the pair shares a 375px row and mono would clip
-// "Weight you used". The field itself stays 16px there (see globals.css) so
-// iOS doesn't zoom on focus.
-const hintInput =
-  "metric min-h-12 w-full rounded-[var(--radius-sm)] border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:font-body placeholder:text-xs placeholder:text-ink-soft/60 focus-visible:border-jade focus-visible:outline-none sm:min-h-0 sm:placeholder:text-sm";
+// A result box. Typed values keep the tabular mono of a program sheet, but the
+// hint reads as prose ("6 → 7"), so the placeholder drops to the body face and
+// to 12px — on a phone these two boxes share about 220px and mono at 14 would
+// clip the arrow. The field itself stays 16px there (see globals.css) so iOS
+// doesn't zoom on focus.
+const setInput =
+  "metric min-h-12 w-full rounded-[var(--radius-sm)] border border-line bg-paper px-2.5 py-2 text-sm text-ink placeholder:font-body placeholder:text-xs placeholder:text-ink-soft/60 focus-visible:border-jade focus-visible:outline-none sm:min-h-0 sm:px-3";
+
+// Set number, reps, load. One grid definition so the headings sit over their
+// own column and every row lines up down the card. The boxes split the width
+// on a phone and stop growing past a point on a desktop, where a full-bleed
+// pair of inputs to hold "6" and "95" reads as a form to fill in rather than a
+// set to tick off.
+const setGrid =
+  "grid grid-cols-[1.25rem_1fr_1fr] items-center gap-2 sm:grid-cols-[1.25rem_9rem_9rem] sm:gap-2.5";
+
+// ---- The set rows ---------------------------------------------------------
+// One row per set, because reps and load are per-set facts and always were:
+// "6,6,6,5" was in the seed data before there was any way to type it. The rows
+// post repeated field names (every row's reps box is `res_<id>_reps`), so the
+// server reads them with getAll() in DOM order and no row ever needs an index
+// in its name — which is also what lets a row be added without renumbering.
+function SetRows({
+  id,
+  name,
+  sets,
+  hints,
+}: {
+  id: string;
+  name: string;
+  sets: string | null;
+  hints?: SetHint[];
+}) {
+  // What the coach wrote, falling back to however many sets the athlete did
+  // last time, falling back to one. Never zero: an exercise you can't log a
+  // single set of isn't loggable.
+  const programmed = parseSetCount(sets);
+  const [rows, setRows] = useState(
+    () => programmed ?? Math.min(hints?.length || 1, MAX_SETS),
+  );
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className={setGrid}>
+        <span className="eyebrow text-ink-soft/70">#</span>
+        <span className="eyebrow text-ink-soft/70">Reps</span>
+        <span className="eyebrow text-ink-soft/70">Weight</span>
+      </div>
+
+      {Array.from({ length: rows }, (_, i) => {
+        const hint = hints?.[i];
+        return (
+          <div key={i} className={setGrid}>
+            <span className="metric text-xs text-ink-soft/70">{i + 1}</span>
+            {/* aria-label rather than a <label>: the column heading names the
+                box visually, but a screen reader arriving at the fourth pair of
+                inputs on the page needs to hear which set of which lift. */}
+            <input
+              name={`res_${id}_reps`}
+              inputMode="numeric"
+              aria-label={`${name}, set ${i + 1}, reps`}
+              placeholder={hint?.reps}
+              className={setInput}
+            />
+            <input
+              name={`res_${id}_load`}
+              inputMode="decimal"
+              aria-label={`${name}, set ${i + 1}, weight`}
+              placeholder={hint?.load}
+              className={setInput}
+            />
+          </div>
+        );
+      })}
+
+      <div className="mt-0.5 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setRows((r) => Math.min(r + 1, MAX_SETS))}
+          disabled={rows >= MAX_SETS}
+          className={cn(buttonClass("ghost", "sm"), "px-2")}
+        >
+          + Add set
+        </button>
+        {/* Only ever removes a row you added yourself. A programmed set you
+            didn't do is a blank row, not a missing one — that blank is exactly
+            what lets the result read "3 of 4" instead of a flat "3". */}
+        {rows > (programmed ?? 1) ? (
+          <button
+            type="button"
+            onClick={() => setRows((r) => r - 1)}
+            className={cn(buttonClass("ghost", "sm"), "px-2 text-ink-soft")}
+          >
+            Remove set {rows}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function RpePicker() {
   const [value, setValue] = useState<number | null>(null);
@@ -161,6 +256,11 @@ export function WorkoutLogForm({
   const total = exercises.length;
   const skipped = total - doneCount;
 
+  // Said once for the whole session rather than under every card. The greying
+  // is doing real work — it is the athlete's own history, set by set — and a
+  // convention nobody explains is just faint text.
+  const anyHints = exercises.some((e) => e.hints?.length);
+
   return (
     <form action={formAction} className="flex flex-col gap-6">
       <FormError>{state.error}</FormError>
@@ -202,6 +302,13 @@ export function WorkoutLogForm({
         </p>
       ) : null}
 
+      {anyHints ? (
+        <p className="-mb-2 text-xs leading-relaxed text-ink-soft">
+          Grey shows what you did for that set last time → what to aim for
+          today. Leave a set blank if you didn&rsquo;t do it.
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-6">
         {groupBySection(exercises).map((group) => (
           <div key={group.section}>
@@ -220,57 +327,16 @@ export function WorkoutLogForm({
                     struck={done[ex.id]}
                     footer={
                       <div className="flex flex-col gap-2.5 border-t border-line pt-3.5">
-                        {/* Sets and reps are short, so they pair up even at
-                            375px. Load takes the full row underneath, because
-                            three across a phone leaves ~55px of text width and
-                            "Weight you used" needs 88px. From sm: up there's
-                            room for all three. */}
-                        {/* Placeholders, not values: a movement you have done
-                            before hints at what you did last time and what to
-                            aim for, and still submits blank if you don't type.
-                            Nothing here can log a number you didn't lift. */}
-                        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                          <label className="flex flex-col gap-1">
-                            <span className="eyebrow text-ink-soft/70">
-                              Sets done
-                            </span>
-                            <input
-                              name={`res_${ex.id}_sets`}
-                              inputMode="numeric"
-                              placeholder={ex.hints?.sets ?? "Sets you did"}
-                              className={hintInput}
-                            />
-                          </label>
-                          <label className="flex flex-col gap-1">
-                            <span className="eyebrow text-ink-soft/70">
-                              Reps done
-                            </span>
-                            <input
-                              name={`res_${ex.id}_reps`}
-                              inputMode="numeric"
-                              placeholder={ex.hints?.reps ?? "Reps you did"}
-                              className={hintInput}
-                            />
-                          </label>
-                          <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
-                            <span className="eyebrow text-ink-soft/70">
-                              Load used
-                            </span>
-                            <input
-                              name={`res_${ex.id}_load`}
-                              inputMode="decimal"
-                              // The fallback says what to enter rather than
-                              // echoing the prescription — that already sits in
-                              // the metric strip a few pixels above these
-                              // fields, so repeating it would cost a line and
-                              // tell the athlete nothing new. Their own history
-                              // is not in the strip, which is why it earns the
-                              // space when there is any.
-                              placeholder={ex.hints?.load ?? "Weight you used"}
-                              className={hintInput}
-                            />
-                          </label>
-                        </div>
+                        {/* Placeholders, not values: a set you have done before
+                            hints at what you did then and what to aim for now,
+                            and still submits blank if you don't type. Nothing
+                            here can log a number you didn't lift. */}
+                        <SetRows
+                          id={ex.id}
+                          name={ex.name}
+                          sets={ex.sets}
+                          hints={ex.hints}
+                        />
                         <DoneToggle
                           name={`res_${ex.id}_done`}
                           checked={done[ex.id] ?? false}
