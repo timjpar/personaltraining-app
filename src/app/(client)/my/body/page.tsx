@@ -72,45 +72,46 @@ export default async function MyBodyPage({
         already have just updates it.
       </PageHeading>
 
-      {measurements.length > 0 ? (
-        <Card className="mt-6 p-4 sm:p-5">
-          {current ? (
-            <div className="mb-5">
-              <BodyStats
-                currentKg={current.weightKg}
-                previousKg={
-                  previous && previous !== current ? previous.weightKg : null
-                }
-                goalKg={profile?.goalWeightKg ?? null}
-                units={units}
-                sinceLabel="in 30 days"
-              />
-            </div>
-          ) : null}
-          {/* Everything the page already refuses to do applies to the chart
-              too: the extra lines are there to be looked at, and none of them
-              is coloured to say whether the direction is good news. */}
-          <BodyTrend
-            rows={toBodyRows(measurements)}
-            heightCm={profile?.heightCm ?? null}
-            goalWeightKg={profile?.goalWeightKg ?? null}
-            possessive="your"
-            units={units}
-          />
-          {/* Read-only, and shown rather than hidden: it's what the coach
-              discusses at every check-in, so leaving it off the athlete's own
-              page would be the odd choice. Changing it is a conversation. */}
-          {profile?.goalWeightKg != null ? (
-            <p className="mt-3 text-xs text-ink-soft">
-              Goal of{" "}
-              <span className="metric text-ink">
-                {massLabel(profile.goalWeightKg, units)}
-              </span>{" "}
-              set by your coach.
-            </p>
-          ) : null}
-        </Card>
-      ) : null}
+      {/* Always here, empty or not. The chart's own blank state names what it
+          could plot, which is the one thing a page with no readings on it
+          should say. */}
+      <Card className="mt-6 p-4 sm:p-5">
+        {current ? (
+          <div className="mb-5">
+            <BodyStats
+              currentKg={current.weightKg}
+              previousKg={
+                previous && previous !== current ? previous.weightKg : null
+              }
+              goalKg={profile?.goalWeightKg ?? null}
+              units={units}
+              sinceLabel="in 30 days"
+            />
+          </div>
+        ) : null}
+        {/* Everything the page already refuses to do applies to the chart
+            too: the extra lines are there to be looked at, and none of them
+            is coloured to say whether the direction is good news. */}
+        <BodyTrend
+          rows={toBodyRows(measurements)}
+          heightCm={profile?.heightCm ?? null}
+          goalWeightKg={profile?.goalWeightKg ?? null}
+          possessive="your"
+          units={units}
+        />
+        {/* Read-only, and shown rather than hidden: it's what the coach
+            discusses at every check-in, so leaving it off the athlete's own
+            page would be the odd choice. Changing it is a conversation. */}
+        {profile?.goalWeightKg != null ? (
+          <p className="mt-3 text-xs text-ink-soft">
+            Goal of{" "}
+            <span className="metric text-ink">
+              {massLabel(profile.goalWeightKg, units)}
+            </span>{" "}
+            set by your coach.
+          </p>
+        ) : null}
+      </Card>
 
       <Card className="mt-6 p-4 sm:p-5">
         <h2 className="mb-1 font-display text-base font-semibold text-ink">

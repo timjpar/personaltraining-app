@@ -107,30 +107,30 @@ export default async function ClientMeasurementsPage({
         </PageHeading>
       </div>
 
-      {measurements.length > 0 ? (
-        <Card className="mt-6 p-4 sm:p-5">
-          {current ? (
-            <div className="mb-5">
-              <BodyStats
-                currentKg={current.weightKg}
-                previousKg={
-                  previous && previous !== current ? previous.weightKg : null
-                }
-                goalKg={profile?.goalWeightKg ?? null}
-                units={units}
-                sinceLabel="in 30 days"
-              />
-            </div>
-          ) : null}
-          <BodyTrend
-            rows={toBodyRows(measurements)}
-            heightCm={profile?.heightCm ?? null}
-            goalWeightKg={profile?.goalWeightKg ?? null}
-            possessive="their"
-            units={units}
-          />
-        </Card>
-      ) : null}
+      {/* Always here, empty or not. On a brand-new client this is the only
+          thing on the page that says what the app can even track. */}
+      <Card className="mt-6 p-4 sm:p-5">
+        {current ? (
+          <div className="mb-5">
+            <BodyStats
+              currentKg={current.weightKg}
+              previousKg={
+                previous && previous !== current ? previous.weightKg : null
+              }
+              goalKg={profile?.goalWeightKg ?? null}
+              units={units}
+              sinceLabel="in 30 days"
+            />
+          </div>
+        ) : null}
+        <BodyTrend
+          rows={toBodyRows(measurements)}
+          heightCm={profile?.heightCm ?? null}
+          goalWeightKg={profile?.goalWeightKg ?? null}
+          possessive="their"
+          units={units}
+        />
+      </Card>
 
       {/* Resting burn sits under the trend rather than above it: the weight is
           the measurement and this is what follows from it. */}
