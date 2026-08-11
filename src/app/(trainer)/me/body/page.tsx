@@ -21,6 +21,10 @@ import { lengthLabel, massLabel } from "@/lib/units";
 // No source badge anywhere on it, and that is the one real difference from both
 // neighbours. Measurement.source answers "who put this number in", which is
 // worth showing when a file has two authors; on your own file it has one.
+// How many entries the list under the chart shows. The chart reads all of
+// them; the list is for finding a day to edit, and nobody scrolls to day 300.
+const LIST_LIMIT = 60;
+
 export default async function MyOwnBodyPage({
   searchParams,
 }: {
@@ -45,7 +49,10 @@ export default async function MyOwnBodyPage({
     prisma.measurement.findMany({
       where: { clientId: trainer.id },
       orderBy: { date: "desc" },
-      take: 60,
+      // Deep enough for the chart's 1Y range. The list below shows the most
+      // recent LIST_LIMIT of these — a year of daily weigh-ins is a fine thing
+      // to plot and a terrible thing to scroll.
+      take: 400,
     }),
   ]);
 
@@ -195,7 +202,7 @@ export default async function MyOwnBodyPage({
           </EmptyState>
         ) : (
           <Card className="divide-y divide-line">
-            {measurements.map((m) => {
+            {measurements.slice(0, LIST_LIMIT).map((m) => {
               const tape = TAPE_SITES.filter((s) => m[s.key] != null);
               return (
                 <div key={m.id} className="px-4 py-3.5">

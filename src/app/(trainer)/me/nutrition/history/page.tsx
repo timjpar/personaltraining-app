@@ -16,6 +16,11 @@ import type { NutritionRow } from "@/lib/metrics";
 // look back at it. The week strip on /me/nutrition answers "did I log
 // Tuesday?"; this answers "what has the last two months looked like?", which is
 // a different question and was previously unanswerable without editing the URL.
+//
+// How many days the list shows. The chart reads all of them; the list is for
+// finding a day to edit, and nobody scrolls to day 300.
+const LIST_LIMIT = 60;
+
 export default async function MyNutritionHistoryPage() {
   const trainer = await requireTrainer();
 
@@ -23,7 +28,10 @@ export default async function MyNutritionHistoryPage() {
     prisma.nutritionLog.findMany({
       where: { clientId: trainer.id },
       orderBy: { date: "desc" },
-      take: 60,
+      // A year, so the chart's 1Y range isn't quietly showing eight months.
+      // Rarely near that in practice — this counts days that were logged, not
+      // days that passed — and the foods select is four integers a row.
+      take: 366,
       include: {
         foods: {
           select: { calories: true, protein: true, carbs: true, fat: true },
@@ -112,7 +120,7 @@ export default async function MyNutritionHistoryPage() {
           </EmptyState>
         ) : (
           <Card className="divide-y divide-line">
-            {days.map(({ log, totals }) => {
+            {days.slice(0, LIST_LIMIT).map(({ log, totals }) => {
               const over =
                 targets?.calories != null && totals.calories > targets.calories;
               return (

@@ -26,6 +26,10 @@ import { lengthLabel, massLabel } from "@/lib/units";
 // bodyweight is the most emotionally loaded number this app holds, and the
 // answer to that is what the page shows rather than a lock on the field — the
 // trend, their own note, and nothing that grades them.
+// How many entries the list under the chart shows. The chart reads all of
+// them; the list is for finding a day to edit, and nobody scrolls to day 300.
+const LIST_LIMIT = 60;
+
 export default async function MyBodyPage({
   searchParams,
 }: {
@@ -45,7 +49,10 @@ export default async function MyBodyPage({
     prisma.measurement.findMany({
       where: { clientId: client.id },
       orderBy: { date: "desc" },
-      take: 60,
+      // Deep enough for the chart's 1Y range. The list below shows the most
+      // recent LIST_LIMIT of these — a year of daily weigh-ins is a fine thing
+      // to plot and a terrible thing to scroll.
+      take: 400,
     }),
   ]);
 
@@ -154,7 +161,7 @@ export default async function MyBodyPage({
           </EmptyState>
         ) : (
           <Card className="divide-y divide-line">
-            {measurements.map((m) => {
+            {measurements.slice(0, LIST_LIMIT).map((m) => {
               const tape = TAPE_SITES.filter((s) => m[s.key] != null);
               const source = toMeasurementSource(m.source);
               return (

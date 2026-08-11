@@ -35,7 +35,10 @@ import {
   domainFor,
   nearestIndex,
   niceScale,
+  RANGES,
   stopsFor,
+  withinRange,
+  type RangeKey,
 } from "@/lib/trend-scale";
 import type { Units } from "@/lib/constants";
 
@@ -96,6 +99,8 @@ export function TrendChart<Row extends TrendRow, Ctx>({
   units,
   selected,
   onSelect,
+  range,
+  onRange,
   label,
 }: {
   rows: Row[];
@@ -104,17 +109,31 @@ export function TrendChart<Row extends TrendRow, Ctx>({
   units: Units;
   selected: ReadonlySet<string>;
   onSelect: (next: ReadonlySet<string>) => void;
+  range: RangeKey;
+  onRange: (next: RangeKey) => void;
   // Names the thing being charted, for the image description: "weigh-ins".
   label: string;
 }) {
   const [active, setActive] = useState<number | null>(null);
+  const [showAllChips, setShowAllChips] = useState(false);
   const readoutId = useId();
 
-  const sorted = useMemo(() => ascending(rows), [rows]);
+  const all = useMemo(() => ascending(rows), [rows]);
+
+  // Windowed before anything else, so the whole chart — domain, ticks,
+  // crosshair stops, and the indexed baseline — is computed over the range the
+  // reader picked rather than over everything and then cropped.
+  const sorted = useMemo(() => withinRange(all, range), [all, range]);
 
   // Availability is computed for every metric, not just the selected ones —
   // an unselected chip has to be able to say why it can't be picked. Cheap:
   // fourteen extractors over sixty rows.
+  //
+  // Deliberately over `all` rather than the windowed rows. A waist logged in
+  // March is logged, and greying its chip out because the reader is looking at
+  // this week would say "not logged" about a measurement they took. Whether it
+  // has anything to draw *in this window* is the chart's problem, not the
+  // chip's, and the blank state answers it.
   const availability = useMemo(() => {
     const map = new Map<string, { reason: string | null }>();
     for (const m of metrics) {
@@ -123,14 +142,14 @@ export function TrendChart<Row extends TrendRow, Ctx>({
         map.set(m.key, { reason: blocked });
         continue;
       }
-      const has = sorted.some((r) => {
+      const has = all.some((r) => {
         const v = m.value(r, ctx);
         return v != null && Number.isFinite(v);
       });
       map.set(m.key, { reason: has ? null : (m.emptyHint ?? "not logged") });
     }
     return map;
-  }, [metrics, sorted, ctx]);
+  }, [metrics, all, ctx]);
 
   const drawn = useMemo(
     () => metrics.filter((m) => selected.has(m.key) && !availability.get(m.key)?.reason),
@@ -144,12 +163,14 @@ export function TrendChart<Row extends TrendRow, Ctx>({
 
   const { mode, series, dropped } = built;
 
-  const scale = useMemo(() => {
+  const { scale, shownRefs } = useMemo(() => {
     // In indexed mode the axis is percent, so a flat band of ±1% is the right
     // window; in absolute mode the family says what a sensible band is.
     const flatPad = mode === "indexed" ? 1 : (drawn[0]?.family.flatPad ?? 1);
-    const { lo, hi } = domainFor(series, flatPad);
-    return niceScale(lo, hi);
+    const { lo, hi, references } = domainFor(series, flatPad);
+    // niceScale only ever widens, so a reference that fit the raw domain still
+    // fits this one.
+    return { scale: niceScale(lo, hi), shownRefs: new Set(references) };
   }, [series, mode, drawn]);
 
   const stops = useMemo(() => stopsFor(series), [series]);
@@ -184,6 +205,22 @@ export function TrendChart<Row extends TrendRow, Ctx>({
   );
 
   const atCap = drawn.length >= MAX_VISIBLE;
+
+  // Primaries always, anything selected always, everything when asked. The
+  // second clause is the load-bearing one: without it, expanding the row,
+  // picking Waist and collapsing again would leave a line on the chart with no
+  // chip to turn it off.
+  const hidden = useMemo(
+    () => metrics.filter((m) => !m.primary && !selected.has(m.key)),
+    [metrics, selected],
+  );
+  const shownChips = useMemo(
+    () =>
+      showAllChips
+        ? metrics
+        : metrics.filter((m) => m.primary || selected.has(m.key)),
+    [metrics, selected, showAllChips],
+  );
 
   const track = useCallback(
     (clientX: number, el: HTMLElement) => {
@@ -258,12 +295,16 @@ export function TrendChart<Row extends TrendRow, Ctx>({
   // greyed chips answer exactly that, so they are the part that must not
   // disappear; the plot area holds the reason it is blank.
   const empty = series.length === 0;
+  const rangeLabel =
+    RANGES.find((r) => r.key === range)?.label.toLowerCase() ?? "range";
   const emptyMessage =
-    rows.length === 0
+    all.length === 0
       ? "Nothing logged yet. Lines appear here from the first entry."
       : drawn.length === 0
         ? "Pick a metric above to plot it."
-        : "Nothing logged yet for the metrics picked.";
+        : sorted.length === 0
+          ? `Nothing logged in the last ${rangeLabel}. Try a wider range.`
+          : `Nothing logged in the last ${rangeLabel} for the metrics picked.`;
 
   const description = empty
     ? emptyMessage
@@ -283,7 +324,7 @@ export function TrendChart<Row extends TrendRow, Ctx>({
           the tab order, which hides the explanation from the person most
           likely to need it. */}
       <div role="group" aria-label="Metrics" className="flex flex-wrap gap-1.5">
-        {metrics.map((m) => {
+        {shownChips.map((m) => {
           const reason = availability.get(m.key)?.reason ?? null;
           const on = selected.has(m.key) && !reason;
           const capped = !on && !reason && atCap;
@@ -316,6 +357,19 @@ export function TrendChart<Row extends TrendRow, Ctx>({
             >
               <Swatch slot={m.slot} dashed={m.dashed} dim={!on} />
               {m.label}
+              {/* A glyph, not a nested button — the whole chip already removes
+                  the line when it's on, so a second control inside it would be
+                  invalid markup for no new behaviour. aria-hidden because
+                  aria-pressed on the chip is what actually says "this is on,
+                  activating turns it off". */}
+              {on ? (
+                <span
+                  aria-hidden
+                  className="-mr-0.5 text-sm leading-none text-ink-soft/70"
+                >
+                  ×
+                </span>
+              ) : null}
               {/* Desktop only. Fourteen chips each carrying "not logged" is
                   three tidy rows at 1280px and fourteen stacked rows at 375px,
                   which buries the chart under its own legend. The dimming
@@ -329,19 +383,68 @@ export function TrendChart<Row extends TrendRow, Ctx>({
             </button>
           );
         })}
+
+        {hidden.length > 0 || showAllChips ? (
+          <button
+            type="button"
+            onClick={() => setShowAllChips((v) => !v)}
+            aria-expanded={showAllChips}
+            className="eyebrow inline-flex min-h-9 items-center gap-1 rounded-full border border-dashed border-line px-3 text-ink-soft transition-colors hover:border-ink/30 hover:text-ink sm:min-h-0 sm:px-2.5 sm:py-1"
+          >
+            {showAllChips ? "Fewer" : `+${hidden.length} more`}
+          </button>
+        ) : null}
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         {/* No caption when there is no axis to describe. An empty frame
             labelled "In kg" would be claiming a scale it doesn't have. */}
-        <p className="eyebrow mt-4 text-ink-soft/70">
+        <p className="eyebrow text-ink-soft/70">
           {empty
-            ? " "
+            ? "\u00a0"
             : mode === "indexed"
-              ? "% change from each line’s first reading"
+              ? "% change from each line\u2019s first reading"
               : built.unit
                 ? `In ${built.unit}`
                 : "Index"}
         </p>
+
+        {/* Segmented, and wearing the accent when active — this is a control,
+            not a series, which is exactly why the metric chips avoid jade and
+            this doesn't. Hidden when there is no data at all, where every
+            option shows the same nothing. */}
+        {all.length > 0 ? (
+          <div
+            role="group"
+            aria-label="Time range"
+            className="inline-flex rounded-[var(--radius-sm)] border border-line bg-card p-0.5"
+          >
+            {RANGES.map((r) => {
+              const on = r.key === range;
+              return (
+                <button
+                  key={r.key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    if (on) return;
+                    onRange(r.key);
+                    setActive(null);
+                  }}
+                  className={cn(
+                    "eyebrow min-h-9 rounded-[calc(var(--radius-sm)-2px)] px-2 transition-colors sm:min-h-8 sm:px-2.5",
+                    on
+                      ? "bg-jade-wash text-jade-strong"
+                      : "text-ink-soft hover:text-ink",
+                  )}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
 
         <div className="mt-1.5 grid grid-cols-[2.75rem_1fr] gap-x-1">
           {/* y labels. aria-hidden because the SVG's own description and the
@@ -440,9 +543,12 @@ export function TrendChart<Row extends TrendRow, Ctx>({
 
               {/* Reference lines — goal weight, calorie target. Neutral and
                   dashed so they read as chrome rather than as a series, and
-                  absent in indexed mode, where a goal has no position. */}
+                  absent in indexed mode, where a goal has no position.
+                  domainFor decides which ones are worth the vertical room; the
+                  rest are off-chart rather than squashing every reading into a
+                  flat line to reach them. */}
               {series.map((s) =>
-                s.reference == null ? null : (
+                s.reference == null || !shownRefs.has(s.key) ? null : (
                   <line
                     key={`ref-${s.key}`}
                     x1={0}

@@ -11,10 +11,12 @@ import {
   type NutritionCtx,
   type NutritionRow,
 } from "@/lib/metrics";
-import { useStoredSet } from "@/lib/use-stored-set";
+import { toRangeKey } from "@/lib/trend-scale";
+import { useStoredSet, useStoredValue } from "@/lib/use-stored-set";
 import type { Units } from "@/lib/constants";
 
 const KEY = "chalkline.trend.nutrition.v1";
+const RANGE_KEY = "chalkline.trend.nutrition.range.v1";
 
 // Calories alone. Picking the three macros as well would open on a percent-change
 // axis, because grams and kilocalories are different families — correct, but a
@@ -32,6 +34,7 @@ export function NutritionTrend({
   units: Units;
 }) {
   const [selected, setSelected] = useStoredSet(KEY, DEFAULT, VALID);
+  const [range, setRange] = useStoredValue(RANGE_KEY, toRangeKey);
 
   const ctx = useMemo<NutritionCtx>(() => ({ targets }), [targets]);
 
@@ -43,6 +46,8 @@ export function NutritionTrend({
       units={units}
       selected={selected}
       onSelect={setSelected}
+      range={range}
+      onRange={setRange}
       label="food log"
     />
   );

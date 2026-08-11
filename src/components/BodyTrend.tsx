@@ -10,12 +10,14 @@
 import { useMemo } from "react";
 import { TrendChart } from "@/components/TrendChart";
 import { BODY_METRICS, type BodyCtx, type BodyRow } from "@/lib/metrics";
-import { useStoredSet } from "@/lib/use-stored-set";
+import { toRangeKey } from "@/lib/trend-scale";
+import { useStoredSet, useStoredValue } from "@/lib/use-stored-set";
 import type { Units } from "@/lib/constants";
 
 // Versioned: the parser drops keys it doesn't recognise, but a change to what a
 // key *means* needs a new namespace rather than a silent reinterpretation.
 const KEY = "chalkline.trend.body.v1";
+const RANGE_KEY = "chalkline.trend.body.range.v1";
 
 // Weight alone, which is exactly what this card showed before the chart existed
 // — opening on six lines would make the page feel like someone else's dashboard.
@@ -38,6 +40,7 @@ export function BodyTrend({
   units: Units;
 }) {
   const [selected, setSelected] = useStoredSet(KEY, DEFAULT, VALID);
+  const [range, setRange] = useStoredValue(RANGE_KEY, toRangeKey);
 
   const ctx = useMemo<BodyCtx>(
     () => ({ heightCm, goalWeightKg, possessive }),
@@ -52,6 +55,8 @@ export function BodyTrend({
       units={units}
       selected={selected}
       onSelect={setSelected}
+      range={range}
+      onRange={setRange}
       label="weigh-ins"
     />
   );
