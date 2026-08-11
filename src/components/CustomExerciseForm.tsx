@@ -16,8 +16,10 @@ import {
 } from "@/components/ui";
 import { DISCIPLINE_ORDER, DISCIPLINE_LABELS } from "@/lib/constants";
 
-// Two fields, both uncontrolled — the same shape CustomExerciseRow edits back on
-// the list page, so adding and fixing a movement ask for exactly the same thing.
+// All uncontrolled. Name and discipline are the same pair CustomExerciseRow
+// edits back on the list page; the demo link is the one field this form asks
+// for that the row doesn't, since media is managed by ExerciseMediaManager
+// above it — either way it's the same URL, going to the same two columns.
 export function CustomExerciseForm() {
   const [state, formAction, pending] = useActionState<ExerciseFormState, FormData>(
     createCustomExercise,
@@ -53,6 +55,17 @@ export function CustomExerciseForm() {
               </option>
             ))}
           </Select>
+        </Field>
+
+        <Field
+          label="Demo video (optional)"
+          htmlFor="url"
+          hint="YouTube, Instagram, TikTok or Facebook — it plays inside Chalkline."
+        >
+          {/* inputMode rather than type="url": a phone still gets the URL
+              keyboard, but a link the browser dislikes reaches the server and
+              comes back with our wording instead of a native tooltip. */}
+          <Input id="url" name="url" inputMode="url" placeholder="https://…" />
         </Field>
       </Card>
 
