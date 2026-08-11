@@ -35,6 +35,22 @@ async function upsertMedia(
   });
 }
 
+// Shared by the two places a trainer can paste a demo link — the manager on the
+// list page and the new-exercise form. Both check the link before writing
+// anything, so a typo costs one corrected field rather than a half-made row.
+function checkMediaLink(raw: string): { url: string } | { error: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return { error: "That doesn't look like a link." };
+  }
+  if (parsed.protocol !== "https:") {
+    return { error: "Links must start with https://" };
+  }
+  return { url: parsed.toString() };
+}
+
 export async function setExerciseMediaLink(
   _prev: MediaFormState,
   formData: FormData,
@@ -46,22 +62,15 @@ export async function setExerciseMediaLink(
   if (!name) return { error: "Pick an exercise first." };
   if (!url) return { error: "Paste a link." };
 
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return { error: "That doesn't look like a link." };
-  }
-  if (parsed.protocol !== "https:") {
-    return { error: "Links must start with https://" };
-  }
+  const link = checkMediaLink(url);
+  if ("error" in link) return link;
 
   // Recorded for the label on the manage list. Playback always re-derives from
   // the URL, so a link saved before the parser understood its format starts
   // embedding the moment the parser learns it.
-  const { provider, embedUrl, label } = parseVideoUrl(parsed.toString());
+  const { provider, embedUrl, label } = parseVideoUrl(link.url);
 
-  await upsertMedia(trainer.id, name, { url: parsed.toString(), kind: provider });
+  await upsertMedia(trainer.id, name, { url: link.url, kind: provider });
 
   revalidatePath("/exercises");
   return {
@@ -97,6 +106,13 @@ export async function createCustomExercise(
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Give the exercise a name." };
 
+  // A demo link is optional here — the same one can be added later from the
+  // list page. Taking it now saves the coach a second trip for the common case
+  // where they already have the video open.
+  const url = String(formData.get("url") ?? "").trim();
+  const link = url ? checkMediaLink(url) : null;
+  if (link && "error" in link) return link;
+
   const nameKey = normalizeExerciseName(name);
   // Adding one of the built-ins would produce a row that the custom list
   // filters straight back out — an entry that vanishes on save reads as a bug.
@@ -111,6 +127,10 @@ export async function createCustomExercise(
         name,
         nameKey,
         discipline: toDiscipline(formData.get("discipline")),
+        // Same shape upsertMedia writes: the pasted URL, plus the provider we
+        // recognised it as for the label on the list.
+        mediaUrl: link?.url ?? null,
+        mediaKind: link ? parseVideoUrl(link.url).provider : null,
       },
     });
   } catch (err) {
