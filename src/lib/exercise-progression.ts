@@ -1,6 +1,6 @@
-// The grey hint under each result box on the log form: what you logged last
-// time for this movement, and — only when the numbers are clean enough to be
-// sure — what to aim for today.
+// The grey hint in each box on the log form: what you logged for *that set*
+// last time, and — only when the numbers are clean enough to be sure — what to
+// aim for today. Set one answers to last time's set one, set two to set two.
 //
 // Double progression. Add a rep each session until the set tops out at
 // REP_CEILING, then add weight instead and let the reps fall back on their own.
@@ -16,20 +16,22 @@
 
 import { UNITS, type Units } from "@/lib/constants";
 import { archetypeFor, type Archetype } from "@/lib/exercise-archetypes";
+import { setValuesFor, storedSetCount } from "@/lib/exercise-sets";
 
 // The top of the rep range. Past this, more reps stop being the point.
 export const REP_CEILING = 10;
 
 // Results are free-form strings by design — see the Exercise.result* comments
-// in schema.prisma. "6,6,6,5" and "3 of 4" are honest answers to what happened
-// and there is no single figure to progress from, so anything that isn't one
-// clean number with an optional unit parses as null and is simply read back
+// in schema.prisma. A set's own value is usually one clean number, but "8-10"
+// and "as many as I could" are honest answers too, so anything that isn't a
+// number with an optional unit parses as null and is simply read back
 // unchanged. Bailing is the correct outcome far more often than guessing.
 type Amount = { value: number; unit: string; suffix: string };
 
-// Deliberately strict. No ranges ("8-10"), no lists ("6,6,6,5"), no prose
-// ("3 of 4"), and no "%" in the character class, which is what keeps a
-// percentage-of-1RM load from being "progressed" by 2.5 of something.
+// Deliberately strict. No ranges ("8-10"), no prose ("failure"), and no "%" in
+// the character class, which is what keeps a percentage-of-1RM load from being
+// "progressed" by 2.5 of something. Lists never reach it: exercise-sets splits
+// them into their per-set values first.
 const AMOUNT = /^(\d+(?:\.\d+)?)(\s*)([a-z]*)$/i;
 
 export function parseAmount(raw: string | null | undefined): Amount | null {
@@ -83,11 +85,21 @@ export type LastResult = {
   load: string | null;
 };
 
-// One placeholder per box. A missing key means "no history for this one" and
-// the form falls back to its own wording, so an exercise the athlete has never
-// done reads exactly as it did before this existed.
-export type LogHints = { sets?: string; reps?: string; load?: string };
+// One placeholder per box on one set's row. A missing key is a box that has
+// nothing to say — the athlete never logged a load for that set, or never got
+// to it — and the form leaves it blank, so a row with no history reads as an
+// empty pair of inputs under their column headings.
+export type SetHint = { reps?: string; load?: string };
 
+// A set's own numbers, worded for a box roughly 90px wide on a phone. Hence the
+// arrow rather than the "Last time … · try …" this used to say when there was
+// one box for the whole movement: the form explains the convention once, above
+// the exercises, and every row after that is numbers.
+const target = (was: string, next: string) => `${was} → ${next}`;
+
+// In set order, and only as long as the history actually is. Sets the athlete
+// adds beyond what they did last time simply get no hint, which is the honest
+// answer — a fifth set has no fifth set to be compared with.
 export function logHints({
   name,
   last,
@@ -96,36 +108,53 @@ export function logHints({
   name: string;
   last: LastResult | undefined;
   units: Units;
-}): LogHints | undefined {
+}): SetHint[] | undefined {
   if (!last) return undefined;
 
-  const hints: LogHints = {};
+  const count = storedSetCount(last);
+  if (count === 0) return undefined;
 
-  // Sets are never progressed. Adding a fourth set is a change to the
-  // programme, which is the coach's call, not a hint's.
-  if (last.sets) hints.sets = `Last time ${last.sets}`;
+  const reps = setValuesFor(last.reps, count);
+  const loads = setValuesFor(last.load, count);
 
-  const reps = parseAmount(last.reps);
-  const countable = reps != null && REP_UNITS.has(reps.unit);
-  const atCeiling = countable && reps.value >= REP_CEILING;
+  const repAmounts = reps.map((v) => {
+    const amount = parseAmount(v);
+    return amount && REP_UNITS.has(amount.unit) ? amount : null;
+  });
 
-  if (last.reps) {
-    hints.reps =
-      countable && !atCeiling
-        ? `Last time ${last.reps} · try ${trim(reps.value + 1)}${reps.suffix}`
-        : `Last time ${last.reps}`;
-  }
+  // The "then just weights" half of the rule, read across the whole movement
+  // rather than one row: while any set still has a rep left in it, the weight
+  // stays where it was. Adding load to set 3 alone isn't double progression,
+  // it's two different exercises.
+  const counted = repAmounts.filter((a) => a != null);
+  const atCeiling =
+    counted.length > 0 && counted.every((a) => a.value >= REP_CEILING);
 
-  if (last.load) {
-    const load = parseAmount(last.load);
-    const step = load ? loadStep(name, load.unit, units) : null;
-    // Gated on atCeiling, which is the "then just weights" half of the rule:
-    // while there are still reps to add, the weight stays where it was.
-    hints.load =
-      atCeiling && load && step != null
-        ? `Last time ${last.load} · try ${trim(load.value + step)}${load.suffix}`
-        : `Last time ${last.load}`;
-  }
+  const hints = reps.map((was, i): SetHint => {
+    const hint: SetHint = {};
 
-  return Object.keys(hints).length > 0 ? hints : undefined;
+    const amount = repAmounts[i];
+    // Sets are never progressed, only reps and load. Adding a fourth set is a
+    // change to the programme, which is the coach's call, not a hint's.
+    if (was) {
+      hint.reps =
+        amount && !atCeiling
+          ? target(was, `${trim(amount.value + 1)}${amount.suffix}`)
+          : was;
+    }
+
+    const wasLoad = loads[i];
+    if (wasLoad) {
+      const load = parseAmount(wasLoad);
+      const step = load ? loadStep(name, load.unit, units) : null;
+      hint.load =
+        atCeiling && load && step != null
+          ? target(wasLoad, `${trim(load.value + step)}${load.suffix}`)
+          : wasLoad;
+    }
+
+    return hint;
+  });
+
+  return hints.some((h) => h.reps || h.load) ? hints : undefined;
 }

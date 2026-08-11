@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui";
 import { VideoEmbed } from "@/components/VideoEmbed";
+import { setValuesFor, storedSetCount } from "@/lib/exercise-sets";
 
 export type Metric = { label: string; value?: string | null };
 
@@ -33,6 +34,11 @@ export function MetricStrip({ metrics }: { metrics: Metric[] }) {
 // admin) because the only honest difference between them is whose session it
 // is. They were three copies of the same markup until sets needed adding to
 // all of them.
+//
+// Set by set once there is more than one, which is the point of logging them
+// that way: "6,6,6,5 @ 60,60,65,65" on one line is four facts crammed into two
+// strings and a coach has to unzip them by eye. A single set — and every result
+// logged before per-set rows existed — keeps the one-line form it always had.
 export function loggedResult({
   label = "Logged",
   sets,
@@ -44,21 +50,62 @@ export function loggedResult({
   reps?: string | null;
   load?: string | null;
 }): ReactNode {
-  const parts: Array<[string, string]> = [];
-  if (sets) parts.push(["sets", `${sets} sets`]);
-  if (reps) parts.push(["reps", `${reps} reps`]);
-  // The "@" keeps a bare number from reading as another count.
-  if (load) parts.push(["load", `@ ${load}`]);
-  if (parts.length === 0) return null;
+  const count = storedSetCount({ sets, reps, load });
+  const perSet = count > 1 && Boolean(reps || load);
+
+  if (!perSet) {
+    const parts: Array<[string, string]> = [];
+    if (sets) parts.push(["sets", `${sets} sets`]);
+    if (reps) parts.push(["reps", `${reps} reps`]);
+    // The "@" keeps a bare number from reading as another count.
+    if (load) parts.push(["load", `@ ${load}`]);
+    if (parts.length === 0) return null;
+
+    return (
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-[var(--radius-sm)] bg-jade-wash/60 px-3.5 py-2.5">
+        <span className="eyebrow text-jade-strong">{label}</span>
+        {parts.map(([key, text]) => (
+          <span key={key} className="metric text-sm text-ink">
+            {text}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  const repValues = setValuesFor(reps, count);
+  const loadValues = setValuesFor(load, count);
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-[var(--radius-sm)] bg-jade-wash/60 px-3.5 py-2.5">
-      <span className="eyebrow text-jade-strong">{label}</span>
-      {parts.map(([key, text]) => (
-        <span key={key} className="metric text-sm text-ink">
-          {text}
-        </span>
-      ))}
+    <div className="rounded-[var(--radius-sm)] bg-jade-wash/60 px-3.5 py-2.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="eyebrow text-jade-strong">{label}</span>
+        {sets ? (
+          <span className="metric text-sm text-ink">{sets} sets</span>
+        ) : null}
+      </div>
+      {/* auto columns, not fractions: these are short values that belong
+          beside each other, and a grid still lines them up down the card the
+          way a fraction would. */}
+      <div className="mt-2 flex flex-col gap-1">
+        {Array.from({ length: count }, (_, i) => (
+          <div
+            key={i}
+            className="grid grid-cols-[1.25rem_auto_auto] justify-start gap-x-3"
+          >
+            <span className="metric text-xs text-ink-soft/70">{i + 1}</span>
+            {/* An em dash rather than an empty cell: a set that was left blank
+                is something the coach should see, not a gap they have to count
+                rows to notice. */}
+            <span className="metric text-sm text-ink">
+              {repValues[i] || "—"}
+            </span>
+            <span className="metric text-sm text-ink-soft">
+              {loadValues[i] ? `× ${loadValues[i]}` : ""}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

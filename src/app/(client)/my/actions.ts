@@ -6,6 +6,11 @@ import { after } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireClient } from "@/lib/auth";
 import { syncAfterMutation } from "@/lib/calendar-sync";
+import {
+  describeSetsDone,
+  joinSetValues,
+  parseSetCount,
+} from "@/lib/exercise-sets";
 import { sendWorkoutEmailSafely } from "@/lib/digest";
 import { requestOrigin } from "@/lib/request-origin";
 
@@ -41,17 +46,38 @@ export async function completeWorkout(
       : null;
   const comment = String(formData.get("comment") ?? "").trim() || null;
 
-  const exerciseUpdates = workout.exercises.map((ex) =>
-    prisma.exercise.update({
+  const exerciseUpdates = workout.exercises.map((ex) => {
+    // One pair of boxes per set, posted under repeated names in row order — so
+    // the two lists line up by set index without the row number ever reaching
+    // the field name. See SetRows in WorkoutLogForm.
+    const values = (field: string) =>
+      formData.getAll(`res_${ex.id}_${field}`).map((v) => String(v).trim());
+    const reps = values("reps");
+    const loads = values("load");
+
+    // A row with nothing in either box is a set that didn't happen — the
+    // athlete stopped at three of four, or never filled it in. Counting them is
+    // what makes the sets figure a fact rather than a second thing to type.
+    const logged = reps.filter((r, i) => r || loads[i]).length;
+
+    // A log page left open across this deploy still posts one pair of boxes and
+    // its own "sets done" figure. Take that figure over one derived from a
+    // single row, which would read as one set of the four they actually did.
+    const posted = formData.get(`res_${ex.id}_sets`);
+
+    return prisma.exercise.update({
       where: { id: ex.id },
       data: {
-        resultSets: String(formData.get(`res_${ex.id}_sets`) ?? "").trim() || null,
-        resultReps: String(formData.get(`res_${ex.id}_reps`) ?? "").trim() || null,
-        resultLoad: String(formData.get(`res_${ex.id}_load`) ?? "").trim() || null,
+        resultSets:
+          posted != null
+            ? String(posted).trim() || null
+            : describeSetsDone(logged, parseSetCount(ex.sets)),
+        resultReps: joinSetValues(reps),
+        resultLoad: joinSetValues(loads),
         done: formData.get(`res_${ex.id}_done`) != null,
       },
-    }),
-  );
+    });
+  });
 
   // Complete the session and drop a note in the trainer's feed — the loop.
   await prisma.$transaction([
