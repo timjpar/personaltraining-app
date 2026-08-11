@@ -4,12 +4,14 @@ import { prisma } from "@/lib/db";
 import { Card, Container, EmptyState, PageHeading } from "@/components/ui";
 import { MeasurementForm } from "@/components/MeasurementForm";
 import { DeleteMeasurement } from "@/components/DeleteMeasurement";
-import { WeightTrend, BodyStats } from "@/components/WeightTrend";
+import { BodyStats } from "@/components/WeightTrend";
+import { BodyTrend } from "@/components/BodyTrend";
 import { BmrPanel } from "@/components/BmrPanel";
 import { UnitsToggle } from "@/components/UnitsToggle";
 import { saveMyWeighIn, deleteMyWeighIn } from "../actions";
 import { formatDate, toDateInput } from "@/lib/format";
 import { parseDayParam } from "@/lib/calendar";
+import { toBodyRows } from "@/lib/metrics";
 import { TAPE_SITES, toUnits } from "@/lib/constants";
 import { lengthLabel, massLabel } from "@/lib/units";
 
@@ -88,19 +90,31 @@ export default async function MyOwnBodyPage({
         </PageHeading>
       </div>
 
-      {weighIns.length >= 2 ? (
+      {/* The card now appears from the first entry rather than the second. The
+          old gate was the sparkline's — one point is a dot, not a trend — and
+          the chart draws a lone reading honestly, as a dot. A tape-only entry
+          with no weight also has something to plot now, which is why the gate
+          counts measurements rather than weigh-ins. */}
+      {measurements.length > 0 ? (
         <Card className="mt-6 p-4 sm:p-5">
-          <BodyStats
-            currentKg={current?.weightKg ?? null}
-            previousKg={previous && previous !== current ? previous.weightKg : null}
-            goalKg={profile?.goalWeightKg ?? null}
-            units={units}
-            sinceLabel="in 30 days"
-          />
-          <WeightTrend
-            className="mt-4 h-28 w-full"
-            points={weighIns.map((m) => ({ date: m.date, kg: m.weightKg }))}
-            goalKg={profile?.goalWeightKg ?? null}
+          {current ? (
+            <div className="mb-5">
+              <BodyStats
+                currentKg={current.weightKg}
+                previousKg={
+                  previous && previous !== current ? previous.weightKg : null
+                }
+                goalKg={profile?.goalWeightKg ?? null}
+                units={units}
+                sinceLabel="in 30 days"
+              />
+            </div>
+          ) : null}
+          <BodyTrend
+            rows={toBodyRows(measurements)}
+            heightCm={profile?.heightCm ?? null}
+            goalWeightKg={profile?.goalWeightKg ?? null}
+            possessive="your"
             units={units}
           />
           {profile?.goalWeightKg != null ? (

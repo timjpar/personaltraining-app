@@ -4,11 +4,13 @@ import { prisma } from "@/lib/db";
 import { Card, Container, EmptyState, PageHeading, Badge } from "@/components/ui";
 import { MeasurementForm } from "@/components/MeasurementForm";
 import { DeleteMeasurement } from "@/components/DeleteMeasurement";
-import { WeightTrend, BodyStats } from "@/components/WeightTrend";
+import { BodyStats } from "@/components/WeightTrend";
+import { BodyTrend } from "@/components/BodyTrend";
 import { UnitsToggle } from "@/components/UnitsToggle";
 import { saveWeighIn, deleteWeighIn } from "./actions";
 import { formatDate, toDateInput } from "@/lib/format";
 import { parseDayParam } from "@/lib/calendar";
+import { toBodyRows } from "@/lib/metrics";
 import {
   MEASUREMENT_SOURCE,
   TAPE_SITES,
@@ -35,7 +37,10 @@ export default async function MyBodyPage({
   const [profile, measurements] = await Promise.all([
     prisma.clientProfile.findUnique({
       where: { userId: client.id },
-      select: { goalWeightKg: true },
+      // heightCm is here for the chart, not the page chrome: BMI and
+      // waist-to-height are derived from it, and without it their chips can
+      // only grey out.
+      select: { goalWeightKg: true, heightCm: true },
     }),
     prisma.measurement.findMany({
       where: { clientId: client.id },
@@ -67,19 +72,29 @@ export default async function MyBodyPage({
         already have just updates it.
       </PageHeading>
 
-      {weighIns.length >= 2 ? (
+      {measurements.length > 0 ? (
         <Card className="mt-6 p-4 sm:p-5">
-          <BodyStats
-            currentKg={current?.weightKg ?? null}
-            previousKg={previous && previous !== current ? previous.weightKg : null}
-            goalKg={profile?.goalWeightKg ?? null}
-            units={units}
-            sinceLabel="in 30 days"
-          />
-          <WeightTrend
-            className="mt-4 h-28 w-full"
-            points={weighIns.map((m) => ({ date: m.date, kg: m.weightKg }))}
-            goalKg={profile?.goalWeightKg ?? null}
+          {current ? (
+            <div className="mb-5">
+              <BodyStats
+                currentKg={current.weightKg}
+                previousKg={
+                  previous && previous !== current ? previous.weightKg : null
+                }
+                goalKg={profile?.goalWeightKg ?? null}
+                units={units}
+                sinceLabel="in 30 days"
+              />
+            </div>
+          ) : null}
+          {/* Everything the page already refuses to do applies to the chart
+              too: the extra lines are there to be looked at, and none of them
+              is coloured to say whether the direction is good news. */}
+          <BodyTrend
+            rows={toBodyRows(measurements)}
+            heightCm={profile?.heightCm ?? null}
+            goalWeightKg={profile?.goalWeightKg ?? null}
+            possessive="your"
             units={units}
           />
           {/* Read-only, and shown rather than hidden: it's what the coach

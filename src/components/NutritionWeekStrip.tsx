@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { addDays, toDateInput } from "@/lib/format";
 
-// The week as seven cells, with a filled dot on days that have a log. Cheaper
-// than a history route and more useful than a list: the gap in the row is the
-// thing the person reading it is actually looking for.
+// The week as seven cells, with a filled dot on days that have a log. The gap
+// in the row is the thing the person reading it is actually looking for.
+//
+// This used to argue it was a replacement for a history route. It isn't, and
+// /me/nutrition/history now exists alongside it — the two answer different
+// questions. This one answers "did I log Tuesday?" while you are standing in a
+// week; the history answers "what have the last two months looked like?", which
+// seven cells can't show at any width.
 //
 // `basePath` is the whole difference between the two callers — /my/nutrition
 // for an athlete's own log and /me/nutrition for a coach's. The index route
