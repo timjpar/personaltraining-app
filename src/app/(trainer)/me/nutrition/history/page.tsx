@@ -84,21 +84,21 @@ export default async function MyNutritionHistoryPage() {
         </PageHeading>
       </div>
 
-      {rows.length > 0 ? (
-        <Card className="mt-6 p-4 sm:p-5">
-          <NutritionTrend rows={rows} targets={targets} units={units} />
-          {targets ? (
-            <p className="mt-3 text-xs text-ink-soft">
-              The dashed line is your{" "}
-              <Link href="/me/profile" className="text-jade-strong hover:underline">
-                current target
-              </Link>
-              , not what it was on each day — the app derives it and never
-              stores it.
-            </p>
-          ) : null}
-        </Card>
-      ) : null}
+      {/* Always here, empty or not — the blank frame and its chips say what a
+          logged day would show. */}
+      <Card className="mt-6 p-4 sm:p-5">
+        <NutritionTrend rows={rows} targets={targets} units={units} />
+        {targets && rows.length > 0 ? (
+          <p className="mt-3 text-xs text-ink-soft">
+            The dashed line is your{" "}
+            <Link href="/me/profile" className="text-jade-strong hover:underline">
+              current target
+            </Link>
+            , not what it was on each day — the app derives it and never stores
+            it.
+          </p>
+        ) : null}
+      </Card>
 
       <section className="mt-10">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">

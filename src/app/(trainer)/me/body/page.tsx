@@ -90,48 +90,46 @@ export default async function MyOwnBodyPage({
         </PageHeading>
       </div>
 
-      {/* The card now appears from the first entry rather than the second. The
-          old gate was the sparkline's — one point is a dot, not a trend — and
-          the chart draws a lone reading honestly, as a dot. A tape-only entry
-          with no weight also has something to plot now, which is why the gate
-          counts measurements rather than weigh-ins. */}
-      {measurements.length > 0 ? (
-        <Card className="mt-6 p-4 sm:p-5">
-          {current ? (
-            <div className="mb-5">
-              <BodyStats
-                currentKg={current.weightKg}
-                previousKg={
-                  previous && previous !== current ? previous.weightKg : null
-                }
-                goalKg={profile?.goalWeightKg ?? null}
-                units={units}
-                sinceLabel="in 30 days"
-              />
-            </div>
-          ) : null}
-          <BodyTrend
-            rows={toBodyRows(measurements)}
-            heightCm={profile?.heightCm ?? null}
-            goalWeightKg={profile?.goalWeightKg ?? null}
-            possessive="your"
-            units={units}
-          />
-          {profile?.goalWeightKg != null ? (
-            <p className="mt-3 text-xs text-ink-soft">
-              Goal of{" "}
-              <span className="metric text-ink">
-                {massLabel(profile.goalWeightKg, units)}
-              </span>{" "}
-              — change it on{" "}
-              <Link href="/me/profile" className="text-jade-strong hover:underline">
-                your file
-              </Link>
-              .
-            </p>
-          ) : null}
-        </Card>
-      ) : null}
+      {/* Ungated. The sparkline this replaced needed two readings before it had
+          anything to say, so the whole card used to wait for them; the chart
+          draws one reading as a dot and none as a labelled empty frame. The
+          blank state is the useful one — its chips are what tell you the app
+          tracks a waist and a body fat percentage at all. */}
+      <Card className="mt-6 p-4 sm:p-5">
+        {current ? (
+          <div className="mb-5">
+            <BodyStats
+              currentKg={current.weightKg}
+              previousKg={
+                previous && previous !== current ? previous.weightKg : null
+              }
+              goalKg={profile?.goalWeightKg ?? null}
+              units={units}
+              sinceLabel="in 30 days"
+            />
+          </div>
+        ) : null}
+        <BodyTrend
+          rows={toBodyRows(measurements)}
+          heightCm={profile?.heightCm ?? null}
+          goalWeightKg={profile?.goalWeightKg ?? null}
+          possessive="your"
+          units={units}
+        />
+        {profile?.goalWeightKg != null ? (
+          <p className="mt-3 text-xs text-ink-soft">
+            Goal of{" "}
+            <span className="metric text-ink">
+              {massLabel(profile.goalWeightKg, units)}
+            </span>{" "}
+            — change it on{" "}
+            <Link href="/me/profile" className="text-jade-strong hover:underline">
+              your file
+            </Link>
+            .
+          </p>
+        ) : null}
+      </Card>
 
       {/* Resting burn sits under the trend rather than above it: the weight is
           the measurement and this is what follows from it. */}
