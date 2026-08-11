@@ -188,9 +188,9 @@ const MIN_DATA_SHARE = 0.25;
 // window, and that expansion is only worth it while the readings still fill
 // enough of the result to be readable — otherwise the line is dropped rather
 // than drawn, because a reference must never sit outside the domain (it would
-// clip off the top, the bug WeightTrend guards against by pushing goalKg into
-// its extent). Time ranges made this urgent: pick one week and every reading
-// in it is within a pound, so a goal twenty pounds away flattens the lot.
+// clip off the top). Time ranges made this urgent: pick one week and every
+// reading in it is within a pound, so a goal twenty pounds away flattens the
+// lot.
 export function domainFor(
   series: PlotSeries[],
   flatPad: number,

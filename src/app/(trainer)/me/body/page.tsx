@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { Card, Container, EmptyState, PageHeading } from "@/components/ui";
 import { MeasurementForm } from "@/components/MeasurementForm";
 import { DeleteMeasurement } from "@/components/DeleteMeasurement";
-import { BodyStats } from "@/components/WeightTrend";
+import { BodyStats } from "@/components/BodyStats";
 import { BodyTrend } from "@/components/BodyTrend";
 import { BmrPanel } from "@/components/BmrPanel";
 import { UnitsToggle } from "@/components/UnitsToggle";

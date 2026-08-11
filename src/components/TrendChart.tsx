@@ -3,11 +3,11 @@
 // The multi-series trend chart: pick metrics, get lines.
 //
 // Generic over its row and its context, and it knows nothing about bodies or
-// food — BodyTrend and NutritionTrend hand it a registry. WeightTrend is still
-// the house reference for how a chart is drawn here and two of its decisions
-// carry straight over: preserveAspectRatio="none" so the shape fills whatever
-// width the card gives it, and vectorEffect="non-scaling-stroke" on every
-// stroked element so the line keeps its weight while the geometry stretches.
+// food — BodyTrend and NutritionTrend hand it a registry. It replaced a
+// bodyweight sparkline (WeightTrend, now deleted) and kept two of its
+// decisions: preserveAspectRatio="none" so the shape fills whatever width the
+// card gives it, and vectorEffect="non-scaling-stroke" on every stroked
+// element so the line keeps its weight while the geometry stretches.
 //
 // What is new is text. Tick labels can't live inside a non-uniformly scaled
 // viewBox without being stretched with it, so the SVG holds geometry only and

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card, Container, PageHeading, ButtonLink } from "@/components/ui";
-import { WeightTrend, BodyStats } from "@/components/WeightTrend";
+import { BodyStats } from "@/components/BodyStats";
+import { BodyTrend } from "@/components/BodyTrend";
 import { MacroBar } from "@/components/MacroBar";
 import { suggestTargets, targetInputsFrom } from "@/lib/body";
 import { sumMacros } from "@/lib/nutrition-form";
+import { toBodyRows } from "@/lib/metrics";
 import { toUnits } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 
@@ -29,11 +31,12 @@ export default async function MePage() {
 
   const [profile, measurements, log] = await Promise.all([
     prisma.clientProfile.findUnique({ where: { userId: trainer.id } }),
+    // Whole rows, tape-only entries included, and deep enough for the chart's
+    // 1Y range. This card used to want two columns for a sparkline.
     prisma.measurement.findMany({
-      where: { clientId: trainer.id, weightKg: { not: null } },
+      where: { clientId: trainer.id },
       orderBy: { date: "desc" },
-      take: 60,
-      select: { date: true, weightKg: true },
+      take: 400,
     }),
     prisma.nutritionLog.findUnique({
       where: { clientId_date: { clientId: trainer.id, date: today } },
@@ -90,37 +93,39 @@ export default async function MePage() {
           </div>
 
           {current ? (
-            <>
-              <div className="mt-3">
-                <BodyStats
+            <div className="mt-3">
+              <BodyStats
                   currentKg={current.weightKg}
                   previousKg={
                     previous && previous !== current ? previous.weightKg : null
                   }
                   goalKg={profile?.goalWeightKg ?? null}
                   units={units}
-                  sinceLabel="in 30 days"
-                />
-              </div>
-              {/* Still the sparkline, not the full chart. This is the glance —
-                  a legend and fourteen toggles belong on /me/body, where you
-                  have gone to look at something. Renders nothing below two
-                  points, which is its own answer: one reading is a dot. */}
-              <WeightTrend
-                className="mt-4 h-24 w-full"
-                points={weighIns.map((m) => ({ date: m.date, kg: m.weightKg }))}
-                goalKg={profile?.goalWeightKg ?? null}
-                units={units}
+                sinceLabel="in 30 days"
               />
-              <p className="mt-3 text-xs text-ink-soft">
-                Last weighed {formatDate(current.date)}.
-              </p>
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-ink-soft">
-              Nothing logged yet. The trend starts from your second weigh-in.
+            </div>
+          ) : null}
+
+          {/* The full chart, same as /me/body. This started as a sparkline on
+              the argument that a glance shouldn't need a legend — but the chip
+              row is the glance now: four metrics and a range, the rest folded
+              away. It draws its own blank state, so the card no longer waits
+              for a weigh-in before it shows anything. */}
+          <div className="mt-4">
+            <BodyTrend
+              rows={toBodyRows(measurements)}
+              heightCm={profile?.heightCm ?? null}
+              goalWeightKg={profile?.goalWeightKg ?? null}
+              possessive="your"
+              units={units}
+            />
+          </div>
+
+          {current ? (
+            <p className="mt-3 text-xs text-ink-soft">
+              Last weighed {formatDate(current.date)}.
             </p>
-          )}
+          ) : null}
 
           {/* Shown whether or not anything is logged. Saving a day you already
               have edits it, so "log" is the only verb either card needs. */}
