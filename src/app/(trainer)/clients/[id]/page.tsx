@@ -14,10 +14,12 @@ import {
 import { AssignSavedWorkout } from "@/components/AssignSavedWorkout";
 import { ResetClientPassword } from "./ResetClientPassword";
 import { assignTemplateToClient } from "@/app/(trainer)/library/actions";
+import { toBodyRows } from "@/lib/metrics";
 import { formatDate, toDateInput } from "@/lib/format";
 import { sumMacros } from "@/lib/nutrition-form";
 import { MeasurementForm } from "@/components/MeasurementForm";
-import { WeightTrend, BodyStats } from "@/components/WeightTrend";
+import { BodyStats } from "@/components/BodyStats";
+import { BodyTrend } from "@/components/BodyTrend";
 import { saveMeasurement } from "@/app/(trainer)/clients/body-actions";
 import { toUnits } from "@/lib/constants";
 import { avatarUrl } from "@/lib/avatar";
@@ -137,19 +139,17 @@ export default async function ClientDetailPage({
       }),
       prisma.clientProfile.findFirst({
         where: { userId: id, user: { trainerId: trainer.id } },
-        select: { goalWeightKg: true, goalType: true },
+        select: { goalWeightKg: true, goalType: true, heightCm: true },
       }),
       // Capped like the nutrition logs beside it. This section is a summary
       // that links out — the full history has its own route and its own query.
+      // Whole rows now, and tape-only entries included: the chart on this card
+      // plots every figure a Measurement holds, not just the weight. Deep
+      // enough for its 1Y range — nothing here renders a list of them.
       prisma.measurement.findMany({
-        where: {
-          clientId: id,
-          client: { trainerId: trainer.id },
-          weightKg: { not: null },
-        },
+        where: { clientId: id, client: { trainerId: trainer.id } },
         orderBy: { date: "desc" },
-        take: 30,
-        select: { id: true, date: true, weightKg: true },
+        take: 400,
       }),
       // This client's month, both kinds of session. Deliberately unfiltered by
       // attendance where the coach's own calendar filters hard: that one
@@ -470,7 +470,7 @@ export default async function ClientDetailPage({
           </div>
         </div>
 
-        {weighIns.length === 0 ? (
+        {measurements.length === 0 ? (
           <EmptyState
             title="Nothing measured yet"
             action={
@@ -495,12 +495,15 @@ export default async function ClientDetailPage({
               sinceLabel="in 30 days"
             />
 
-            <WeightTrend
-              className="mt-4 h-20 w-full"
-              points={weighIns.map((m) => ({ date: m.date, kg: m.weightKg }))}
-              goalKg={profile?.goalWeightKg ?? null}
-              units={units}
-            />
+            <div className="mt-4">
+              <BodyTrend
+                rows={toBodyRows(measurements)}
+                heightCm={profile?.heightCm ?? null}
+                goalWeightKg={profile?.goalWeightKg ?? null}
+                possessive="their"
+                units={units}
+              />
+            </div>
 
             <div className="mt-4 border-t border-line pt-4">
               <MeasurementForm
