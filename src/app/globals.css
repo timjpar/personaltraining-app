@@ -44,6 +44,37 @@
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.28);
 }
 
+/* ---- Chart series palette ------------------------------------------------
+   Eight fixed hues for the trend chart, and the one place in the app that
+   breaks the "everything re-colours with the accent" rule. It has to: the
+   accent means *action* — the thing you can press, the set you finished — and
+   a series colour means *identity*, which line is your waist. Deriving these
+   from the accent would repaint someone's body-fat line when they switched
+   scheme, and Slate would land two of them under the chroma floor where a hue
+   stops doing identity work at all. So: fixed, and validated as a set against
+   this app's own card surfaces (#ffffff light, #171d1b dark) rather than
+   eyeballed. Don't "fix" them into var(--color-jade) derivations.
+
+   `static` is load-bearing. Tailwind v4 emits a @theme variable only when its
+   scanner sees the literal token in source, and metrics.ts builds these into
+   inline `color` styles rather than utility classes — so the scanner never
+   sees them, and without `static` they'd be tree-shaken out of the dark
+   build. Light would still work, because the block below is hand-written CSS
+   that ships regardless: a bug that only appears in one theme.
+
+   Order is the colourblind-safety mechanism, not taste — adjacent slots are
+   the pairs most likely to touch. Reordering means re-validating. */
+@theme static {
+  --color-series-1: #3987e5; /* blue */
+  --color-series-2: #d95926; /* orange */
+  --color-series-3: #199e70; /* teal */
+  --color-series-4: #c98500; /* gold */
+  --color-series-5: #d55181; /* pink */
+  --color-series-6: #008300; /* green */
+  --color-series-7: #9085e9; /* violet */
+  --color-series-8: #e66767; /* red */
+}
+
 /* ---- Light ---------------------------------------------------------------
    The original palette. `:root[data-theme=…]` is specificity 0,2,0 so it beats
    the 0,1,0 `:root` block Tailwind emits from @theme regardless of order. */
@@ -64,6 +95,20 @@
   --color-amber-wash: #f6ecda;
 
   --color-flag: #c2513a;
+
+  /* The same eight hues stepped for the light surface, not a second palette.
+     Three of them (teal, gold, pink) sit under 3:1 against white, which is
+     allowed here only because the chart never asks colour to carry a value on
+     its own: every series is named in the legend and repeated in the table
+     underneath. Drop either of those and these three have to be re-stepped. */
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+  --color-series-3: #1baf7a;
+  --color-series-4: #eda100;
+  --color-series-5: #e87ba4;
+  --color-series-6: #008300;
+  --color-series-7: #4a3aa7;
+  --color-series-8: #e34948;
 
   --shadow-card: 0 1px 2px rgba(20, 24, 26, 0.04), 0 6px 20px rgba(20, 24, 26, 0.05);
 }

@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db";
 import { Card, Container, EmptyState, PageHeading, Badge } from "@/components/ui";
 import { MeasurementForm } from "@/components/MeasurementForm";
 import { DeleteMeasurement } from "@/components/DeleteMeasurement";
-import { WeightTrend, BodyStats } from "@/components/WeightTrend";
+import { BodyStats } from "@/components/WeightTrend";
+import { BodyTrend } from "@/components/BodyTrend";
 import { BmrPanel } from "@/components/BmrPanel";
 import { UnitsToggle } from "@/components/UnitsToggle";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/app/(trainer)/clients/body-actions";
 import { formatDate, toDateInput } from "@/lib/format";
 import { parseDayParam } from "@/lib/calendar";
+import { toBodyRows } from "@/lib/metrics";
 import {
   MEASUREMENT_SOURCE,
   MEASUREMENT_SOURCE_LABELS,
@@ -105,19 +107,26 @@ export default async function ClientMeasurementsPage({
         </PageHeading>
       </div>
 
-      {weighIns.length >= 2 ? (
+      {measurements.length > 0 ? (
         <Card className="mt-6 p-4 sm:p-5">
-          <BodyStats
-            currentKg={current?.weightKg ?? null}
-            previousKg={previous && previous !== current ? previous.weightKg : null}
-            goalKg={profile?.goalWeightKg ?? null}
-            units={units}
-            sinceLabel="in 30 days"
-          />
-          <WeightTrend
-            className="mt-4 h-28 w-full"
-            points={weighIns.map((m) => ({ date: m.date, kg: m.weightKg }))}
-            goalKg={profile?.goalWeightKg ?? null}
+          {current ? (
+            <div className="mb-5">
+              <BodyStats
+                currentKg={current.weightKg}
+                previousKg={
+                  previous && previous !== current ? previous.weightKg : null
+                }
+                goalKg={profile?.goalWeightKg ?? null}
+                units={units}
+                sinceLabel="in 30 days"
+              />
+            </div>
+          ) : null}
+          <BodyTrend
+            rows={toBodyRows(measurements)}
+            heightCm={profile?.heightCm ?? null}
+            goalWeightKg={profile?.goalWeightKg ?? null}
+            possessive="their"
             units={units}
           />
         </Card>

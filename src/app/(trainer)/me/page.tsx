@@ -102,8 +102,10 @@ export default async function MePage() {
                   sinceLabel="in 30 days"
                 />
               </div>
-              {/* Renders nothing below two points, which is its own answer —
-                  one reading is a dot, not a trend. */}
+              {/* Still the sparkline, not the full chart. This is the glance —
+                  a legend and fourteen toggles belong on /me/body, where you
+                  have gone to look at something. Renders nothing below two
+                  points, which is its own answer: one reading is a dot. */}
               <WeightTrend
                 className="mt-4 h-24 w-full"
                 points={weighIns.map((m) => ({ date: m.date, kg: m.weightKg }))}
@@ -115,15 +117,16 @@ export default async function MePage() {
               </p>
             </>
           ) : (
-            <>
-              <p className="mt-2 text-sm text-ink-soft">
-                Nothing logged yet. The trend starts from your second weigh-in.
-              </p>
-              <ButtonLink href="/me/body" size="sm" className="mt-4">
-                Log a weigh-in
-              </ButtonLink>
-            </>
+            <p className="mt-2 text-sm text-ink-soft">
+              Nothing logged yet. The trend starts from your second weigh-in.
+            </p>
           )}
+
+          {/* Shown whether or not anything is logged. Saving a day you already
+              have edits it, so "log" is the only verb either card needs. */}
+          <ButtonLink href="/me/body" size="sm" className="mt-4">
+            Log a weigh-in
+          </ButtonLink>
         </Card>
 
         <Card className="p-4 sm:p-5">
@@ -131,11 +134,16 @@ export default async function MePage() {
             <h2 className="font-display text-base font-semibold text-ink">
               Today&rsquo;s food
             </h2>
+            {/* Both cards' corner links now go to a history, and the logging
+                verb lives on the button underneath. Before, this one was the
+                only way in to today's log and read "Log it ›" / "Edit ›",
+                which made the two cards answer different questions from the
+                same position. */}
             <Link
-              href="/me/nutrition"
+              href="/me/nutrition/history"
               className="metric shrink-0 text-xs text-jade-strong hover:underline"
             >
-              {log ? "Edit" : "Log it"} ›
+              All logs ›
             </Link>
           </div>
 
@@ -178,6 +186,10 @@ export default async function MePage() {
               </>
             )}
           </p>
+
+          <ButtonLink href="/me/nutrition" size="sm" className="mt-4">
+            Log nutrition
+          </ButtonLink>
         </Card>
       </div>
     </Container>

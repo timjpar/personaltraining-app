@@ -39,6 +39,7 @@ function revalidateMe() {
   revalidatePath("/me/body");
   revalidatePath("/me/profile");
   revalidatePath("/me/nutrition");
+  revalidatePath("/me/nutrition/history");
   revalidatePath("/me/nutrition/[date]", "page");
 }
 

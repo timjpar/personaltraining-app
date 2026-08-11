@@ -16,6 +16,18 @@ export function formatDateLong(d: Date | string) {
   }).format(date);
 }
 
+// Axis-tick short form. No weekday — a tick is read as a position on a line,
+// not as a day you did something, and "Mon, Aug 4" is three times the width of
+// the number it labels. Formatted on the server like every other date here, so
+// the browser's zone never gets a say (see TrendChart).
+export function formatDateShort(d: Date | string) {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
 export function relativeTime(d: Date | string) {
   const date = typeof d === "string" ? new Date(d) : d;
   const diff = Date.now() - date.getTime();
