@@ -99,3 +99,25 @@ export function useStoredSet(
 
   return [selected, store];
 }
+
+/**
+ * The same store, for a single value rather than a set — the chart's time
+ * range. `coerce` is what keeps a stale or hand-edited value from reaching the
+ * component: it takes whatever came out of storage and returns something valid.
+ * Must be a module-level function at the call site, like `fallback` above.
+ */
+export function useStoredValue<T extends string>(
+  key: string,
+  coerce: (raw: unknown) => T,
+): [T, (next: T) => void] {
+  const raw = useSyncExternalStore(
+    subscribe,
+    () => read(key),
+    () => null,
+  );
+
+  const value = useMemo(() => coerce(raw), [raw, coerce]);
+  const store = useCallback((next: T) => write(key, next), [key]);
+
+  return [value, store];
+}

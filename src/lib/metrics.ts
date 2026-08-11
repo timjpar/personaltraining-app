@@ -135,6 +135,12 @@ export type Metric<Row, Ctx> = {
   // turning a line off must not repaint the ones left behind.
   slot: SeriesSlot;
   dashed: boolean;
+  // On screen without asking. Fourteen chips is a wall — most of them greyed
+  // on a new file — and the wall is the first thing anyone sees on the page.
+  // The few that answer "how is this going" lead; the rest are a click away.
+  // A selected metric is always shown regardless, or a line could be drawn
+  // with no way to see it was on.
+  primary?: boolean;
   // Canonical units, or null when this row can't produce it.
   value: (row: Row, ctx: Ctx) => number | null;
   // Why this metric can't work for this reader *at all*, in prose — a missing
@@ -235,6 +241,7 @@ const needsHeight = (ctx: BodyCtx) =>
 export const BODY_METRICS: Metric<BodyRow, BodyCtx>[] = [
   {
     key: "weight",
+    primary: true,
     label: "Weight",
     family: FAMILIES.mass,
     slot: 0,
@@ -244,6 +251,7 @@ export const BODY_METRICS: Metric<BodyRow, BodyCtx>[] = [
   },
   {
     key: "bodyFat",
+    primary: true,
     label: "Body fat %",
     family: FAMILIES.percent,
     slot: 1,
@@ -252,6 +260,7 @@ export const BODY_METRICS: Metric<BodyRow, BodyCtx>[] = [
   },
   {
     key: "lean",
+    primary: true,
     label: "Lean mass",
     family: FAMILIES.mass,
     slot: 2,
@@ -266,6 +275,7 @@ export const BODY_METRICS: Metric<BodyRow, BodyCtx>[] = [
   },
   {
     key: "fatMass",
+    primary: true,
     label: "Fat mass",
     family: FAMILIES.mass,
     slot: 3,
@@ -350,6 +360,7 @@ export type NutritionCtx = {
 export const NUTRITION_METRICS: Metric<NutritionRow, NutritionCtx>[] = [
   {
     key: "calories",
+    primary: true,
     label: "Calories",
     family: FAMILIES.energy,
     slot: 0,
@@ -359,6 +370,7 @@ export const NUTRITION_METRICS: Metric<NutritionRow, NutritionCtx>[] = [
   },
   {
     key: "protein",
+    primary: true,
     label: "Protein",
     family: FAMILIES.grams,
     slot: 2,
@@ -368,6 +380,7 @@ export const NUTRITION_METRICS: Metric<NutritionRow, NutritionCtx>[] = [
   },
   {
     key: "carbs",
+    primary: true,
     label: "Carbs",
     family: FAMILIES.grams,
     slot: 3,
@@ -377,6 +390,7 @@ export const NUTRITION_METRICS: Metric<NutritionRow, NutritionCtx>[] = [
   },
   {
     key: "fat",
+    primary: true,
     label: "Fat",
     family: FAMILIES.grams,
     slot: 1,
