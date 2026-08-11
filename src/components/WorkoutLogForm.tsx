@@ -10,6 +10,7 @@ import {
 } from "@/components/PrescriptionCard";
 import { Card, Textarea, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import type { LogHints } from "@/lib/exercise-progression";
 import { groupBySection, usesSections } from "@/lib/workout-form";
 
 type LogExercise = {
@@ -25,6 +26,10 @@ type LogExercise = {
   notes: string | null;
   section: string;
   demo?: Demo;
+  // What this athlete logged against this movement last time, already worded
+  // for the placeholder by logHints(). Undefined on a movement they have never
+  // logged, and individual keys are missing for boxes they left blank then.
+  hints?: LogHints;
 };
 
 // The two result boxes. Typed values keep the tabular mono of a program sheet,
@@ -220,6 +225,10 @@ export function WorkoutLogForm({
                             three across a phone leaves ~55px of text width and
                             "Weight you used" needs 88px. From sm: up there's
                             room for all three. */}
+                        {/* Placeholders, not values: a movement you have done
+                            before hints at what you did last time and what to
+                            aim for, and still submits blank if you don't type.
+                            Nothing here can log a number you didn't lift. */}
                         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                           <label className="flex flex-col gap-1">
                             <span className="eyebrow text-ink-soft/70">
@@ -228,7 +237,7 @@ export function WorkoutLogForm({
                             <input
                               name={`res_${ex.id}_sets`}
                               inputMode="numeric"
-                              placeholder="Sets you did"
+                              placeholder={ex.hints?.sets ?? "Sets you did"}
                               className={hintInput}
                             />
                           </label>
@@ -239,7 +248,7 @@ export function WorkoutLogForm({
                             <input
                               name={`res_${ex.id}_reps`}
                               inputMode="numeric"
-                              placeholder="Reps you did"
+                              placeholder={ex.hints?.reps ?? "Reps you did"}
                               className={hintInput}
                             />
                           </label>
@@ -250,10 +259,14 @@ export function WorkoutLogForm({
                             <input
                               name={`res_${ex.id}_load`}
                               inputMode="decimal"
-                              // Says what to enter rather than echoing the
-                              // prescription — that already sits in the metric
-                              // strip a few pixels above these fields.
-                              placeholder="Weight you used"
+                              // The fallback says what to enter rather than
+                              // echoing the prescription — that already sits in
+                              // the metric strip a few pixels above these
+                              // fields, so repeating it would cost a line and
+                              // tell the athlete nothing new. Their own history
+                              // is not in the strip, which is why it earns the
+                              // space when there is any.
+                              placeholder={ex.hints?.load ?? "Weight you used"}
                               className={hintInput}
                             />
                           </label>

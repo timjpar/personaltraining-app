@@ -12,9 +12,16 @@ import {
   type Demo,
 } from "@/components/PrescriptionCard";
 import { groupBySection, usesSections } from "@/lib/workout-form";
-import { DISCIPLINE_LABELS, toDiscipline, toCoachReaction } from "@/lib/constants";
+import {
+  DISCIPLINE_LABELS,
+  toDiscipline,
+  toCoachReaction,
+  toUnits,
+} from "@/lib/constants";
 import { CoachResponseCard } from "@/components/CoachResponseCard";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
+import { getLastResults } from "@/lib/exercise-history";
+import { logHints } from "@/lib/exercise-progression";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { demoSearchUrl } from "@/lib/exercise-archetypes";
 import { RpeMeter } from "@/components/RpeMeter";
@@ -48,12 +55,23 @@ export default async function ClientWorkoutPage({
   const isCompleted = workout.status === "COMPLETED";
   const showSections = usesSections(workout.exercises);
 
-  // One query for the whole session; the coach's own media beats the generic
-  // YouTube search, which is why this is resolved before rendering.
-  const media = await getExerciseMedia(
-    workout.trainerId,
-    workout.exercises.map((e) => e.name),
-  );
+  const names = workout.exercises.map((e) => e.name);
+
+  // One query each for the whole session rather than one per row, and both at
+  // once because neither needs the other. Media: the coach's own demo beats the
+  // generic YouTube search, which is why it is resolved before rendering.
+  // History: what this athlete last logged against these movements — only worth
+  // asking for on a session still being logged, since the recap below shows
+  // what actually happened rather than what to aim for.
+  const [media, lastResults] = await Promise.all([
+    getExerciseMedia(workout.trainerId, names),
+    isCompleted ? undefined : getLastResults(client.id, workout.id, names),
+  ]);
+
+  // Decides only the size of a suggested jump, and only when the athlete logged
+  // a bare number last time — a "kg" or "lb" they typed themselves always wins.
+  const units = toUnits(client.units);
+
   const demoFor = (name: string): Demo => {
     const own = media.get(normalizeExerciseName(name));
     if (own) return { own: true, url: own.url };
@@ -183,6 +201,11 @@ export default async function ClientWorkoutPage({
             exercises={workout.exercises.map((ex) => ({
               ...ex,
               demo: demoFor(ex.name),
+              hints: logHints({
+                name: ex.name,
+                last: lastResults?.get(normalizeExerciseName(ex.name)),
+                units,
+              }),
             }))}
           />
         </div>

@@ -602,6 +602,13 @@ model Exercise {
   resultReps String?
   resultLoad String?
   done       Boolean @default(false)
+
+  // Postgres does not index a foreign key for you, and every read of this table
+  // is "the rows for these workouts" — one workout for a session page, up to
+  // LOOKBACK_SESSIONS of them for the last-time hints on the log form (see
+  // src/lib/exercise-history.ts). Without this that second query seq-scans
+  // every exercise anyone has ever been programmed.
+  @@index([workoutId])
 }
 
 model FeedItem {
