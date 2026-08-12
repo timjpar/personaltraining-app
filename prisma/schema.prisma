@@ -29,8 +29,26 @@ model User {
 
   // How this account came to exist. Existing rows all default to SELF, which is
   // right for everyone who registered but wrong for clients a trainer added —
-  // only new rows are accurate.
-  signupSource String @default("SELF") // SELF | GOOGLE | TRAINER
+  // only new rows are accurate. SELF and GOOGLE are historical from here on:
+  // the app is invite-only, so no new row can be written with either.
+  signupSource String @default("SELF") // SELF | GOOGLE | TRAINER | ADMIN
+
+  // Client or prospect — see CLIENT_STAGE in src/lib/constants.ts. Meaningful
+  // only on CLIENT rows; a coach's own row carries the default and nothing
+  // reads it.
+  //
+  // Deliberately not a third value of `role`, for the reason isAdmin gives for
+  // not being one either: a prospect is an ordinary client account with a label
+  // on it. They sign in, get programmed, and log sessions exactly as anyone
+  // else does — the difference is which of the coach's two allowances they
+  // count against (CLIENT_LIMIT and PROSPECT_LIMIT), and what the roster calls
+  // them. Making it a role would mean every `role: "CLIENT"` filter in the app
+  // had to grow an OR, and the one that got missed would drop a prospect out of
+  // a coach's calendar or feed.
+  //
+  // Defaults ACTIVE, which is what every client written before this column
+  // existed actually is.
+  stage String @default("ACTIVE") // ACTIVE | PROSPECT
   // Denormalised from the newest successful LoginEvent so the admin list can
   // sort and display "last seen" without a per-row subquery.
   lastLoginAt DateTime?
@@ -179,6 +197,71 @@ model User {
   // columns on this model.
   bodyProfile  ClientProfile? @relation("UserBodyProfile")
   measurements Measurement[]  @relation("ClientMeasurements")
+
+  // The paid-sessions ledger, from both ends: the entries about this person as
+  // an athlete, and the ones this coach wrote.
+  sessionCredits         SessionCredit[] @relation("ClientSessionCredits")
+  sessionCreditsAsCoach  SessionCredit[] @relation("TrainerSessionCredits")
+}
+
+// One movement in a client's block of paid sessions: `delta` is +10 when the
+// coach sells them ten, and -1 each time one gets used. The balance is the sum,
+// which is the whole design — see src/lib/sessions.ts, which owns every read of
+// it.
+//
+// A ledger rather than a counter column on User, and the reason is that this is
+// the one number in the app with money behind it. A counter answers "3 left"
+// and nothing else; the first question a coach actually asks is "3? I sold her
+// ten in March" — which a counter cannot answer at all, and which no amount of
+// care at the write sites brings back once it's wrong. It also makes "never
+// tracked" distinguishable from "used them all": no rows means this client
+// isn't on a package, and the app says nothing about their balance rather than
+// warning that a number nobody set has run out.
+//
+// The cost is that every read is an aggregate. That is one groupBy for a whole
+// roster (see balancesFor), not a query per client, so it stays cheap at the
+// only scale this app has.
+model SessionCredit {
+  id String @id @default(cuid())
+
+  clientId String
+  client   User   @relation("ClientSessionCredits", fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Who sold or spent it. Denormalised from client.trainerId rather than
+  // derived, because a client can be reassigned to another coach and the
+  // history of who they bought from must not move with them.
+  trainerId String
+  trainer   User   @relation("TrainerSessionCredits", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  // Signed, and never zero. Positive is credit going on the account, negative
+  // is credit coming off — one column rather than a magnitude plus a direction
+  // flag, for the reason ClientProfile.rateKgPerWeek gives in reverse: there
+  // the two could disagree, and here summing is the entire read path.
+  delta Int
+
+  // What kind of movement this is — SESSION_CREDIT_KIND in constants.ts. Not
+  // derivable from the sign: an ADJUSTMENT of -2 (miscounted) and a SESSION of
+  // -1 (they trained) are both debits and read completely differently on a
+  // statement.
+  kind String
+
+  // "Ten-pack, paid by card" — the coach's own words, for the row that made
+  // them wonder.
+  note String?
+
+  // Set on the entry a finished session wrote, null on everything the coach
+  // added by hand. Unique, and that is the idempotency: completing a workout
+  // twice — a double-submitted form, a retried action — can only ever produce
+  // one debit, because the second insert loses on this index. The same move
+  // FeedItem makes with nutritionLogId, and Postgres allows unlimited NULLs in
+  // a unique index, so every hand-written row coexists here untouched.
+  workoutId String?  @unique
+  workout   Workout? @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  // The statement on a client's file: their rows, newest first.
+  @@index([clientId, createdAt])
 }
 
 // Everything a coach needs before they can write a meal plan or a training
@@ -566,6 +649,10 @@ model Workout {
 
   exercises Exercise[]
   feedItems FeedItem[]
+
+  // The paid session this one spent, if it spent one. At most one, enforced by
+  // the unique index on the other side.
+  sessionCredit SessionCredit?
 
   @@index([clientId, scheduledDate])
   // The calendar's month query is trainer-scoped over a date range, so it can't

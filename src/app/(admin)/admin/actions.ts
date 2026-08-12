@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { requireAdmin, requireOwner, isOwnerEmail, isAdminUser } from "@/lib/admin";
+import { newTrainerEmail, sendMail } from "@/lib/mail";
 import { generatePassword } from "@/lib/password";
-import { ROLES } from "@/lib/constants";
+import { requestOrigin } from "@/lib/request-origin";
+import { ROLES, SIGNUP_SOURCE } from "@/lib/constants";
 
 export type ResetPasswordState = {
   error?: string;
@@ -34,6 +36,89 @@ async function loadTarget(formData: FormData) {
   const userId = String(formData.get("userId") ?? "");
   if (!userId) return null;
   return prisma.user.findUnique({ where: { id: userId } });
+}
+
+export type AddTrainerState = {
+  error?: string;
+  // Mirrors AddClientState in (trainer)/clients/actions.ts, including the
+  // `emailed` flag: false means the account exists but nothing reached them, so
+  // the password on screen is the only way in and the form keeps showing it.
+  created?: {
+    name: string;
+    email: string;
+    password: string;
+    emailed: boolean;
+  };
+};
+
+// The only way a coach account comes into existence. Self-registration is gone
+// (see (auth)/actions.ts), so this is the top of the tree: an admin makes
+// coaches, coaches make their own clients, and nobody makes themselves
+// anything.
+//
+// requireAdmin rather than requireOwner, deliberately, and it's worth saying
+// why given how carefully setAdminAccess below is owner-only. That guard exists
+// because minting admins turns one compromised account into permanent access.
+// A coach is not an escalation: they get a workspace of their own and reach
+// nothing outside it. Onboarding is the job a promoted admin is *for*, and
+// making it owner-only would leave admins unable to do the one thing they were
+// promoted to do.
+export async function addTrainer(
+  _prev: AddTrainerState,
+  formData: FormData,
+): Promise<AddTrainerState> {
+  await requireAdmin();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  let password = String(formData.get("password") ?? "").trim();
+
+  if (!name || !email) {
+    return { error: "Add a name and an email for the coach." };
+  }
+  // Same floor as every other password path in the app.
+  if (password && password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return { error: "Someone already uses that email." };
+  }
+
+  if (!password) password = generatePassword();
+
+  try {
+    await prisma.user.create({
+      data: {
+        name,
+        email,
+        role: ROLES.TRAINER,
+        passwordHash: await hashPassword(password),
+        signupSource: SIGNUP_SOURCE.ADMIN,
+      },
+    });
+  } catch (err) {
+    // The check above and this insert aren't atomic. The unique index settles
+    // it, and the loser reads the same sentence rather than a 500.
+    if (isUniqueViolation(err)) {
+      return { error: "Someone already uses that email." };
+    }
+    throw err;
+  }
+
+  // Best effort, exactly as addClient does it: sendMail returns false rather
+  // than throwing, so a mail outage can't undo an account already written. The
+  // result goes back to the form because the admin is then the delivery
+  // mechanism.
+  const emailed = await sendMail({
+    ...newTrainerEmail(await requestOrigin(), name, email, password),
+    to: email,
+  });
+
+  revalidatePath("/admin");
+
+  return { created: { name, email, password, emailed } };
 }
 
 export async function resetPassword(

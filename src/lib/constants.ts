@@ -8,6 +8,154 @@ export const ROLES = {
 } as const;
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
+// Where someone is in a coach's book: training with them, or being courted.
+// A label on an ordinary client account rather than a third role — see
+// User.stage in schema.prisma for why that distinction is load-bearing.
+export const CLIENT_STAGE = {
+  ACTIVE: "ACTIVE",
+  PROSPECT: "PROSPECT",
+} as const;
+export type ClientStage = (typeof CLIENT_STAGE)[keyof typeof CLIENT_STAGE];
+
+// Clients first: it's the column default and the overwhelming majority of a
+// roster.
+export const CLIENT_STAGE_ORDER = [
+  "ACTIVE",
+  "PROSPECT",
+] as const satisfies readonly ClientStage[];
+
+export const CLIENT_STAGE_LABELS: Record<ClientStage, string> = {
+  ACTIVE: "Client",
+  PROSPECT: "Prospect",
+};
+
+// Plural, for the headings and the "12 of 40 clients" counts. Spelled out
+// rather than built by appending an "s", so the day one of these becomes an
+// irregular word it's a one-line change here and nowhere else.
+export const CLIENT_STAGE_PLURALS: Record<ClientStage, string> = {
+  ACTIVE: "Clients",
+  PROSPECT: "Prospects",
+};
+
+// What picking one actually means, shown under the choice on the add form.
+export const CLIENT_STAGE_HINTS: Record<ClientStage, string> = {
+  ACTIVE: "Someone you're training now",
+  PROSPECT: "A trial or a lead you're working on",
+};
+
+// How many of each a coach may have. Two separate allowances rather than one
+// pooled cap: the point of the split is that a coach can keep courting people
+// without eating into the roster they're paid to train.
+//
+// Fixed for everyone during the beta, deliberately. A per-coach override would
+// be a column and an admin form, and the honest answer for now is that raising
+// a cap is a one-line edit here.
+export const CLIENT_LIMIT = 40;
+export const PROSPECT_LIMIT = 20;
+
+export const STAGE_LIMITS: Record<ClientStage, number> = {
+  ACTIVE: CLIENT_LIMIT,
+  PROSPECT: PROSPECT_LIMIT,
+};
+
+// Same contract as toExerciseSection: anything unrecognised reads as ACTIVE,
+// which is the column default, so a legacy row or a tampered form field lands
+// on the value the form would have shown.
+export function toClientStage(value: unknown): ClientStage {
+  const s = String(value ?? "");
+  return s in CLIENT_STAGE_LABELS ? (s as ClientStage) : CLIENT_STAGE.ACTIVE;
+}
+
+// ---------------------------------------------------------------------------
+// Paid sessions
+//
+// A block of sessions a client has bought, counted down as they train. The
+// ledger that holds them is SessionCredit in schema.prisma and every read of it
+// lives in src/lib/sessions.ts.
+// ---------------------------------------------------------------------------
+
+// What moved credit on or off the account. Not derivable from the sign of the
+// entry: an ADJUSTMENT of -2 and a SESSION of -1 are both debits and read
+// completely differently on a statement.
+export const SESSION_CREDIT_KIND = {
+  // The coach sold them a block.
+  PURCHASE: "PURCHASE",
+  // A finished in-person session, written by the app rather than by anyone.
+  SESSION: "SESSION",
+  // The coach correcting the number by hand, in either direction.
+  ADJUSTMENT: "ADJUSTMENT",
+} as const;
+export type SessionCreditKind =
+  (typeof SESSION_CREDIT_KIND)[keyof typeof SESSION_CREDIT_KIND];
+
+export const SESSION_CREDIT_KIND_LABELS: Record<SessionCreditKind, string> = {
+  PURCHASE: "Sessions added",
+  SESSION: "Session used",
+  ADJUSTMENT: "Adjustment",
+};
+
+export function toSessionCreditKind(value: unknown): SessionCreditKind {
+  const s = String(value ?? "");
+  return s in SESSION_CREDIT_KIND_LABELS
+    ? (s as SessionCreditKind)
+    : SESSION_CREDIT_KIND.ADJUSTMENT;
+}
+
+// The balance at which the app starts saying something. Three because that's
+// roughly a week of training for someone on twice-a-week — enough notice to
+// have the conversation before the last session, which is the entire point of
+// warning at all rather than announcing it when they hit zero.
+export const LOW_SESSION_BALANCE = 3;
+
+// The largest block that can be added at once. A guard on a number field that
+// reaches a database, not a business rule: it catches the coach who means 10
+// and types 100, and it makes a forged post uninteresting.
+export const MAX_SESSION_CREDITS = 200;
+
+// A client's standing on their package. `tracked` is the distinction the whole
+// feature turns on: a client with no ledger entries is not on one, and the app
+// says nothing about their sessions rather than warning that a number nobody
+// set has run out. A bare 0 cannot tell those apart, which is why this is a
+// pair and not an integer.
+export type SessionBalance = {
+  // Can go negative — a session trained on an empty account is a real thing
+  // that happened, and "owes 1" is the honest reading. Meaningless unless
+  // `tracked`.
+  balance: number;
+  tracked: boolean;
+};
+
+export const UNTRACKED: SessionBalance = { balance: 0, tracked: false };
+
+// How loudly to say it. OUT covers zero and below: from the coach's side "none
+// left" and "one over" are the same conversation, and the exact figure is
+// always on screen beside this.
+export type SessionState = "OK" | "LOW" | "OUT";
+
+export function sessionState({ balance, tracked }: SessionBalance): SessionState {
+  if (!tracked) return "OK";
+  if (balance <= 0) return "OUT";
+  return balance <= LOW_SESSION_BALANCE ? "LOW" : "OK";
+}
+
+// The phrase on a badge or a roster row. Null when there's nothing worth
+// saying — untracked — so callers render nothing rather than a zero that would
+// read as "used them all".
+export function balanceLabel(entry: SessionBalance): string | null {
+  if (!entry.tracked) return null;
+  const { balance } = entry;
+  if (balance < 0) {
+    return `${-balance} session${balance === -1 ? "" : "s"} over`;
+  }
+  if (balance === 0) return "No sessions left";
+  return `${balance} session${balance === 1 ? "" : "s"} left`;
+}
+
+// These four sit here rather than beside the queries in src/lib/sessions.ts,
+// which is where the rest of the paid-sessions machinery lives: that module
+// imports Prisma, and the cards that render a balance are client components.
+// Anything a client component has to read has to reach it from this file.
+
 export const WORKOUT_STATUS = {
   ASSIGNED: "ASSIGNED",
   COMPLETED: "COMPLETED",
@@ -97,10 +245,15 @@ export function toCoachReaction(value: unknown): CoachReaction | null {
 
 // How an account came to exist. SELF is the default on the column, so it's also
 // what every row predating the audit log reads as.
+//
+// SELF and GOOGLE are historical: the app is invite-only, so nothing can write
+// either any more (see (auth)/register and the Google callback). They stay
+// because the rows that carry them do.
 export const SIGNUP_SOURCE = {
   SELF: "SELF",
   GOOGLE: "GOOGLE",
   TRAINER: "TRAINER",
+  ADMIN: "ADMIN",
 } as const;
 export type SignupSource = (typeof SIGNUP_SOURCE)[keyof typeof SIGNUP_SOURCE];
 
@@ -108,6 +261,7 @@ export const SIGNUP_SOURCE_LABELS: Record<SignupSource, string> = {
   SELF: "Registered",
   GOOGLE: "Google",
   TRAINER: "Added by trainer",
+  ADMIN: "Added by an admin",
 };
 
 export function toSignupSource(value: unknown): SignupSource {

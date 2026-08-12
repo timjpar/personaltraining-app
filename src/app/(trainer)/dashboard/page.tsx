@@ -23,7 +23,16 @@ import { zoneFor } from "@/lib/time-zone";
 import { relativeTime, formatDate, formatDateLong, toDateInput } from "@/lib/format";
 import { startOfWeek } from "@/lib/calendar";
 import { sumMacros } from "@/lib/nutrition-form";
-import { FEED_TYPE, toFeedType } from "@/lib/constants";
+import {
+  CLIENT_STAGE,
+  FEED_TYPE,
+  ROLES,
+  balanceLabel,
+  sessionState,
+  toClientStage,
+  toFeedType,
+} from "@/lib/constants";
+import { balanceFrom, balancesFor } from "@/lib/sessions";
 import { markAllRead } from "./actions";
 
 // One scoreboard strip on a phone, three separate cards from `sm` up. The
@@ -50,7 +59,7 @@ export default async function DashboardPage() {
 
   const [clients, feed, unread, completedThisWeek] = await Promise.all([
     prisma.user.findMany({
-      where: { trainerId: trainer.id, role: "CLIENT" },
+      where: { trainerId: trainer.id, role: ROLES.CLIENT },
       orderBy: { name: "asc" },
       include: {
         _count: { select: { workoutsAsClient: true } },
@@ -78,6 +87,22 @@ export default async function DashboardPage() {
     }),
   ]);
 
+  // One grouped aggregate over the roster just loaded, not a query per client.
+  const balances = await balancesFor(clients.map((c) => c.id));
+
+  // Anyone whose block is nearly out or already gone. Sorted by how bad it is,
+  // so the person who has trained past the end of theirs is named first — the
+  // whole point of surfacing this on the landing page is that the conversation
+  // happens before the next session, not after the tenth.
+  const runningLow = clients
+    .map((c) => ({ client: c, entry: balanceFrom(balances, c.id) }))
+    .filter((row) => sessionState(row.entry) !== "OK")
+    .sort((a, b) => a.entry.balance - b.entry.balance);
+
+  const active = clients.filter(
+    (c) => toClientStage(c.stage) === CLIENT_STAGE.ACTIVE,
+  ).length;
+
   return (
     <Container>
       <PageHeading
@@ -99,10 +124,44 @@ export default async function DashboardPage() {
       </PageHeading>
 
       <div className="mt-6 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-[var(--radius-card)] border border-line bg-card shadow-[var(--shadow-card)] sm:mt-7 sm:gap-3 sm:divide-x-0 sm:border-0 sm:bg-transparent sm:shadow-none">
-        <StatCard label="Active clients" value={clients.length} />
+        <StatCard label="Active clients" value={active} />
         <StatCard label="Done this week" value={completedThisWeek} />
         <StatCard label="To review" value={unread} />
       </div>
+
+      {/* Paid sessions running out, named and linked. Above the feed and below
+          the scoreboard, which is the one spot on this page that earns an
+          interruption: it's about money rather than training, it needs doing
+          before the next session, and it disappears the moment it's dealt with.
+          Nothing renders here for a coach who doesn't sell blocks. */}
+      {runningLow.length > 0 ? (
+        // A plain div rather than <Card>, for the reason the feed items below
+        // are ones too: cn() is a joiner with no conflict resolution, so a
+        // background passed to Card lands *alongside* its own bg-card and loses
+        // on stylesheet order. A tinted panel has to bring all its own classes.
+        <div className="mt-6 rounded-[var(--radius-card)] border border-amber/30 bg-amber-wash p-4 shadow-[var(--shadow-card)] sm:p-5">
+          <p className="eyebrow text-amber">Sessions running low</p>
+          <ul className="mt-2.5 flex flex-col gap-1.5">
+            {runningLow.map(({ client, entry }) => (
+              <li key={client.id} className="text-sm">
+                <Link
+                  href={`/clients/${client.id}`}
+                  className="font-medium text-ink hover:underline"
+                >
+                  {client.name}
+                </Link>{" "}
+                <span
+                  className={
+                    entry.balance <= 0 ? "text-flag" : "text-ink-soft"
+                  }
+                >
+                  — {balanceLabel(entry)?.toLowerCase()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         {/* Activity feed — the trainer's half of the loop. */}

@@ -13,6 +13,8 @@ import {
 } from "@/lib/exercise-sets";
 import { sendWorkoutEmailSafely } from "@/lib/digest";
 import { requestOrigin } from "@/lib/request-origin";
+import { consumeSessionCredit } from "@/lib/sessions";
+import { ATTENDANCE, toAttendance } from "@/lib/constants";
 
 export type CompleteState = { error?: string };
 
@@ -100,6 +102,21 @@ export async function completeWorkout(
       },
     }),
   ]);
+
+  // One paid session off the account, if this client is on a package at all —
+  // consumeSessionCredit decides that, and does nothing for anyone who isn't.
+  //
+  // Only for a session the coach was actually in the room for. That's what a
+  // client buys: homework they do alone is programming, and counting it down
+  // would empty a ten-pack in a fortnight of solo work nobody was paid for.
+  //
+  // Deliberately outside the transaction above. The ledger is the coach's
+  // record, and a hiccup writing it must not roll back the session an athlete
+  // just logged — a missed debit is visible on the client's file and fixable in
+  // one form, where a refused log costs work that only existed in their head.
+  if (toAttendance(workout.attendance) === ATTENDANCE.IN_PERSON) {
+    await consumeSessionCredit(workout);
+  }
 
   // Runs as the client but touches the *trainer's* calendar too: completing a
   // session changes its summary (it gains a ✓), so the coach's Google calendar

@@ -226,6 +226,12 @@ export const GOOGLE_ERRORS = {
   exchange: "Google couldn't confirm that sign-in. Try again.",
   unverified:
     "That Google account's email address isn't verified, so we can't sign you in with it.",
+  // The one error here that isn't "try again": there is nothing to retry until
+  // somebody makes them an account. It names the address deliberately vaguely —
+  // whoever pressed the button knows which Google account they picked, and
+  // spelling it back into a URL adds nothing.
+  noaccount:
+    "There's no Chalkline account for that Google address. Chalkline is invite-only — ask your coach to add you, or get in touch about a coach account.",
 } as const;
 
 export type GoogleError = keyof typeof GOOGLE_ERRORS;

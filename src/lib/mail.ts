@@ -163,58 +163,41 @@ Password: <strong>${escapeHtml(password)}</strong></p>
   };
 }
 
-// Sent when someone registers themselves. No password in it, deliberately: they
-// chose it seconds ago, so echoing it back tells them nothing and leaves a
-// credential sitting in an inbox for the life of the account. What is worth
-// confirming is *which* address the account answers to.
-export function welcomeEmail(origin: string, name: string, email: string): Mail {
-  const link = `${appUrl(origin)}/login`;
-  return {
-    to: "",
-    subject: "Welcome to Chalkline",
-    text: [
-      `Hi ${name},`,
-      "",
-      "Your Chalkline account is ready. From here you can build sessions, add your clients, and see their training land back with you as they complete it.",
-      "",
-      `Sign in at: ${link}`,
-      `Email:      ${email}`,
-      "",
-      "You signed in with the password you chose when you registered. If it ever slips your mind, the sign-in page has a \"Forgot password\" link.",
-    ].join("\n"),
-    html: `<p>Hi ${escapeHtml(name)},</p>
-<p>Your Chalkline account is ready. From here you can build sessions, add your clients, and see their training land back with you as they complete it.</p>
-<p><a href="${escapeHtml(link)}">Sign in to Chalkline</a></p>
-<p>Email: <strong>${escapeHtml(email)}</strong></p>
-<p>You signed in with the password you chose when you registered. If it ever slips your mind, the sign-in page has a &ldquo;Forgot password&rdquo; link.</p>`,
-  };
-}
-
-// Sent when a first Google sign-in creates the account. Says plainly that there
-// is no password, so nobody goes looking for one they were never sent — the same
-// job googleOnlyEmail does for someone who reaches /forgot the long way round.
-export function googleWelcomeEmail(
+// Sent when an admin creates a coach's account — the only way a coach account
+// comes into existence now that the app is invite-only. The sibling of
+// newClientEmail above and it carries a password for exactly the same reason:
+// the account was made *for* someone who never chose one.
+//
+// There is no self-registration welcome any more, and no Google one: nothing
+// creates an account from a sign-in, so the two emails that used to say
+// "welcome, you just signed up" had nobody left to send to.
+export function newTrainerEmail(
   origin: string,
   name: string,
   email: string,
+  password: string,
 ): Mail {
   const link = `${appUrl(origin)}/login`;
   return {
     to: "",
-    subject: "Welcome to Chalkline",
+    subject: "Your Chalkline coaching account",
     text: [
       `Hi ${name},`,
       "",
-      `Your Chalkline account is ready, and it signs in with your Google account (${email}).`,
+      "Your Chalkline coaching account is ready. From here you can build sessions, add your clients, and see their training land back with you as they complete it.",
       "",
       `Sign in at: ${link}`,
+      `Email:      ${email}`,
+      `Password:   ${password}`,
       "",
-      'There\'s no password to remember — use the "Continue with Google" button.',
+      'Once you\'re in, you can pick a password of your own with the "Forgot password" link on the sign-in page.',
     ].join("\n"),
     html: `<p>Hi ${escapeHtml(name)},</p>
-<p>Your Chalkline account is ready, and it signs in with your Google account (<strong>${escapeHtml(email)}</strong>).</p>
+<p>Your Chalkline coaching account is ready. From here you can build sessions, add your clients, and see their training land back with you as they complete it.</p>
 <p><a href="${escapeHtml(link)}">Sign in to Chalkline</a></p>
-<p>There&rsquo;s no password to remember — use the &ldquo;Continue with Google&rdquo; button.</p>`,
+<p>Email: <strong>${escapeHtml(email)}</strong><br>
+Password: <strong>${escapeHtml(password)}</strong></p>
+<p>Once you&rsquo;re in, you can pick a password of your own with the &ldquo;Forgot password&rdquo; link on the sign-in page.</p>`,
   };
 }
 
