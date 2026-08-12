@@ -14,6 +14,7 @@ import {
   parseDayParam,
   timeInputFromMinutes,
   workoutItem,
+  SELF_LINKS,
   TRAINER_LINKS,
 } from "@/lib/calendar";
 import { ATTENDANCE, EVENT_KIND_LABELS, toEventKind } from "@/lib/constants";
@@ -69,8 +70,14 @@ export default async function CalendarDayPage({
     }),
   ]);
 
+  // Same split the month grid makes: the coach's own session links to the page
+  // that can log it, and drops the name that would be the reader's own.
   const items = [
-    ...workouts.map((w) => workoutItem(w, TRAINER_LINKS)),
+    ...workouts.map((w) =>
+      w.client.id === trainer.id
+        ? workoutItem({ ...w, client: null }, SELF_LINKS)
+        : workoutItem(w, TRAINER_LINKS),
+    ),
     ...events.map((e) => eventItem(e, TRAINER_LINKS)),
   ].sort(compareItems);
 

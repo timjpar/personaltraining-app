@@ -14,6 +14,7 @@ import {
 } from "@/lib/mail";
 import { formatDate, toDateInput } from "@/lib/format";
 import { sumMacros } from "@/lib/nutrition-form";
+import { rosterOnly } from "@/lib/assignees";
 
 // How far back a first digest, or one after a gap, is allowed to reach. Without
 // it, a trainer who set an hour after months of use gets a wall of text as
@@ -34,7 +35,20 @@ export async function buildDigest(
 
   const [workouts, logs, plans] = await Promise.all([
     prisma.workout.findMany({
-      where: { trainerId, status: "COMPLETED", completedAt: { gte: from } },
+      // rosterOnly keeps the coach's own training out of their own digest. A
+      // session they assigned themselves carries this same trainerId, and an
+      // evening email reporting back what you did this morning — under a
+      // heading about your athletes — is the app talking to itself.
+      //
+      // The logs query below needs no such guard and never did: it reaches
+      // clients through `client: { trainerId }`, and a coach's own User row has
+      // a null trainerId, so their food log has always fallen outside it.
+      where: {
+        trainerId,
+        ...rosterOnly(trainerId),
+        status: "COMPLETED",
+        completedAt: { gte: from },
+      },
       orderBy: { completedAt: "desc" },
       select: {
         id: true,

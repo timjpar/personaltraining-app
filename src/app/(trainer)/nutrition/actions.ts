@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { parseNutritionForm, type ParsedMeal } from "@/lib/nutrition-form";
+import {
+  assigneePhrase,
+  resolveAssignees,
+  revalidateAssignedPlans,
+} from "@/lib/assignees";
 import type { AssignState } from "@/components/AssignClients";
 
 export type NutritionFormState = { error?: string };
@@ -107,8 +112,12 @@ export async function deleteNutritionTemplate(planId: string) {
   redirect("/nutrition");
 }
 
-// Deep-copy a library plan into a standing plan for each selected client. The
-// client's current plan is simply their most recently assigned one.
+// Deep-copy a library plan into a standing plan for each person selected — the
+// coach included, see src/lib/assignees.ts. Anyone's current plan is simply
+// their most recently assigned one, and that rule is what makes the coach's
+// case work with no extra machinery: their own copy is a NutritionPlan whose
+// clientId happens to equal its trainerId, and /me/nutrition reads it back with
+// the same "newest assignedAt wins" query an athlete's day view uses.
 export async function assignNutritionPlan(
   templateId: string,
   _prev: AssignState,
@@ -127,14 +136,8 @@ export async function assignNutritionPlan(
   });
   if (!template) return { error: "Plan not found." };
 
-  const clientIds = formData.getAll("clientId").map(String).filter(Boolean);
-  if (clientIds.length === 0) return { error: "Pick at least one client." };
-
-  const clients = await prisma.user.findMany({
-    where: { id: { in: clientIds }, trainerId: trainer.id, role: "CLIENT" },
-    select: { id: true },
-  });
-  if (clients.length === 0) return { error: "Those clients weren't found." };
+  const { targets, error } = await resolveAssignees(trainer, formData);
+  if (error || !targets) return { error: error ?? "Something went wrong." };
 
   const meals = template.meals.map((m) => ({
     name: m.name,
@@ -155,7 +158,7 @@ export async function assignNutritionPlan(
 
   const now = new Date();
   await prisma.$transaction(
-    clients.map((c) =>
+    targets.map((t) =>
       prisma.nutritionPlan.create({
         data: {
           title: template.title,
@@ -165,7 +168,7 @@ export async function assignNutritionPlan(
           targetCarbs: template.targetCarbs,
           targetFat: template.targetFat,
           trainerId: trainer.id,
-          clientId: c.id,
+          clientId: t.id,
           assignedAt: now,
           meals: { create: meals },
         },
@@ -173,8 +176,9 @@ export async function assignNutritionPlan(
     ),
   );
 
-  for (const c of clients) revalidatePath(`/clients/${c.id}`);
+  revalidateAssignedPlans(trainer.id, targets);
 
-  const n = clients.length;
-  return { ok: `Assigned “${template.title}” to ${n} client${n === 1 ? "" : "s"}.` };
+  return {
+    ok: `Assigned “${template.title}” to ${assigneePhrase(targets, trainer.id)}.`,
+  };
 }

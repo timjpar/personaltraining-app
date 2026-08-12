@@ -2,13 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import {
-  Container,
-  PageHeading,
-  Badge,
-  ButtonLink,
-  EmptyState,
-} from "@/components/ui";
+import { Container, PageHeading, Badge, ButtonLink } from "@/components/ui";
+import { assignableClients } from "@/lib/assignees";
 import { DISCIPLINE_LABELS, toDiscipline } from "@/lib/constants";
 import {
   PrescriptionCard,
@@ -44,11 +39,7 @@ export default async function TemplatePage({
     template.exercises.map((e) => e.name),
   );
 
-  const clients = await prisma.user.findMany({
-    where: { trainerId: trainer.id, role: "CLIENT" },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+  const clients = await assignableClients(trainer.id);
 
   return (
     <Container className="max-w-3xl">
@@ -118,35 +109,26 @@ export default async function TemplatePage({
         ))}
       </div>
 
+      {/* No empty-state branch any more: yourself is always on the list, so
+          there is never a state in which this form has nobody to submit for.
+          AssignClients says so inline when the roster is empty. */}
       <div className="mt-9">
         <h2 className="mb-1 font-display text-lg font-semibold text-ink">
-          Assign to clients
+          Assign this workout
         </h2>
         <p className="mb-3 text-sm text-ink-soft">
-          Pick who gets this session and the day it lands on. Each becomes an
-          editable workout for that client.
+          Pick who gets this session and the day it lands on — yourself
+          included. Each becomes an editable workout for that person.
         </p>
-        {clients.length === 0 ? (
-          <EmptyState
-            title="No clients yet"
-            action={
-              <ButtonLink href="/clients" size="sm">
-                Add a client
-              </ButtonLink>
-            }
-          >
-            Add clients, then assign this workout to any of them in a click.
-          </EmptyState>
-        ) : (
-          <AssignClients
-            action={assignTemplate.bind(null, template.id)}
-            clients={clients}
-            submitLabel="Assign workout"
-            withDate
-            withSchedule
-            defaultDate={toDateInput(new Date())}
-          />
-        )}
+        <AssignClients
+          action={assignTemplate.bind(null, template.id)}
+          clients={clients}
+          self={{ id: trainer.id }}
+          submitLabel="Assign workout"
+          withDate
+          withSchedule
+          defaultDate={toDateInput(new Date())}
+        />
       </div>
     </Container>
   );

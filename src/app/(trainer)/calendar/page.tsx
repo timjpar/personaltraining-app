@@ -14,6 +14,7 @@ import {
   parseMonthKey,
   startOfMonth,
   workoutItem,
+  SELF_LINKS,
   TRAINER_LINKS,
 } from "@/lib/calendar";
 import { toDateInput } from "@/lib/format";
@@ -74,8 +75,17 @@ export default async function CalendarPage({
     }),
   ]);
 
+  // A session the coach assigned themselves belongs here — it is an hour of
+  // their day like any other in-person session, which is exactly what the
+  // attendance filter above is asking about. Two things about it differ: it
+  // links to the page that can log it, and it drops the client name, which
+  // would otherwise print the reader's own name on their own calendar.
   const byDay = groupByDay([
-    ...workouts.map((w) => workoutItem(w, TRAINER_LINKS)),
+    ...workouts.map((w) =>
+      w.client.id === trainer.id
+        ? workoutItem({ ...w, client: null }, SELF_LINKS)
+        : workoutItem(w, TRAINER_LINKS),
+    ),
     ...events.map((e) => eventItem(e, TRAINER_LINKS)),
   ]);
 

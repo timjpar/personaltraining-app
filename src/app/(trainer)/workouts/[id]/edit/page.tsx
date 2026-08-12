@@ -39,7 +39,13 @@ export default async function EditWorkoutPage({
 
       <div className="mt-3">
         <PageHeading eyebrow="Edit session" title={workout.title}>
-          Programming for {workout.client.name}.
+          {/* The coach can assign a session to themselves, and this row is
+              reached the same way any other is — via /workouts/<id>, which
+              bounces a self session on to /me/workouts/<id>. Only the sentence
+              changes; the builder doesn't care whose session it is. */}
+          {workout.clientId === trainer.id
+            ? "Programming for yourself."
+            : `Programming for ${workout.client.name}.`}
         </PageHeading>
       </div>
 

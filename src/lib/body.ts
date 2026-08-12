@@ -401,3 +401,35 @@ export function targetInputsFrom(
     },
   };
 }
+
+// ---- Which targets a day of food is measured against ----------------------
+
+export type DailyTargets = {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+};
+
+// An assigned plan's numbers, or the suggestion derived from the file, or
+// nothing — in that order, and the order is the whole content of this function.
+//
+// It exists because a coach can now assign a meal plan to themselves, which
+// makes /me the one place in the app where both answers can be present at once.
+// An athlete only ever had the plan; /me/nutrition only ever had the
+// suggestion, and its own comment said so. The plan wins because it is a
+// decision somebody made and the suggestion is arithmetic: accepting the
+// suggested figures into a plan is exactly what SuggestedTargets exists for, so
+// letting the derived number override the accepted one would undo that by hand.
+//
+// A plan with all four targets blank is treated as no plan, not as four blank
+// targets. Those columns are optional and a plan is routinely written without
+// them, so the alternative would let a meal plan with no numbers on it silently
+// switch off the figures the coach was already reading.
+export function dailyTargets(
+  plan: DailyTargets | null,
+  suggested: DailyTargets | null,
+): DailyTargets | null {
+  if (plan && Object.values(plan).some((v) => v != null)) return plan;
+  return suggested;
+}

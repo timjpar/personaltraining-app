@@ -188,6 +188,20 @@ export const CLIENT_LINKS: ItemLinks = {
   event: (_id, day) => `/my/calendar/${day}`,
 };
 
+// A coach's own session, on the coach's own calendar. Picked per item rather
+// than per page — the coach's calendar mixes their athletes' sessions with
+// their own — which is why these are three constants and not two.
+//
+// The workout href is the only line that differs from TRAINER_LINKS, and it has
+// to: /workouts/<id> is the review page for somebody else's training, with no
+// way to log a set. The place to *do* one of your own is /me/workouts/<id>.
+// Events keep the trainer's href because a CalendarEvent is the coach's own
+// time by definition and has only ever had one page.
+export const SELF_LINKS: ItemLinks = {
+  workout: (id) => `/me/workouts/${id}`,
+  event: (id, day) => `/calendar/${day}?edit=${id}`,
+};
+
 // Structural parameters rather than Prisma types, so this module stays free of
 // the generated client and the pages can select only the columns they need.
 //
