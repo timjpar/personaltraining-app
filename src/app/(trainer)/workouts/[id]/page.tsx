@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Container, PageHeading, Card, Badge, ButtonLink } from "@/components/ui";
@@ -46,6 +46,19 @@ export default async function WorkoutReviewPage({
     },
   });
   if (!workout) notFound();
+
+  // A session the coach assigned themselves matches the query above — same
+  // trainerId — but this page is the wrong one for it in every particular: the
+  // back link points at /clients/<id>, which refuses a non-client; the heading
+  // prints the reader's own name; and the coach-feedback form at the bottom
+  // invites them to write themselves a reply. /me/workouts/<id> is the page
+  // that can actually log it.
+  //
+  // A redirect rather than a notFound so every existing link keeps working —
+  // updateWorkout redirects here after a save, and so does the edit form's
+  // cancel — and so that a bookmark from before this shipped still lands
+  // somewhere useful.
+  if (workout.clientId === trainer.id) redirect(`/me/workouts/${workout.id}`);
 
   const isCompleted = workout.status === "COMPLETED";
   const showSections = usesSections(workout.exercises);

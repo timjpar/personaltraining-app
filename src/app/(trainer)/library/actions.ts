@@ -14,6 +14,11 @@ import {
   recordExerciseNamesSafely,
   saveExerciseMediaSafely,
 } from "@/lib/exercise-catalog";
+import {
+  assigneePhrase,
+  resolveAssignees,
+  revalidateAssignedWorkouts,
+} from "@/lib/assignees";
 import type { AssignState } from "@/components/AssignClients";
 
 export type TemplateFormState = { error?: string };
@@ -109,9 +114,13 @@ export async function deleteTemplate(templateId: string) {
   redirect("/library");
 }
 
-// Bulk: assign one saved workout to several clients on a date. Each becomes an
+// Bulk: assign one saved workout to several people on a date. Each becomes an
 // independent, editable Workout (a snapshot) — later template edits don't touch
 // already-assigned sessions.
+//
+// "People" rather than "clients" since the coach can be one of them; a session
+// assigned to the coach is the identical row with clientId === trainerId. See
+// src/lib/assignees.ts.
 export async function assignTemplate(
   templateId: string,
   _prev: AssignState,
@@ -125,24 +134,17 @@ export async function assignTemplate(
   });
   if (!template) return { error: "Workout not found." };
 
-  const clientIds = formData.getAll("clientId").map(String).filter(Boolean);
-  if (clientIds.length === 0) return { error: "Pick at least one client." };
+  const { targets, error } = await resolveAssignees(trainer, formData);
+  if (error || !targets) return { error: error ?? "Something went wrong." };
 
   const scheduledDate = parseDateInput(formData.get("date"));
   if (!scheduledDate) return { error: "Pick a valid date." };
-
-  // Trust only clients that actually belong to this trainer.
-  const clients = await prisma.user.findMany({
-    where: { id: { in: clientIds }, trainerId: trainer.id, role: "CLIENT" },
-    select: { id: true },
-  });
-  if (clients.length === 0) return { error: "Those clients weren't found." };
 
   const rows = exerciseRowsFrom(template.exercises);
   const slot = parseAssignedSlot(formData);
 
   await prisma.$transaction(
-    clients.map((c) =>
+    targets.map((t) =>
       prisma.workout.create({
         data: {
           title: template.title,
@@ -157,7 +159,7 @@ export async function assignTemplate(
           // different times is scheduling six sessions, not one.
           ...slot,
           status: "ASSIGNED",
-          clientId: c.id,
+          clientId: t.id,
           trainerId: trainer.id,
           exercises: { create: rows },
         },
@@ -165,12 +167,11 @@ export async function assignTemplate(
     ),
   );
 
-  revalidatePath("/dashboard");
-  for (const c of clients) revalidatePath(`/clients/${c.id}`);
-  revalidatePath("/calendar");
+  revalidateAssignedWorkouts(trainer.id, targets);
 
-  const n = clients.length;
-  return { ok: `Assigned “${template.title}” to ${n} client${n === 1 ? "" : "s"}.` };
+  return {
+    ok: `Assigned “${template.title}” to ${assigneePhrase(targets, trainer.id)}.`,
+  };
 }
 
 // The client-detail direction: client is fixed, trainer picks a saved workout.

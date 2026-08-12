@@ -8,6 +8,15 @@ export const ROLES = {
 } as const;
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
+// What the coach's own checkbox says on every "assign to" form — a coach can
+// assign a workout, a program or a meal plan to themselves. Deliberately not
+// their name: the row sits among people they recognise by name, and "Yourself"
+// is the one label that stays unambiguous when a coach and a client share a
+// first name. Here rather than beside the rest of the self-assignment machinery
+// in src/lib/assignees.ts, which imports Prisma and so can't be reached from the
+// client component that draws the box.
+export const SELF_LABEL = "Yourself";
+
 // Where someone is in a coach's book: training with them, or being courted.
 // A label on an ordinary client account rather than a third role — see
 // User.stage in schema.prisma for why that distinction is load-bearing.
@@ -151,10 +160,9 @@ export function balanceLabel(entry: SessionBalance): string | null {
   return `${balance} session${balance === 1 ? "" : "s"} left`;
 }
 
-// These four sit here rather than beside the queries in src/lib/sessions.ts,
-// which is where the rest of the paid-sessions machinery lives: that module
-// imports Prisma, and the cards that render a balance are client components.
-// Anything a client component has to read has to reach it from this file.
+// These four sit here rather than beside the queries in src/lib/sessions.ts for
+// the reason SELF_LABEL gives above: that module imports Prisma, and the cards
+// that render a balance are client components. Same rule, same file.
 
 export const WORKOUT_STATUS = {
   ASSIGNED: "ASSIGNED",

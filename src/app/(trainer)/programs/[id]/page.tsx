@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Container, PageHeading, EmptyState, ButtonLink } from "@/components/ui";
+import { Container, PageHeading } from "@/components/ui";
+import { assignableClients } from "@/lib/assignees";
 import { ProgramBuilder } from "@/components/ProgramBuilder";
 import { AssignClients } from "@/components/AssignClients";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
@@ -29,11 +30,7 @@ export default async function ProgramPage({
       orderBy: { title: "asc" },
       select: { id: true, title: true },
     }),
-    prisma.user.findMany({
-      where: { trainerId: trainer.id, role: "CLIENT" },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
+    assignableClients(trainer.id),
   ]);
 
   return (
@@ -85,31 +82,19 @@ export default async function ProgramPage({
           Assign this program
         </h2>
         <p className="mb-3 text-sm text-ink-soft">
-          Pick the clients and a start date. Every session is scheduled out from
-          there, week by week.
+          Pick who runs it — yourself included — and a start date. Every session
+          is scheduled out from there, week by week.
         </p>
-        {clients.length === 0 ? (
-          <EmptyState
-            title="No clients yet"
-            action={
-              <ButtonLink href="/clients" size="sm">
-                Add a client
-              </ButtonLink>
-            }
-          >
-            Add clients, then roll this whole block out to them in a click.
-          </EmptyState>
-        ) : (
-          <AssignClients
-            action={assignProgram.bind(null, program.id)}
-            clients={clients}
-            submitLabel="Assign program"
-            withDate
-            withSchedule
-            dateLabel="Start date"
-            defaultDate={toDateInput(new Date())}
-          />
-        )}
+        <AssignClients
+          action={assignProgram.bind(null, program.id)}
+          clients={clients}
+          self={{ id: trainer.id }}
+          submitLabel="Assign program"
+          withDate
+          withSchedule
+          dateLabel="Start date"
+          defaultDate={toDateInput(new Date())}
+        />
       </div>
     </Container>
   );

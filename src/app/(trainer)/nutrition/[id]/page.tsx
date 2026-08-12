@@ -2,12 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import {
-  Container,
-  PageHeading,
-  ButtonLink,
-  EmptyState,
-} from "@/components/ui";
+import { Container, PageHeading, ButtonLink } from "@/components/ui";
+import { assignableClients } from "@/lib/assignees";
 import { NutritionPlanView } from "@/components/NutritionPlanView";
 import { AssignClients } from "@/components/AssignClients";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
@@ -32,11 +28,7 @@ export default async function NutritionPlanPage({
   });
   if (!plan) notFound();
 
-  const clients = await prisma.user.findMany({
-    where: { trainerId: trainer.id, role: "CLIENT" },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+  const clients = await assignableClients(trainer.id);
 
   return (
     <Container className="max-w-3xl">
@@ -76,29 +68,19 @@ export default async function NutritionPlanPage({
 
       <div className="mt-9">
         <h2 className="mb-1 font-display text-lg font-semibold text-ink">
-          Assign to clients
+          Assign this plan
         </h2>
         <p className="mb-3 text-sm text-ink-soft">
-          Each client gets their own copy — it becomes their current plan.
+          Everyone picked gets their own copy — it becomes their current plan.
+          Assign it to yourself and it shows up on your own nutrition page,
+          alongside what you actually ate.
         </p>
-        {clients.length === 0 ? (
-          <EmptyState
-            title="No clients yet"
-            action={
-              <ButtonLink href="/clients" size="sm">
-                Add a client
-              </ButtonLink>
-            }
-          >
-            Add clients, then hand them this plan in a click.
-          </EmptyState>
-        ) : (
-          <AssignClients
-            action={assignNutritionPlan.bind(null, plan.id)}
-            clients={clients}
-            submitLabel="Assign plan"
-          />
-        )}
+        <AssignClients
+          action={assignNutritionPlan.bind(null, plan.id)}
+          clients={clients}
+          self={{ id: trainer.id }}
+          submitLabel="Assign plan"
+        />
       </div>
     </Container>
   );

@@ -5,11 +5,12 @@ import { Card, Container, PageHeading, ButtonLink } from "@/components/ui";
 import { BodyStats } from "@/components/BodyStats";
 import { BodyTrend } from "@/components/BodyTrend";
 import { MacroBar } from "@/components/MacroBar";
-import { suggestTargets, targetInputsFrom } from "@/lib/body";
+import { dailyTargets, suggestTargets, targetInputsFrom } from "@/lib/body";
 import { sumMacros } from "@/lib/nutrition-form";
 import { toBodyRows } from "@/lib/metrics";
-import { toUnits } from "@/lib/constants";
+import { toUnits, WORKOUT_STATUS } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
+import { formatTime } from "@/lib/calendar";
 
 // The coach's own corner of the app: the same body and nutrition tracking their
 // athletes get, kept on themselves.
@@ -29,24 +30,50 @@ export default async function MePage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [profile, measurements, log] = await Promise.all([
-    prisma.clientProfile.findUnique({ where: { userId: trainer.id } }),
-    // Whole rows, tape-only entries included, and deep enough for the chart's
-    // 1Y range. This card used to want two columns for a sparkline.
-    prisma.measurement.findMany({
-      where: { clientId: trainer.id },
-      orderBy: { date: "desc" },
-      take: 400,
-    }),
-    prisma.nutritionLog.findUnique({
-      where: { clientId_date: { clientId: trainer.id, date: today } },
-      include: {
-        foods: {
-          select: { calories: true, protein: true, carbs: true, fat: true },
+  const [profile, measurements, log, nextSession, loggedCount, plan] =
+    await Promise.all([
+      prisma.clientProfile.findUnique({ where: { userId: trainer.id } }),
+      // Whole rows, tape-only entries included, and deep enough for the chart's
+      // 1Y range. This card used to want two columns for a sparkline.
+      prisma.measurement.findMany({
+        where: { clientId: trainer.id },
+        orderBy: { date: "desc" },
+        take: 400,
+      }),
+      prisma.nutritionLog.findUnique({
+        where: { clientId_date: { clientId: trainer.id, date: today } },
+        include: {
+          foods: {
+            select: { calories: true, protein: true, carbs: true, fat: true },
+          },
         },
-      },
-    }),
-  ]);
+      }),
+      // The soonest session still to do, including one scheduled for a day
+      // that has been and gone: a workout you didn't get to on Tuesday is
+      // still the next thing you owe yourself, and hiding it behind a date
+      // filter is how it stops existing.
+      prisma.workout.findFirst({
+        where: { clientId: trainer.id, status: { not: WORKOUT_STATUS.COMPLETED } },
+        orderBy: { scheduledDate: "asc" },
+        include: { _count: { select: { exercises: true } } },
+      }),
+      prisma.workout.count({
+        where: { clientId: trainer.id, status: WORKOUT_STATUS.COMPLETED },
+      }),
+      // The coach's own meal plan, if they've assigned themselves one — same
+      // "newest assignedAt wins" rule every other current-plan read uses.
+      prisma.nutritionPlan.findFirst({
+        where: { clientId: trainer.id },
+        orderBy: { assignedAt: "desc" },
+        select: {
+          title: true,
+          targetCalories: true,
+          targetProtein: true,
+          targetCarbs: true,
+          targetFat: true,
+        },
+      }),
+    ]);
 
   const units = toUnits(trainer.units);
 
@@ -60,9 +87,30 @@ export default async function MePage() {
   const previous = window[window.length - 1] ?? null;
 
   // Same derivation the food log measures against, and the same reason it isn't
-  // stored: a pure function of the file and the newest weigh-in.
+  // stored: a pure function of the file and the newest weigh-in. An assigned
+  // plan outranks it — see dailyTargets.
   const { inputs } = targetInputsFrom(profile, current);
-  const t = inputs ? suggestTargets(inputs) : null;
+  const suggested = inputs ? suggestTargets(inputs) : null;
+  const planTargets = plan
+    ? {
+        calories: plan.targetCalories,
+        protein: plan.targetProtein,
+        carbs: plan.targetCarbs,
+        fat: plan.targetFat,
+      }
+    : null;
+  const targets = dailyTargets(
+    planTargets,
+    suggested && {
+      calories: suggested.calories,
+      protein: suggested.protein,
+      carbs: suggested.carbs,
+      fat: suggested.fat,
+    },
+  );
+  // Which of the two won, so the line under the strip names the right source.
+  // dailyTargets returns whichever object it picked, so identity answers it.
+  const fromPlan = targets !== null && targets === planTargets;
 
   const totals = sumMacros(log ? [{ foods: log.foods }] : []);
 
@@ -79,6 +127,66 @@ export default async function MePage() {
           "178.5 lb" wraps onto a second line. Full width is the shape the strip
           was built for, and it is what /me/body and /my/body both give it. */}
       <div className="mt-7 flex flex-col gap-5">
+        {/* Training first. The other two cards are things you record about
+            yourself; this is the thing you actually go and do, and it's the
+            only one of the three with a deadline on it. */}
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="font-display text-base font-semibold text-ink">
+              Training
+            </h2>
+            <Link
+              href="/me/workouts"
+              className="metric shrink-0 text-xs text-jade-strong hover:underline"
+            >
+              All sessions ›
+            </Link>
+          </div>
+
+          {nextSession ? (
+            <div className="mt-3">
+              <p className="eyebrow text-ink-soft/70">Up next</p>
+              <p className="mt-1 font-display text-lg font-semibold text-ink">
+                {nextSession.title}
+              </p>
+              <p className="metric mt-0.5 text-xs text-ink-soft">
+                {formatDate(nextSession.scheduledDate)}
+                {nextSession.startMinute == null
+                  ? ""
+                  : `, ${formatTime(nextSession.startMinute)}`}{" "}
+                · {nextSession._count.exercises} exercise
+                {nextSession._count.exercises === 1 ? "" : "s"}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-ink-soft">
+              Nothing scheduled. You&rsquo;re on every assign list in your own{" "}
+              <Link href="/library" className="text-jade-strong hover:underline">
+                library
+              </Link>{" "}
+              and{" "}
+              <Link href="/programs" className="text-jade-strong hover:underline">
+                programs
+              </Link>{" "}
+              — tick &ldquo;Yourself&rdquo; to put a session on your own list.
+            </p>
+          )}
+
+          {loggedCount > 0 ? (
+            <p className="metric mt-3 text-xs text-ink-soft">
+              {loggedCount} session{loggedCount === 1 ? "" : "s"} logged.
+            </p>
+          ) : null}
+
+          <ButtonLink
+            href={nextSession ? `/me/workouts/${nextSession.id}` : "/me/workouts/new"}
+            size="sm"
+            className="mt-4"
+          >
+            {nextSession ? "Start workout" : "Write a session"}
+          </ButtonLink>
+        </Card>
+
         <Card className="p-4 sm:p-5">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="font-display text-base font-semibold text-ink">
@@ -152,23 +260,24 @@ export default async function MePage() {
             </Link>
           </div>
 
-          <MacroBar
-            className="mt-3"
-            totals={totals}
-            targets={
-              t
-                ? {
-                    calories: t.calories,
-                    protein: t.protein,
-                    carbs: t.carbs,
-                    fat: t.fat,
-                  }
-                : null
-            }
-          />
+          <MacroBar className="mt-3" totals={totals} targets={targets} />
 
+          {/* Three states, not two: the numbers over the strip now come from
+              an assigned plan when there is one, and a figure whose source
+              isn't named is a figure nobody can correct. */}
           <p className="mt-3 text-xs text-ink-soft">
-            {t ? (
+            {fromPlan ? (
+              <>
+                Against{" "}
+                <Link
+                  href="/me/nutrition"
+                  className="text-jade-strong hover:underline"
+                >
+                  {plan?.title}
+                </Link>
+                , the plan you assigned yourself.
+              </>
+            ) : targets ? (
               <>
                 Against the targets derived from{" "}
                 <Link
@@ -187,7 +296,14 @@ export default async function MePage() {
                 >
                   Fill in your file
                 </Link>{" "}
-                to measure these against a target.
+                to measure these against a target — or assign yourself a{" "}
+                <Link
+                  href="/nutrition"
+                  className="text-jade-strong hover:underline"
+                >
+                  meal plan
+                </Link>
+                .
               </>
             )}
           </p>
