@@ -4,11 +4,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { User } from "@/generated/prisma/client";
-import { prisma, isUniqueViolation } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { sessionCookie } from "@/lib/auth";
 import { recordLoginSafely } from "@/lib/login-log";
-import { googleWelcomeEmail, sendMail } from "@/lib/mail";
-import { LOGIN_METHOD, LOGIN_OUTCOME, ROLES, SIGNUP_SOURCE } from "@/lib/constants";
+import { LOGIN_METHOD, LOGIN_OUTCOME, ROLES } from "@/lib/constants";
 import {
   OAUTH_COOKIE,
   fetchIdentity,
@@ -62,16 +61,22 @@ export async function GET(req: NextRequest) {
     return fail(req, "unverified");
   }
 
-  const { user, created } = await resolveUser(identity);
+  const user = await resolveUser(identity);
 
-  // Only on the sign-in that brought the account into existence. Best effort and
-  // deliberately unawaited-on for its result: a mail failure must not turn a
-  // successful sign-in into an error page.
-  if (created) {
-    await sendMail({
-      ...googleWelcomeEmail(req.nextUrl.origin, user.name, user.email),
-      to: user.email,
+  // No account for this Google identity. The app is invite-only, so this is the
+  // door the missing sign-up form would otherwise have left wide open — a
+  // Google button that creates an account is a sign-up form with fewer fields.
+  //
+  // Audited like any other failed attempt, and for the same reason a wrong
+  // password is: an address turning up here repeatedly is someone trying to get
+  // in, which is precisely what the log is for.
+  if (!user) {
+    await recordLoginSafely({
+      email: identity.email,
+      method: LOGIN_METHOD.GOOGLE,
+      outcome: LOGIN_OUTCOME.NO_ACCOUNT,
     });
+    return fail(req, "noaccount");
   }
 
   await recordLoginSafely({
@@ -90,61 +95,33 @@ export async function GET(req: NextRequest) {
   return res;
 }
 
-// Finds the account this Google identity belongs to, creating one if it's new.
-// `created` is true only on the branch that actually inserted a row — the
-// welcome email hangs off it, and every other branch is someone signing back
-// into an account they already had.
-async function resolveUser(
-  identity: GoogleIdentity,
-): Promise<{ user: User; created: boolean }> {
+// Finds the account this Google identity belongs to, or null. It never creates
+// one: accounts are made by an admin or by a coach, and this is a sign-in
+// route, not the third way in.
+//
+// What it does still do is *link* — which is the whole reason Google sign-in
+// survives a closed beta. Someone whose account was created for them, with a
+// password they never chose, can press the Google button and be recognised, and
+// from then on they have nothing to remember.
+async function resolveUser(identity: GoogleIdentity): Promise<User | null> {
   const linked = await prisma.user.findUnique({
     where: { googleId: identity.googleId },
   });
-  if (linked) return { user: linked, created: false };
+  if (linked) return linked;
 
-  // First Google sign-in for an email we already know: link the two. This is
-  // only safe because the address is verified above — it's what lets a client
-  // whose trainer created their account sign in with Google and stay a client,
-  // and what lets a trainer who registered with a password switch over.
+  // First Google sign-in for an email we already know: link the two. Only safe
+  // because the address is verified above — that check is what stands between
+  // this and handing an account to anyone who can get Google to mint a token
+  // naming somebody else's address.
   const byEmail = await prisma.user.findUnique({
     where: { email: identity.email },
   });
-  if (byEmail) {
-    const user = await prisma.user.update({
-      where: { id: byEmail.id },
-      data: { googleId: identity.googleId },
-    });
-    return { user, created: false };
-  }
+  if (!byEmail) return null;
 
-  try {
-    const user = await prisma.user.create({
-      data: {
-        email: identity.email,
-        // Google always sends a name for a real account, but the claim is
-        // scope-dependent, so fall back rather than store an empty string.
-        name: identity.name ?? identity.email.split("@")[0],
-        googleId: identity.googleId,
-        // Same as /register: signing yourself up means you're a coach. Clients
-        // arrive as rows their trainer created, so they match by email above.
-        role: ROLES.TRAINER,
-        passwordHash: null,
-        signupSource: SIGNUP_SOURCE.GOOGLE,
-      },
-    });
-    return { user, created: true };
-  } catch (err) {
-    // Two sign-ins for a brand-new account at once: the loser reads back the
-    // row the winner wrote instead of failing. `created: false` is what keeps
-    // that race to one welcome email rather than two.
-    if (isUniqueViolation(err)) {
-      const existing = await prisma.user.findUnique({
-        where: { googleId: identity.googleId },
-      });
-      if (existing) return { user: existing, created: false };
-    }
-    throw err;
-  }
+  return prisma.user.update({
+    where: { id: byEmail.id },
+    data: { googleId: identity.googleId },
+  });
 }
 
 function fail(req: NextRequest, error: GoogleError) {

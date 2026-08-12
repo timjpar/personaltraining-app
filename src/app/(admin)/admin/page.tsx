@@ -10,6 +10,7 @@ import {
   SIGNUP_SOURCE_LABELS,
   toSignupSource,
 } from "@/lib/constants";
+import { AddTrainerForm } from "./AddTrainerForm";
 
 // Every read here crosses tenant boundaries on purpose — this is the one place
 // in the app that isn't scoped to a single trainer.
@@ -61,6 +62,13 @@ export default async function AdminAccountsPage() {
           value={recentSuccess}
           note={recentFailed ? `${recentFailed} failed` : undefined}
         />
+      </div>
+
+      {/* Above the list rather than below it. Chalkline is invite-only, so this
+          form is the only door a coach comes through — and this page is where
+          whoever holds the key already is. */}
+      <div className="mt-6 max-w-md">
+        <AddTrainerForm />
       </div>
 
       <Card className="mt-6 divide-y divide-line">

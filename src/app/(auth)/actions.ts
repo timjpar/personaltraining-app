@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { prisma, isUniqueViolation } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword, setSession } from "@/lib/auth";
 import { recordLoginSafely } from "@/lib/login-log";
 import {
@@ -9,11 +9,10 @@ import {
   mailConfig,
   resetEmail,
   sendMail,
-  welcomeEmail,
 } from "@/lib/mail";
 import { requestOrigin } from "@/lib/request-origin";
 import { consumeResetToken, createResetToken } from "@/lib/reset-token";
-import { LOGIN_METHOD, LOGIN_OUTCOME, ROLES, SIGNUP_SOURCE } from "@/lib/constants";
+import { LOGIN_METHOD, LOGIN_OUTCOME, ROLES } from "@/lib/constants";
 
 export type AuthState = { error?: string };
 
@@ -63,69 +62,14 @@ export async function login(
   redirect(user.role === ROLES.TRAINER ? "/dashboard" : "/my");
 }
 
-export async function register(
-  _prev: AuthState,
-  formData: FormData,
-): Promise<AuthState> {
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
-
-  if (!name || !email || !password) {
-    return { error: "Fill in every field to continue." };
-  }
-  if (password.length < 8) {
-    return { error: "Use at least 8 characters for your password." };
-  }
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return { error: "An account with that email already exists." };
-  }
-
-  // The check above and the insert below aren't atomic, so two simultaneous
-  // signups for one email can both get past it. Let the unique index settle it
-  // and report the loser the same way, rather than surfacing a 500.
-  let user;
-  try {
-    user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        passwordHash: await hashPassword(password),
-        role: ROLES.TRAINER,
-        signupSource: SIGNUP_SOURCE.SELF,
-      },
-    });
-  } catch (err) {
-    if (isUniqueViolation(err)) {
-      return { error: "An account with that email already exists." };
-    }
-    throw err;
-  }
-
-  // Registering signs you in, so it belongs in the log as a sign-in too —
-  // otherwise an account's first appearance there is its *second* visit.
-  await recordLoginSafely({
-    email,
-    method: LOGIN_METHOD.PASSWORD,
-    outcome: LOGIN_OUTCOME.SUCCESS,
-    userId: user.id,
-  });
-
-  // Confirms which address the account answers to. The result is ignored on
-  // purpose: nothing about having registered depends on the email arriving, and
-  // sendMail already logs its own failures.
-  await sendMail({
-    ...welcomeEmail(await requestOrigin(), user.name, user.email),
-    to: user.email,
-  });
-
-  // Kept outside the try: redirect() signals by throwing, and catching it here
-  // would swallow the navigation.
-  await setSession(user);
-  redirect("/dashboard");
-}
+// There is no register action, and that absence is the closed beta.
+//
+// Accounts are made *for* people: an admin creates a coach from /admin, and a
+// coach creates their clients from /clients. Both of those already existed —
+// what changed is that they became the only two ways in. /register is a notice
+// now, and the Google callback refuses an identity it doesn't already know
+// (see api/auth/google/callback), because leaving that open would have made
+// "no sign-up form" a formality anyone could walk around.
 
 export type ResetRequestState = { error?: string; sent?: boolean };
 

@@ -37,10 +37,13 @@ export default async function LoginPage({
         <LoginForm />
       </div>
 
+      {/* Still a link rather than a dead sentence: "invite-only" raises the
+          question of how one gets in, and /register is the page that answers
+          it. */}
       <p className="mt-7 text-sm text-ink-soft">
-        New here?{" "}
+        No account?{" "}
         <Link href="/register" className="font-medium text-jade-strong hover:underline">
-          Create a trainer account
+          Chalkline is invite-only
         </Link>
       </p>
     </div>

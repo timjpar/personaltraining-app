@@ -13,8 +13,13 @@ import {
 } from "@/components/ui";
 import { AssignSavedWorkout } from "@/components/AssignSavedWorkout";
 import { ResetClientPassword } from "./ResetClientPassword";
+import { StageControl } from "./StageControl";
+import { SessionCreditsCard } from "@/components/SessionCreditsCard";
+import { addClientSessions } from "@/app/(trainer)/clients/actions";
+import { balanceFor, creditHistory } from "@/lib/sessions";
 import { assignTemplateToClient } from "@/app/(trainer)/library/actions";
 import { toBodyRows } from "@/lib/metrics";
+import { CLIENT_STAGE, toClientStage } from "@/lib/constants";
 import { formatDate, toDateInput } from "@/lib/format";
 import { sumMacros } from "@/lib/nutrition-form";
 import { MeasurementForm } from "@/components/MeasurementForm";
@@ -94,10 +99,10 @@ export default async function ClientDetailPage({
   // belong to the neighbouring months and would otherwise come back empty.
   const { start: monthFrom, end: monthTo } = gridRange(monthGrid(monthStart));
 
-  // All eight in parallel. Each scopes itself — the logs, the plan, the body
-  // rows and the two calendar queries carry the trainer check in their own
-  // where clause rather than leaning on the client lookup having succeeded, so
-  // running them together is safe.
+  // All ten in parallel. Each scopes itself — the logs, the plan, the body
+  // rows, the two calendar queries and the two session-credit reads carry the
+  // trainer check in their own where clause rather than leaning on the client
+  // lookup having succeeded, so running them together is safe.
   const [
     client,
     templates,
@@ -107,6 +112,8 @@ export default async function ClientDetailPage({
     measurements,
     monthWorkouts,
     monthEvents,
+    sessionBalance,
+    creditRows,
   ] = await Promise.all([
       prisma.user.findFirst({
         where: { id, trainerId: trainer.id, role: "CLIENT" },
@@ -181,10 +188,15 @@ export default async function ClientDetailPage({
         },
         include: { client: { select: { id: true, name: true } } },
       }),
+      // What's left of their block, and the statement behind it.
+      balanceFor(id, trainer.id),
+      creditHistory(id, trainer.id),
     ]);
 
   if (!client) notFound();
 
+  const firstName = client.name.split(/\s+/)[0];
+  const stage = toClientStage(client.stage);
   const units = toUnits(trainer.units);
 
   const byDay = groupByDay([
@@ -246,8 +258,30 @@ export default async function ClientDetailPage({
               className="h-10 w-10 text-xs"
             />
             <span className="metric">{client.email}</span>
+            {/* Prospects only. A "Client" badge on every client is a label on
+                the ordinary case, which is a label nobody reads. */}
+            {stage === CLIENT_STAGE.PROSPECT ? <Badge>Prospect</Badge> : null}
           </span>
         </PageHeading>
+      </div>
+
+      {/* Who this person is commercially — their standing and what's left of
+          the block they bought. Directly under the name and above the
+          programming, because a coach walking into a session wants the "two
+          left" before they plan the next four, and a warning further down a
+          long page is a warning that arrives after the decision. */}
+      <div className="mt-6 grid items-start gap-4 lg:grid-cols-2">
+        <SessionCreditsCard
+          firstName={firstName}
+          entry={sessionBalance}
+          history={creditRows}
+          action={addClientSessions.bind(null, client.id)}
+        />
+        <StageControl
+          clientId={client.id}
+          firstName={firstName}
+          stage={stage}
+        />
       </div>
 
       {templates.length > 0 ? (
