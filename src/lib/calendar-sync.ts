@@ -107,6 +107,7 @@ async function snapshot(
         startMinute: true,
         durationMinutes: true,
         status: true,
+        clientId: true,
         client: { select: { name: true } },
       },
     }),
@@ -129,6 +130,11 @@ async function snapshot(
 
   for (const w of workouts) {
     const done = w.status === WORKOUT_STATUS.COMPLETED;
+    // A session the coach assigned themselves: same trainerId, so it is already
+    // in this snapshot and belongs there — it books their time like any other
+    // in-person session. It just isn't *about* anybody, so it takes the
+    // athlete's treatment on both lines below.
+    const own = isTrainer && w.clientId === userId;
     items.push({
       source: "WORKOUT",
       sourceId: w.id,
@@ -144,16 +150,22 @@ async function snapshot(
           : Math.min(w.startMinute + w.durationMinutes, 24 * 60 - 1),
       // On a coach's calendar a bare title is useless — six clients can all
       // have "Upper Body A" on the same Tuesday. On the athlete's own calendar
-      // their name on every row is noise.
+      // their name on every row is noise, and so is the coach's own name on
+      // their own session, which is why `own` reads like the athlete case here.
       summary: [
         done ? "✓" : null,
         w.title,
-        isTrainer && w.client?.name ? `· ${w.client.name}` : null,
+        isTrainer && !own && w.client?.name ? `· ${w.client.name}` : null,
       ]
         .filter(Boolean)
         .join(" "),
       description: w.notes ?? "",
-      href: `${base}${isTrainer ? "/workouts" : "/my/workouts"}/${w.id}`,
+      // /workouts/<id> is the review page for somebody else's session and has
+      // no log form on it, so a coach tapping their own session out of Google
+      // has to land on /me/workouts/<id> instead.
+      href: `${base}${
+        own ? "/me/workouts" : isTrainer ? "/workouts" : "/my/workouts"
+      }/${w.id}`,
     });
   }
 

@@ -234,10 +234,17 @@ export function WorkoutLogForm({
   action,
   notes,
   exercises,
+  self = false,
 }: {
   action: (state: CompleteState, formData: FormData) => Promise<CompleteState>;
   notes: string | null;
   exercises: LogExercise[];
+  // Set when a coach is logging a session they assigned themselves. Changes
+  // only the two places this form addresses a coach in the second person —
+  // there is nobody to send it to, and saying otherwise would promise a
+  // notification that completeMyWorkout deliberately doesn't send. Same prop,
+  // same reasoning, as NutritionLogForm's.
+  self?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const showSections = usesSections(exercises);
@@ -366,10 +373,16 @@ export function WorkoutLogForm({
         </div>
 
         <label className="mt-5 block">
-          <span className="eyebrow text-ink-soft">A note for your coach</span>
+          <span className="eyebrow text-ink-soft">
+            {self ? "A note on the session" : "A note for your coach"}
+          </span>
           <Textarea
             name="comment"
-            placeholder="How did it feel? Anything they should know?"
+            placeholder={
+              self
+                ? "How did it feel? Anything worth remembering next time?"
+                : "How did it feel? Anything they should know?"
+            }
             className="mt-1.5"
           />
         </label>
@@ -380,7 +393,11 @@ export function WorkoutLogForm({
         disabled={pending}
         className={cn(buttonClass("primary"), "w-full")}
       >
-        {pending ? "Sending to your coach…" : "Mark workout complete"}
+        {pending
+          ? self
+            ? "Saving…"
+            : "Sending to your coach…"
+          : "Mark workout complete"}
       </button>
     </form>
   );

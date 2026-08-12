@@ -7,6 +7,11 @@ import { requireTrainer } from "@/lib/auth";
 import { DAYS_PER_WEEK } from "@/lib/constants";
 import { parseDateInput, addDays } from "@/lib/format";
 import { exerciseRowsFrom, parseAssignedSlot } from "@/lib/workout-form";
+import {
+  assigneePhrase,
+  resolveAssignees,
+  revalidateAssignedWorkouts,
+} from "@/lib/assignees";
 import type { AssignState } from "@/components/AssignClients";
 
 export type ProgramFormState = { error?: string };
@@ -133,8 +138,9 @@ export async function deleteProgram(programId: string) {
   redirect("/programs");
 }
 
-// Roll the whole block out: for each selected client, materialize every slot
-// into a dated Workout (date = start date + (week-1)*7 + (day-1)).
+// Roll the whole block out: for each person selected — the coach included, see
+// src/lib/assignees.ts — materialize every slot into a dated Workout
+// (date = start date + (week-1)*7 + (day-1)).
 export async function assignProgram(
   programId: string,
   _prev: AssignState,
@@ -157,17 +163,11 @@ export async function assignProgram(
     return { error: "This program has no workouts yet." };
   }
 
-  const clientIds = formData.getAll("clientId").map(String).filter(Boolean);
-  if (clientIds.length === 0) return { error: "Pick at least one client." };
+  const { targets, error } = await resolveAssignees(trainer, formData);
+  if (error || !targets) return { error: error ?? "Something went wrong." };
 
   const startDate = parseDateInput(formData.get("date"));
   if (!startDate) return { error: "Pick a valid start date." };
-
-  const clients = await prisma.user.findMany({
-    where: { id: { in: clientIds }, trainerId: trainer.id, role: "CLIENT" },
-    select: { id: true },
-  });
-  if (clients.length === 0) return { error: "Those clients weren't found." };
 
   // One time of day, one length and one answer to "am I there" across the whole
   // block. A program is a training week repeated, so the session that lands on
@@ -178,7 +178,7 @@ export async function assignProgram(
   const slotDefaults = parseAssignedSlot(formData);
 
   const creates = [];
-  for (const c of clients) {
+  for (const t of targets) {
     for (const slot of program.slots) {
       const offset = (slot.week - 1) * DAYS_PER_WEEK + (slot.day - 1);
       creates.push(
@@ -192,7 +192,7 @@ export async function assignProgram(
             scheduledDate: addDays(startDate, offset),
             ...slotDefaults,
             status: "ASSIGNED",
-            clientId: c.id,
+            clientId: t.id,
             trainerId: trainer.id,
             exercises: { create: exerciseRowsFrom(slot.template.exercises) },
           },
@@ -203,14 +203,12 @@ export async function assignProgram(
 
   await prisma.$transaction(creates);
 
-  revalidatePath("/dashboard");
-  for (const c of clients) revalidatePath(`/clients/${c.id}`);
+  revalidateAssignedWorkouts(trainer.id, targets);
 
-  const n = clients.length;
   const sessions = program.slots.length;
   return {
     ok: `Assigned “${program.title}” — ${sessions} session${
       sessions === 1 ? "" : "s"
-    } to ${n} client${n === 1 ? "" : "s"}.`,
+    } to ${assigneePhrase(targets, trainer.id)}.`,
   };
 }

@@ -8,6 +8,15 @@ export const ROLES = {
 } as const;
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
+// What the coach's own checkbox says on every "assign to" form — a coach can
+// assign a workout, a program or a meal plan to themselves. Deliberately not
+// their name: the row sits among people they recognise by name, and "Yourself"
+// is the one label that stays unambiguous when a coach and a client share a
+// first name. Here rather than beside the rest of the self-assignment machinery
+// in src/lib/assignees.ts, which imports Prisma and so can't be reached from the
+// client component that draws the box.
+export const SELF_LABEL = "Yourself";
+
 export const WORKOUT_STATUS = {
   ASSIGNED: "ASSIGNED",
   COMPLETED: "COMPLETED",

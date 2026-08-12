@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { Card, Field, Input, Select, FormError, buttonClass } from "@/components/ui";
 import {
+  SELF_LABEL,
   ATTENDANCE,
   ATTENDANCE_ORDER,
   ATTENDANCE_LABELS,
@@ -19,6 +21,7 @@ export type AssignState = { error?: string; ok?: string };
 export function AssignClients({
   action,
   clients,
+  self,
   submitLabel,
   withDate = false,
   dateLabel = "Date",
@@ -27,6 +30,11 @@ export function AssignClients({
 }: {
   action: (state: AssignState, formData: FormData) => Promise<AssignState>;
   clients: { id: string; name: string }[];
+  // The coach themselves, as one more thing this can be assigned to. Posted
+  // under the same `clientId` name as everyone else, because on the row it
+  // writes there is no difference — see src/lib/assignees.ts. Optional so a
+  // surface that shouldn't offer it simply leaves it out.
+  self?: { id: string };
   submitLabel: string;
   // Workouts/programs need a date (or start date); nutrition plans don't.
   withDate?: boolean;
@@ -50,22 +58,55 @@ export function AssignClients({
       ) : null}
 
       <Card className="p-3">
-        <div className="grid gap-1 sm:grid-cols-2">
-          {clients.map((c) => (
-            <label
-              key={c.id}
-              className="flex cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 transition-colors hover:bg-paper"
-            >
+        {/* Above the roster and behind a rule, rather than sorted into it. The
+            list is names you'd scan for a particular person, and a "Yourself"
+            that sorts under Y is one you'd never find; keeping it out of the
+            grid also stops it landing in the second column at `sm`. */}
+        {self ? (
+          <div className={clients.length > 0 ? "mb-1 border-b border-line pb-1" : ""}>
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 transition-colors hover:bg-paper">
               <input
                 type="checkbox"
                 name="clientId"
-                value={c.id}
+                value={self.id}
                 className="h-4 w-4 accent-jade"
               />
-              <span className="text-sm text-ink">{c.name}</span>
+              <span className="text-sm text-ink">{SELF_LABEL}</span>
             </label>
-          ))}
-        </div>
+          </div>
+        ) : null}
+
+        {clients.length === 0 ? (
+          self ? (
+            // Not an EmptyState: the form around it is perfectly usable with
+            // only the row above ticked, and a full empty card here would say
+            // otherwise. One line, and a way out of it.
+            <p className="px-2.5 pb-1 text-xs text-ink-soft">
+              No clients yet —{" "}
+              <Link href="/clients" className="text-jade-strong hover:underline">
+                add one
+              </Link>{" "}
+              to assign this to somebody else too.
+            </p>
+          ) : null
+        ) : (
+          <div className="grid gap-1 sm:grid-cols-2">
+            {clients.map((c) => (
+              <label
+                key={c.id}
+                className="flex cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 transition-colors hover:bg-paper"
+              >
+                <input
+                  type="checkbox"
+                  name="clientId"
+                  value={c.id}
+                  className="h-4 w-4 accent-jade"
+                />
+                <span className="text-sm text-ink">{c.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
       </Card>
 
       {withSchedule ? (

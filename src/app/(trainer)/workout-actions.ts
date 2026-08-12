@@ -216,12 +216,24 @@ export async function deleteWorkout(workoutId: string) {
   });
   if (!workout) redirect("/dashboard");
 
+  const own = workout.clientId === trainer.id;
+
   await prisma.workout.delete({ where: { id: workout.id } });
 
   syncAfterMutation(trainer.id, workout.clientId);
 
-  revalidatePath(`/clients/${workout.clientId}`);
   revalidatePath("/dashboard");
   revalidatePath("/calendar");
+
+  // A session the coach assigned themselves has no client page to go back to —
+  // /clients/<id> refuses anyone who isn't on the roster, so the old redirect
+  // would land a coach on a 404 after deleting their own workout.
+  if (own) {
+    revalidatePath("/me");
+    revalidatePath("/me/workouts");
+    redirect("/me/workouts");
+  }
+
+  revalidatePath(`/clients/${workout.clientId}`);
   redirect(`/clients/${workout.clientId}`);
 }
