@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "./Wordmark";
-import { logout } from "./logout-action";
+import { AccountMenu } from "./AccountMenu";
 import { AppearanceControl } from "./AppearanceControl";
 import { NavIcon, type IconName } from "./NavIcon";
 import { cn } from "@/lib/cn";
@@ -20,6 +20,7 @@ export type NavItem = {
 export function AppHeader({
   name,
   roleLabel,
+  photoUrl,
   navItems,
   theme,
   accent,
@@ -28,6 +29,9 @@ export function AppHeader({
 }: {
   name: string;
   roleLabel: string;
+  // Build it with avatarUrl(); null is an account with no photo, which the
+  // avatar draws as initials.
+  photoUrl?: string | null;
   navItems: NavItem[];
   theme: Theme;
   accent: Accent;
@@ -67,7 +71,12 @@ export function AppHeader({
           On a phone this carries identity and account only — the destinations
           moved to the tab bar below. That is what buys back the horizontal
           room: previously six links, the theme control and Sign out fought
-          over 375px, and the loser was clipped mid-word. */}
+          over 375px, and the loser was clipped mid-word.
+
+          The same fight resurfaced at lg, where the pills come back onto a line
+          capped at 960px and the ninth of them left the account cluster 136px.
+          The account is one avatar-sized control now (AccountMenu) rather than
+          a name, a role and a button, which is what settles it. */}
       <header className="sticky top-0 z-20 border-b border-line bg-paper/85 backdrop-blur">
         {/* gap tightens at lg rather than loosening: that is the one width
             where the pill row has to share the line, and 24px twice over is
@@ -75,21 +84,23 @@ export function AppHeader({
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-2 px-4 sm:h-16 sm:gap-6 sm:px-8 lg:gap-4">
           <Wordmark />
 
-          {/* lg, not sm: the row of pills needs ~570px and the cluster to its
-              right needs ~260, so below 1024 it doesn't fit and the last item
+          {/* lg, not sm: the row of pills needs ~640px and the cluster to its
+              right needs ~120, so below 1024 it doesn't fit and the last item
               used to be drawn underneath Sign out. Under that width the tab
               bar below is the navigation, which is what it's for. The
-              overflow-x is a safety net for a long name or a translated
-              label — it scrolls rather than overlapping.
+              overflow-x is a safety net for a translated label — it scrolls
+              rather than overlapping.
 
               shrink-0 is what keeps that net from catching the normal case.
               The row is capped at max-w-5xl, so no window is ever wide enough
               to relieve it; without this the nav was the flex item that gave
               way, and it gave way by exactly the last pill's right padding —
               "Exercises" kept its label and lost the right edge of its hover
-              highlight. The name beside it yields instead (see truncate
-              below), because a shortened name still reads and a clipped
-              control doesn't. */}
+              highlight. Nothing beside it yields any more either: the cluster
+              to the right is fixed-width controls now. What that costs is that
+              nothing can absorb a tenth cell, so the budget is worth stating —
+              at the trainer's nine, with the owner's key icon showing, this
+              line has about 48px spare. */}
           <nav className="hidden min-w-0 shrink-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden">
             {navItems.map((item) => (
               <Link
@@ -97,7 +108,10 @@ export function AppHeader({
                 href={item.href}
                 aria-current={activeHref === item.href ? "page" : undefined}
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-sm font-medium transition-colors",
+                  // px-1.5 rather than px-2 is where the last of the headroom
+                  // came from: 4px off nine pills is 36px, which is three
+                  // times what the row had left over otherwise.
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-[8px] px-1.5 py-1.5 text-sm font-medium transition-colors",
                   activeHref === item.href
                     ? // text-paper, not text-white: both tokens invert with the
                       // theme, so this stays legible in dark mode where `ink`
@@ -123,7 +137,10 @@ export function AppHeader({
             ))}
           </nav>
 
-          <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-4">
+          {/* gap-2 from lg for the same reason the row's own gap tightens
+              there: with the pills back, this cluster is working with 136px and
+              two 16px gaps is a tenth of it. */}
+          <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-4 lg:gap-2">
             {adminHref ? (
               <Link
                 href={adminHref}
@@ -138,21 +155,15 @@ export function AppHeader({
               accent={accent}
               firstRun={!themeChosen}
             />
-            {/* The block that gives way when the line is short. It only
-                truncates once the pills have taken what they need, which for
-                most names is never. */}
-            <div className="hidden min-w-0 text-right leading-tight sm:block">
-              <p className="truncate text-sm font-medium text-ink">{name}</p>
-              <p className="eyebrow truncate text-ink-soft">{roleLabel}</p>
-            </div>
-            <form action={logout}>
-              <button
-                type="submit"
-                className="grid h-11 place-items-center whitespace-nowrap px-2 text-sm text-ink-soft transition-colors hover:text-ink sm:h-auto sm:px-0"
-              >
-                Sign out
-              </button>
-            </form>
+            {/* Name, role and Sign out, in a control that fits. They were
+                three items on this line and the line only ever had room for
+                the last one, so the name arrived clipped to two letters — see
+                AccountMenu for the arithmetic. */}
+            <AccountMenu
+              name={name}
+              roleLabel={roleLabel}
+              photoUrl={photoUrl}
+            />
           </div>
         </div>
       </header>
