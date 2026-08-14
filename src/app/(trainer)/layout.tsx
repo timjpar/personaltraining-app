@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { TimeZoneProbe } from "@/components/TimeZoneProbe";
 import { trainerNav } from "@/lib/nav";
 import { unreadMessageCount } from "@/lib/messaging";
+import { avatarUrl } from "@/lib/avatar";
 
 export default async function TrainerLayout({
   children,
@@ -24,6 +25,7 @@ export default async function TrainerLayout({
       <AppHeader
         name={user.name}
         roleLabel="Trainer"
+        photoUrl={avatarUrl(user)}
         navItems={trainerNav(unread, unreadMessages)}
         theme={theme}
         accent={accent}

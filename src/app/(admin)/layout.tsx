@@ -6,6 +6,7 @@ import { requireAdmin, isOwnerEmail } from "@/lib/admin";
 import { getThemePrefs } from "@/lib/theme-server";
 import { AppHeader } from "@/components/AppHeader";
 import { ROLES } from "@/lib/constants";
+import { avatarUrl } from "@/lib/avatar";
 
 export default async function AdminLayout({
   children,
@@ -25,6 +26,7 @@ export default async function AdminLayout({
       <AppHeader
         name={user.name}
         roleLabel={isOwnerEmail(user.email) ? "Owner" : "Admin"}
+        photoUrl={avatarUrl(user)}
         navItems={[
           { href: "/admin", label: "Accounts", icon: "clients" },
           { href: "/admin/logins", label: "Sign-ins", icon: "history" },
