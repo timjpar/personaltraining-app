@@ -232,6 +232,10 @@ export const GOOGLE_ERRORS = {
   // spelling it back into a URL adds nothing.
   noaccount:
     "There's no Chalkline account for that Google address. Chalkline is invite-only — ask your coach to add you, or get in touch about a coach account.",
+  // Also not a "try again": the account exists and the sign-in worked, and the
+  // reason it stops here is a decision their coach made.
+  archived:
+    "This account has been closed by your coach. Your records are kept — ask them to reopen it if you need access.",
 } as const;
 
 export type GoogleError = keyof typeof GOOGLE_ERRORS;

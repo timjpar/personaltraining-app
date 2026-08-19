@@ -19,7 +19,7 @@ import { addClientSessions } from "@/app/(trainer)/clients/actions";
 import { balanceFor, creditHistory } from "@/lib/sessions";
 import { assignTemplateToClient } from "@/app/(trainer)/library/actions";
 import { toBodyRows } from "@/lib/metrics";
-import { CLIENT_STAGE, toClientStage } from "@/lib/constants";
+import { CLIENT_STAGE, CLIENT_STAGE_LABELS, toClientStage } from "@/lib/constants";
 import { formatDate, toDateInput } from "@/lib/format";
 import { sumMacros } from "@/lib/nutrition-form";
 import { MeasurementForm } from "@/components/MeasurementForm";
@@ -197,6 +197,11 @@ export default async function ClientDetailPage({
 
   const firstName = client.name.split(/\s+/)[0];
   const stage = toClientStage(client.stage);
+  // An old client can't sign in, so anything programmed for them now would be
+  // written to nobody — the same reason assignableClients leaves them out of
+  // the library's pick list. The page still shows everything they *did*: that
+  // record is the entire reason the account was kept.
+  const archived = stage === CLIENT_STAGE.ARCHIVED;
   const units = toUnits(trainer.units);
 
   const byDay = groupByDay([
@@ -241,9 +246,11 @@ export default async function ClientDetailPage({
         <PageHeading
           title={client.name}
           action={
-            <ButtonLink href={`/clients/${client.id}/workouts/new`}>
-              Program a workout
-            </ButtonLink>
+            archived ? undefined : (
+              <ButtonLink href={`/clients/${client.id}/workouts/new`}>
+                Program a workout
+              </ButtonLink>
+            )
           }
         >
           {/* Bigger than the 24px it was. This is the one page in the app
@@ -258,9 +265,15 @@ export default async function ClientDetailPage({
               className="h-10 w-10 text-xs"
             />
             <span className="metric">{client.email}</span>
-            {/* Prospects only. A "Client" badge on every client is a label on
-                the ordinary case, which is a label nobody reads. */}
-            {stage === CLIENT_STAGE.PROSPECT ? <Badge>Prospect</Badge> : null}
+            {/* Anything but an ordinary client. A "Client" badge on every
+                client is a label on the common case, which is a label nobody
+                reads — whereas "this one can't sign in" belongs beside the
+                name, not only in the card further down. */}
+            {stage === CLIENT_STAGE.ACTIVE ? null : (
+              <Badge tone={stage === CLIENT_STAGE.ARCHIVED ? "amber" : "neutral"}>
+                {CLIENT_STAGE_LABELS[stage]}
+              </Badge>
+            )}
           </span>
         </PageHeading>
       </div>
@@ -284,7 +297,7 @@ export default async function ClientDetailPage({
         />
       </div>
 
-      {templates.length > 0 ? (
+      {templates.length > 0 && !archived ? (
         <Card className="mt-6 p-4 sm:p-5">
           <h2 className="mb-1 font-display text-base font-semibold text-ink">
             Assign a saved workout
@@ -317,15 +330,19 @@ export default async function ClientDetailPage({
             <EmptyState
               title="Nothing programmed yet"
               action={
-                <ButtonLink
-                  href={`/clients/${client.id}/workouts/new`}
-                  size="sm"
-                >
-                  Program a workout
-                </ButtonLink>
+                archived ? undefined : (
+                  <ButtonLink
+                    href={`/clients/${client.id}/workouts/new`}
+                    size="sm"
+                  >
+                    Program a workout
+                  </ButtonLink>
+                )
               }
             >
-              Build {client.name.split(/\s+/)[0]}&rsquo;s next session.
+              {archived
+                ? `${firstName} is an old client — move them back to program anything new.`
+                : `Build ${firstName}'s next session.`}
             </EmptyState>
           ) : (
             <Card className="divide-y divide-line">

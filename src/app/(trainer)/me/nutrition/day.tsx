@@ -21,6 +21,8 @@ import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui";
 import { NutritionLogForm } from "@/components/NutritionLogForm";
 import { NutritionPlanView } from "@/components/NutritionPlanView";
+import { PlanCheckoff } from "@/components/PlanCheckoff";
+import { LogRowsProvider } from "@/components/nutrition-log-state";
 import { NutritionWeekStrip } from "@/components/NutritionWeekStrip";
 import { saveMyNutritionLog } from "../actions";
 import { geminiConfig } from "@/lib/gemini";
@@ -110,6 +112,28 @@ export async function MyNutritionDay({
   // than shown and left to fail on submit.
   const isFuture = dayKey > todayKey;
 
+  // Same seed the athlete's day builds — see the note there. The coach's plan
+  // is one they assigned themselves, and it ticks off exactly the same way.
+  const initialLog = log
+    ? {
+        notes: log.notes,
+        entries: log.foods.map((f) => ({
+          meal: f.meal,
+          name: f.name,
+          quantity: f.quantity,
+          calories: f.calories,
+          protein: f.protein,
+          carbs: f.carbs,
+          fat: f.fat,
+          source: f.source,
+        })),
+      }
+    : undefined;
+
+  const planPanel = plan ? (
+    isFuture ? <NutritionPlanView plan={plan} /> : <PlanCheckoff plan={plan} />
+  ) : null;
+
   return (
     <div className="flex flex-col gap-7">
       <NutritionWeekStrip
@@ -124,6 +148,7 @@ export async function MyNutritionDay({
           single column when there isn't — rather than the athlete's permanent
           grid, which would leave a coach with no plan reading a log squeezed
           into 1.4fr beside an empty explanation. */}
+      <LogRowsProvider initial={initialLog}>
       <div
         className={
           plan
@@ -151,23 +176,6 @@ export async function MyNutritionDay({
           <div className="mt-4">
             <NutritionLogForm
               action={saveMyNutritionLog.bind(null, dayKey)}
-              initial={
-                log
-                  ? {
-                      notes: log.notes,
-                      entries: log.foods.map((f) => ({
-                        meal: f.meal,
-                        name: f.name,
-                        quantity: f.quantity,
-                        calories: f.calories,
-                        protein: f.protein,
-                        carbs: f.carbs,
-                        fat: f.fat,
-                        source: f.source,
-                      })),
-                    }
-                  : undefined
-              }
               targets={targets}
               recent={recentFoods(recentRows)}
               self
@@ -232,16 +240,17 @@ export async function MyNutritionDay({
               </span>
             </summary>
             <div className="mt-4">
-              <NutritionPlanView plan={plan} />
+              {planPanel}
             </div>
           </details>
           <div className="hidden lg:block">
             <p className="mb-4 text-sm text-ink-soft">{plan.title}</p>
-            <NutritionPlanView plan={plan} />
+            {planPanel}
           </div>
         </section>
       ) : null}
       </div>
+      </LogRowsProvider>
     </div>
   );
 }

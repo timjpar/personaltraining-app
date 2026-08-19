@@ -33,6 +33,7 @@ import {
   toFeedType,
 } from "@/lib/constants";
 import { balanceFrom, balancesFor } from "@/lib/sessions";
+import { rosterOnly } from "@/lib/assignees";
 import { markAllRead } from "./actions";
 
 // One scoreboard strip on a phone, three separate cards from `sm` up. The
@@ -81,6 +82,11 @@ export default async function DashboardPage() {
     prisma.workout.count({
       where: {
         trainerId: trainer.id,
+        // The coach's own sessions are written by the same actions and carry
+        // the same trainerId, so without this the counter under "Active
+        // clients" quietly includes the coach's own training. This page is
+        // about the roster — it says so in the heading.
+        ...rosterOnly(trainer.id),
         status: "COMPLETED",
         completedAt: { gte: startOfWeek(new Date()) },
       },
@@ -94,10 +100,23 @@ export default async function DashboardPage() {
   // so the person who has trained past the end of theirs is named first — the
   // whole point of surfacing this on the landing page is that the conversation
   // happens before the next session, not after the tenth.
+  //
+  // Old clients are left out: they aren't training, so an empty block is the
+  // expected end state rather than a conversation to have, and a warning that
+  // can only be cleared by deleting somebody is a warning that never leaves.
   const runningLow = clients
+    .filter((c) => toClientStage(c.stage) !== CLIENT_STAGE.ARCHIVED)
     .map((c) => ({ client: c, entry: balanceFrom(balances, c.id) }))
     .filter((row) => sessionState(row.entry) !== "OK")
     .sort((a, b) => a.entry.balance - b.entry.balance);
+
+  // Everyone still being worked on. Prospects belong here — a trial is exactly
+  // the person a coach jumps to from this page — and old clients don't: this is
+  // a shortcut list on a working page, not the roster, which is one click away
+  // under "Manage" and is where the archive lives.
+  const coaching = clients.filter(
+    (c) => toClientStage(c.stage) !== CLIENT_STAGE.ARCHIVED,
+  );
 
   const active = clients.filter(
     (c) => toClientStage(c.stage) === CLIENT_STAGE.ACTIVE,
@@ -311,7 +330,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
 
-          {clients.length === 0 ? (
+          {coaching.length === 0 ? (
             <EmptyState
               title="No clients yet"
               action={<ButtonLink href="/clients" size="sm">Add your first client</ButtonLink>}
@@ -320,7 +339,7 @@ export default async function DashboardPage() {
             </EmptyState>
           ) : (
             <Card className="divide-y divide-line">
-              {clients.map((c) => (
+              {coaching.map((c) => (
                 <Link
                   key={c.id}
                   href={`/clients/${c.id}`}

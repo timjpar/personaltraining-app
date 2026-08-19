@@ -73,10 +73,18 @@ export function allowances(counts: RosterCounts): StageAllowance[] {
 // from the number that was actually checked.
 export function fullMessage(allowance: StageAllowance): string {
   const noun = CLIENT_STAGE_LABELS[allowance.stage].toLowerCase();
-  const other =
-    allowance.stage === CLIENT_STAGE.ACTIVE
-      ? "Move someone to a prospect, or ask an admin to raise your limit."
-      : "Move a prospect to a client, or ask an admin to raise your limit.";
+  // Each one names the way out that actually applies. The archive's is the odd
+  // one — there is nowhere left to move people to, so the only way to make room
+  // is to delete someone, and saying so is kinder than "you're full".
+  const NEXT_STEP: Record<ClientStage, string> = {
+    [CLIENT_STAGE.ACTIVE]:
+      "Move someone to a prospect or an old client, or ask an admin to raise your limit.",
+    [CLIENT_STAGE.PROSPECT]:
+      "Move a prospect to a client or an old client, or ask an admin to raise your limit.",
+    [CLIENT_STAGE.ARCHIVED]:
+      "Delete an old client you no longer need to keep, or ask an admin to raise your limit.",
+  };
+  const other = NEXT_STEP[allowance.stage];
   return `You're at your limit of ${allowance.limit} ${noun}${allowance.limit === 1 ? "" : "s"}. ${other}`;
 }
 

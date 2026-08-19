@@ -46,8 +46,8 @@ export default async function ClientsPage() {
   return (
     <Container>
       <PageHeading eyebrow="Roster" title="Clients">
-        Everyone you coach, and everyone you&rsquo;re courting. Open one to
-        program their training.
+        Everyone you coach, everyone you&rsquo;re courting, and everyone
+        you&rsquo;ve finished with. Open one to program their training.
       </PageHeading>
 
       <div className="mt-7 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
@@ -62,10 +62,11 @@ export default async function ClientsPage() {
               const rows = byStage[stage];
               const allowance = room.find((a) => a.stage === stage)!;
               // A stage nobody is in doesn't get a heading and an empty card.
-              // Prospects are the common case for that — plenty of coaches will
-              // never use them, and a permanent empty section would be the app
-              // insisting on a feature they didn't ask for.
-              if (rows.length === 0 && stage === CLIENT_STAGE.PROSPECT) {
+              // Plenty of coaches will never use prospects or the archive, and
+              // a permanent pair of empty sections would be the app insisting
+              // on features they didn't ask for. Clients is exempt: it's the
+              // one heading that should hold its place on a roster page.
+              if (rows.length === 0 && stage !== CLIENT_STAGE.ACTIVE) {
                 return null;
               }
 
