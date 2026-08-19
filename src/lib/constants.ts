@@ -23,12 +23,28 @@ export const SELF_LABEL = "Yourself";
 export const CLIENT_STAGE = {
   ACTIVE: "ACTIVE",
   PROSPECT: "PROSPECT",
+  // Someone a coach no longer trains. The account is kept so their programming,
+  // logs and measurements stay readable, and sign-in stops working — see
+  // isArchivedClient below. Archiving is the alternative to deleting a person
+  // to get them off a full roster, which is a coach losing their own records.
+  ARCHIVED: "ARCHIVED",
 } as const;
 export type ClientStage = (typeof CLIENT_STAGE)[keyof typeof CLIENT_STAGE];
 
 // Clients first: it's the column default and the overwhelming majority of a
 // roster.
+// Also the order every roster list reads in: who you train, then who you're
+// courting, then who you used to train. Past work sits below present work.
 export const CLIENT_STAGE_ORDER = [
+  "ACTIVE",
+  "PROSPECT",
+  "ARCHIVED",
+] as const satisfies readonly ClientStage[];
+
+// The stages a new account can be created in. The archive is deliberately not
+// one of them: it holds people a coach used to train, and an account created
+// there would be one that has never been used and already can't sign in.
+export const ADDABLE_STAGES = [
   "ACTIVE",
   "PROSPECT",
 ] as const satisfies readonly ClientStage[];
@@ -36,6 +52,7 @@ export const CLIENT_STAGE_ORDER = [
 export const CLIENT_STAGE_LABELS: Record<ClientStage, string> = {
   ACTIVE: "Client",
   PROSPECT: "Prospect",
+  ARCHIVED: "Old client",
 };
 
 // Plural, for the headings and the "12 of 40 clients" counts. Spelled out
@@ -44,12 +61,14 @@ export const CLIENT_STAGE_LABELS: Record<ClientStage, string> = {
 export const CLIENT_STAGE_PLURALS: Record<ClientStage, string> = {
   ACTIVE: "Clients",
   PROSPECT: "Prospects",
+  ARCHIVED: "Old clients",
 };
 
 // What picking one actually means, shown under the choice on the add form.
 export const CLIENT_STAGE_HINTS: Record<ClientStage, string> = {
   ACTIVE: "Someone you're training now",
   PROSPECT: "A trial or a lead you're working on",
+  ARCHIVED: "Someone you've finished with — kept for their records, and can't sign in",
 };
 
 // How many of each a coach may have. Two separate allowances rather than one
@@ -61,10 +80,16 @@ export const CLIENT_STAGE_HINTS: Record<ClientStage, string> = {
 // a cap is a one-line edit here.
 export const CLIENT_LIMIT = 40;
 export const PROSPECT_LIMIT = 20;
+// Capped like the other two, and for a reason the others don't have: an archive
+// with no ceiling is a place a roster quietly drains into forever. Twenty is
+// enough to hold the people a coach might come back to, and small enough that
+// filling it is a prompt to delete the ones they never will.
+export const ARCHIVED_LIMIT = 20;
 
 export const STAGE_LIMITS: Record<ClientStage, number> = {
   ACTIVE: CLIENT_LIMIT,
   PROSPECT: PROSPECT_LIMIT,
+  ARCHIVED: ARCHIVED_LIMIT,
 };
 
 // Same contract as toExerciseSection: anything unrecognised reads as ACTIVE,
@@ -73,6 +98,20 @@ export const STAGE_LIMITS: Record<ClientStage, number> = {
 export function toClientStage(value: unknown): ClientStage {
   const s = String(value ?? "");
   return s in CLIENT_STAGE_LABELS ? (s as ClientStage) : CLIENT_STAGE.ACTIVE;
+}
+
+// Whether this account is kept-for-the-records rather than in use. Asked by
+// getCurrentUser, by the password login action and by the Google callback, so
+// all three agree on what "can't sign in" means — and scoped to CLIENT rows,
+// because `stage` is meaningless on a coach's own row and defaults there.
+export function isArchivedClient(user: {
+  role: string;
+  stage: string;
+}): boolean {
+  return (
+    user.role === ROLES.CLIENT &&
+    toClientStage(user.stage) === CLIENT_STAGE.ARCHIVED
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +237,7 @@ export const FOOD_SOURCE = {
   PRESET: "PRESET",
   BARCODE: "BARCODE",
   PHOTO: "PHOTO",
+  PLAN: "PLAN",
 } as const;
 export type FoodSource = (typeof FOOD_SOURCE)[keyof typeof FOOD_SOURCE];
 
@@ -206,6 +246,7 @@ export const FOOD_SOURCE_LABELS: Record<FoodSource, string> = {
   PRESET: "From the catalog",
   BARCODE: "Scanned barcode",
   PHOTO: "From a photo",
+  PLAN: "Ticked off the plan",
 };
 
 export function toFoodSource(value: unknown): FoodSource {
@@ -314,6 +355,7 @@ export const LOGIN_OUTCOME = {
   BAD_PASSWORD: "BAD_PASSWORD",
   GOOGLE_ONLY: "GOOGLE_ONLY",
   GOOGLE_UNVERIFIED: "GOOGLE_UNVERIFIED",
+  ARCHIVED: "ARCHIVED",
 } as const;
 export type LoginOutcome = (typeof LOGIN_OUTCOME)[keyof typeof LOGIN_OUTCOME];
 
@@ -323,6 +365,7 @@ export const LOGIN_OUTCOME_LABELS: Record<LoginOutcome, string> = {
   BAD_PASSWORD: "Wrong password",
   GOOGLE_ONLY: "Password on a Google-only account",
   GOOGLE_UNVERIFIED: "Unverified Google email",
+  ARCHIVED: "Old client account",
 };
 
 // The order the filter dropdown offers, successes first.
@@ -332,6 +375,7 @@ export const LOGIN_OUTCOME_ORDER = [
   "NO_ACCOUNT",
   "GOOGLE_ONLY",
   "GOOGLE_UNVERIFIED",
+  "ARCHIVED",
 ] as const satisfies readonly LoginOutcome[];
 
 // Same contract as toExerciseSection: anything unrecognised gets a safe value

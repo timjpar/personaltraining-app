@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui";
 import { NutritionLogForm } from "@/components/NutritionLogForm";
 import { NutritionPlanView } from "@/components/NutritionPlanView";
+import { PlanCheckoff } from "@/components/PlanCheckoff";
+import { LogRowsProvider } from "@/components/nutrition-log-state";
 import { NutritionWeekStrip } from "@/components/NutritionWeekStrip";
 import { saveNutritionLog } from "./actions";
 import { geminiConfig } from "@/lib/gemini";
@@ -79,6 +81,31 @@ export async function NutritionDay({
   // replaced rather than shown and left to fail on submit.
   const isFuture = dayKey > todayKey;
 
+  // The saved day, in the shape LogRowsProvider seeds its rows from. It used to
+  // be an inline prop on the form; the provider owns those rows now, because
+  // the plan panel writes to them too.
+  const initialLog = log
+    ? {
+        notes: log.notes,
+        entries: log.foods.map((f) => ({
+          meal: f.meal,
+          name: f.name,
+          quantity: f.quantity,
+          calories: f.calories,
+          protein: f.protein,
+          carbs: f.carbs,
+          fat: f.fat,
+          source: f.source,
+        })),
+      }
+    : undefined;
+
+  // Ticking a food writes it into the log, so on a day that can't be logged the
+  // boxes would be furniture. A future day gets the read-only plan instead.
+  const planPanel = plan ? (
+    isFuture ? <NutritionPlanView plan={plan} /> : <PlanCheckoff plan={plan} />
+  ) : null;
+
   return (
     <div className="flex flex-col gap-7">
       <NutritionWeekStrip
@@ -92,6 +119,7 @@ export async function NutritionDay({
       {/* Log first, plan second. The verb you opened the page for goes above
           the reference material — and on a phone the plan is a <details>, so
           it costs one line until you want it. */}
+      <LogRowsProvider initial={initialLog}>
       <div className="grid gap-7 lg:grid-cols-[1.4fr_1fr] lg:items-start">
         <section>
           <h2 className="font-display text-lg font-semibold text-ink">
@@ -114,23 +142,6 @@ export async function NutritionDay({
           <div className="mt-4">
             <NutritionLogForm
               action={saveNutritionLog.bind(null, dayKey)}
-              initial={
-                log
-                  ? {
-                      notes: log.notes,
-                      entries: log.foods.map((f) => ({
-                        meal: f.meal,
-                        name: f.name,
-                        quantity: f.quantity,
-                        calories: f.calories,
-                        protein: f.protein,
-                        carbs: f.carbs,
-                        fat: f.fat,
-                        source: f.source,
-                      })),
-                    }
-                  : undefined
-              }
               targets={hasTargets ? targets : null}
               recent={recentFoods(recentRows)}
               // Read here rather than in the component: a client component
@@ -160,12 +171,12 @@ export async function NutritionDay({
                   </span>
                 </summary>
                 <div className="mt-4">
-                  <NutritionPlanView plan={plan} />
+                  {planPanel}
                 </div>
               </details>
               <div className="hidden lg:block">
                 <p className="mb-4 text-sm text-ink-soft">{plan.title}</p>
-                <NutritionPlanView plan={plan} />
+                {planPanel}
               </div>
             </>
           ) : (
@@ -178,6 +189,7 @@ export async function NutritionDay({
           )}
         </section>
       </div>
+      </LogRowsProvider>
     </div>
   );
 }

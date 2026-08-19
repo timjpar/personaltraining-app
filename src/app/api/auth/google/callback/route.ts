@@ -7,7 +7,12 @@ import type { User } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { sessionCookie } from "@/lib/auth";
 import { recordLoginSafely } from "@/lib/login-log";
-import { LOGIN_METHOD, LOGIN_OUTCOME, ROLES } from "@/lib/constants";
+import {
+  isArchivedClient,
+  LOGIN_METHOD,
+  LOGIN_OUTCOME,
+  ROLES,
+} from "@/lib/constants";
 import {
   OAUTH_COOKIE,
   fetchIdentity,
@@ -77,6 +82,18 @@ export async function GET(req: NextRequest) {
       outcome: LOGIN_OUTCOME.NO_ACCOUNT,
     });
     return fail(req, "noaccount");
+  }
+
+  // Same rule the password form applies, at the same point in the sequence:
+  // the identity has already been proved, so the real reason is safe to give.
+  if (isArchivedClient(user)) {
+    await recordLoginSafely({
+      email: user.email,
+      method: LOGIN_METHOD.GOOGLE,
+      outcome: LOGIN_OUTCOME.ARCHIVED,
+      userId: user.id,
+    });
+    return fail(req, "archived");
   }
 
   await recordLoginSafely({

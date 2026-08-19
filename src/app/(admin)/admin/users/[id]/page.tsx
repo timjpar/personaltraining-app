@@ -6,11 +6,15 @@ import { Container, PageHeading, Card, Badge, Avatar } from "@/components/ui";
 import { avatarUrl } from "@/lib/avatar";
 import { formatStamp, formatDate } from "@/lib/format";
 import {
+  CLIENT_STAGE,
+  CLIENT_STAGE_ORDER,
+  CLIENT_STAGE_PLURALS,
   LOGIN_METHOD,
   LOGIN_OUTCOME,
   LOGIN_OUTCOME_LABELS,
   ROLES,
   SIGNUP_SOURCE_LABELS,
+  toClientStage,
   toLoginOutcome,
   toSignupSource,
 } from "@/lib/constants";
@@ -46,6 +50,7 @@ export default async function AdminUserPage({
           id: true,
           name: true,
           email: true,
+          stage: true,
           lastLoginAt: true,
           // The only avatar in the app behind an explicit select; everywhere
           // else loads whole user rows and gets this for free.
@@ -174,19 +179,42 @@ export default async function AdminUserPage({
 
       {isTrainer ? (
         <>
-          <Section title="Clients" count={user.clients.length}>
-            {user.clients.map((c) => (
-              <Row
-                key={c.id}
-                href={`/admin/users/${c.id}`}
-                title={c.name}
-                sub={c.email}
-                meta={c.lastLoginAt ? formatStamp(c.lastLoginAt) : "Never signed in"}
+          {/* One section per stage, in roster order, rather than the single
+              undifferentiated list this used to be: on a coach with a full
+              book, "who are they actually training" is the first question this
+              page gets asked, and a flat list of eighty names can't answer it.
+              The headings do the labelling — a badge per row would repeat the
+              same word down the whole column. */}
+          {CLIENT_STAGE_ORDER.map((stage) => {
+            const rows = user.clients.filter(
+              (c) => toClientStage(c.stage) === stage,
+            );
+            // Same rule the coach's own roster page uses: prospects and the
+            // archive appear once somebody is in them, and Clients always.
+            if (rows.length === 0 && stage !== CLIENT_STAGE.ACTIVE) return null;
+
+            return (
+              <Section
+                key={stage}
+                title={CLIENT_STAGE_PLURALS[stage]}
+                count={rows.length}
               >
-                <Avatar name={c.name} src={avatarUrl(c)} />
-              </Row>
-            ))}
-          </Section>
+                {rows.map((c) => (
+                  <Row
+                    key={c.id}
+                    href={`/admin/users/${c.id}`}
+                    title={c.name}
+                    sub={c.email}
+                    meta={
+                      c.lastLoginAt ? formatStamp(c.lastLoginAt) : "Never signed in"
+                    }
+                  >
+                    <Avatar name={c.name} src={avatarUrl(c)} />
+                  </Row>
+                ))}
+              </Section>
+            );
+          })}
 
           <Section title="Workout templates" count={user.templates.length}>
             {user.templates.map((t) => (

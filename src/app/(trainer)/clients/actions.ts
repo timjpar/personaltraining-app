@@ -10,6 +10,7 @@ import { checkRoom } from "@/lib/roster";
 import { addSessionCredits, balanceFor } from "@/lib/sessions";
 import type { InviteState } from "@/components/InviteForm";
 import {
+  CLIENT_STAGE,
   CLIENT_STAGE_LABELS,
   MAX_SESSION_CREDITS,
   ROLES,
@@ -35,6 +36,12 @@ export async function addClient(
 
   if (!name || !email) {
     return { error: "Add a name and an email for your client." };
+  }
+  // The form never offers this, so reaching it means a hand-made request. An
+  // account created straight into the archive would be one that has never been
+  // used and already can't sign in.
+  if (stage === CLIENT_STAGE.ARCHIVED) {
+    return { error: "New clients can't be added as old clients." };
   }
   if (password && password.length < 8) {
     return { error: "Password must be at least 8 characters." };
@@ -128,16 +135,29 @@ export async function setClientStage(
   const full = await checkRoom(trainer.id, stage);
   if (full) return { error: full };
 
+  const archiving = stage === CLIENT_STAGE.ARCHIVED;
+
   await prisma.user.update({
     where: { id: client.id },
-    data: { stage },
+    data: {
+      stage,
+      // Archiving ends their access now, not in thirty days. getCurrentUser
+      // already refuses an archived account, and bumping the epoch retires the
+      // cookie itself — the same mechanism a password reset uses, for the same
+      // reason: a stateless session would otherwise outlive the decision.
+      ...(archiving ? { sessionEpoch: { increment: 1 } } : {}),
+    },
   });
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${client.id}`);
   revalidatePath("/dashboard");
 
-  return { ok: `Now a ${CLIENT_STAGE_LABELS[stage].toLowerCase()}.` };
+  return {
+    ok: archiving
+      ? `Now an old client — signed out, and their records are kept.`
+      : `Now a ${CLIENT_STAGE_LABELS[stage].toLowerCase()}.`,
+  };
 }
 
 export type SessionCreditState = { error?: string; ok?: string };

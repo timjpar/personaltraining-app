@@ -7,18 +7,35 @@ import {
   CLIENT_STAGE,
   CLIENT_STAGE_HINTS,
   CLIENT_STAGE_LABELS,
+  CLIENT_STAGE_ORDER,
   type ClientStage,
 } from "@/lib/constants";
 
 const initial: SetStageState = {};
 
-// Client or prospect, and the one button that swaps them.
+// Where this person stands with the coach, and the buttons that move them.
 //
-// One button rather than a picker with a save, because there are exactly two
-// stages: a select of two options plus a submit is three interactions for a
-// decision with one bit in it. The button names the destination ("Move to
-// prospect") rather than the state, which is the difference between a control
-// you can press confidently and one you have to think about first.
+// This was a single toggle while there were two stages and the destination was
+// therefore never in question. With three it becomes one button per stage they
+// are not in — still no picker and no separate save, because the button naming
+// its destination is what makes the control readable at a glance. The stage
+// travels on the submit button's own value, so two buttons share one form.
+const MOVE_LABEL: Record<ClientStage, string> = {
+  ACTIVE: "Move to client",
+  PROSPECT: "Move to prospect",
+  // Not "Move to old client": the others are a sideways step and this one ends
+  // their access, so it gets a verb that sounds like the bigger decision it is.
+  ARCHIVED: "Make an old client",
+};
+
+const TONES: Record<ClientStage, "jade" | "neutral" | "amber"> = {
+  ACTIVE: "jade",
+  PROSPECT: "neutral",
+  // Amber rather than neutral: on a page full of someone's training history,
+  // "this account is closed" is the one piece of standing worth catching an eye.
+  ARCHIVED: "amber",
+};
+
 export function StageControl({
   clientId,
   firstName,
@@ -33,8 +50,8 @@ export function StageControl({
     initial,
   );
 
-  const next: ClientStage =
-    stage === CLIENT_STAGE.ACTIVE ? CLIENT_STAGE.PROSPECT : CLIENT_STAGE.ACTIVE;
+  const others = CLIENT_STAGE_ORDER.filter((s) => s !== stage);
+  const archived = stage === CLIENT_STAGE.ARCHIVED;
 
   return (
     <Card className="p-4 sm:p-5">
@@ -42,9 +59,7 @@ export function StageControl({
         <h2 className="font-display text-base font-semibold text-ink">
           Standing
         </h2>
-        <Badge tone={stage === CLIENT_STAGE.ACTIVE ? "jade" : "neutral"}>
-          {CLIENT_STAGE_LABELS[stage]}
-        </Badge>
+        <Badge tone={TONES[stage]}>{CLIENT_STAGE_LABELS[stage]}</Badge>
       </div>
 
       <p className="mt-1 text-sm text-ink-soft">
@@ -60,12 +75,29 @@ export function StageControl({
           </p>
         ) : null}
 
-        <input type="hidden" name="stage" value={next} />
-        <button type="submit" disabled={pending} className={buttonClass("outline")}>
-          {pending
-            ? "Moving…"
-            : `Move to ${CLIENT_STAGE_LABELS[next].toLowerCase()}`}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {others.map((next) => (
+            <button
+              key={next}
+              type="submit"
+              name="stage"
+              value={next}
+              disabled={pending}
+              className={buttonClass("outline")}
+            >
+              {pending ? "Moving…" : MOVE_LABEL[next]}
+            </button>
+          ))}
+        </div>
+
+        {/* Said before the press, not after. Archiving signs someone out of an
+            app they may be mid-week in, and that is not recoverable by them —
+            only the coach can move them back. */}
+        <p className="text-xs text-ink-soft">
+          {archived
+            ? `${firstName} can't sign in while they're an old client. Everything they logged is still here, and moving them back restores their access.`
+            : `Making ${firstName} an old client signs them out and blocks their sign-in. Their history stays on file, and you can move them back at any time.`}
+        </p>
       </form>
     </Card>
   );

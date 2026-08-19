@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "./db";
-import { ROLES } from "./constants";
+import { isArchivedClient, ROLES } from "./constants";
 import {
   SESSION_COOKIE,
   SESSION_MAX_AGE,
@@ -89,6 +89,13 @@ export async function getCurrentUser() {
   // in the whole time. Every path that sets a password bumps the epoch, so
   // every session but the one the reset itself mints is retired here.
   if (user.sessionEpoch !== session.epoch) return null;
+
+  // An archived client is kept for their records and nothing else. Checked here
+  // rather than only at the two sign-in doors, because a cookie minted before
+  // they were archived would otherwise stay good for thirty days — and the
+  // whole point of archiving is that it takes effect now. setClientStage also
+  // bumps sessionEpoch, so the live session dies on the same request.
+  if (isArchivedClient(user)) return null;
 
   return user;
 }

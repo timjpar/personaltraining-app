@@ -12,7 +12,12 @@ import {
 } from "@/lib/mail";
 import { requestOrigin } from "@/lib/request-origin";
 import { consumeResetToken, createResetToken } from "@/lib/reset-token";
-import { LOGIN_METHOD, LOGIN_OUTCOME, ROLES } from "@/lib/constants";
+import {
+  isArchivedClient,
+  LOGIN_METHOD,
+  LOGIN_OUTCOME,
+  ROLES,
+} from "@/lib/constants";
 
 export type AuthState = { error?: string };
 
@@ -55,6 +60,19 @@ export async function login(
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     await log(user ? LOGIN_OUTCOME.BAD_PASSWORD : LOGIN_OUTCOME.NO_ACCOUNT);
     return { error: "That email and password don't match." };
+  }
+
+  // Deliberately after the password check, not before it. Refusing an archived
+  // account on sight would make the form an oracle for which addresses belong
+  // to closed accounts — the same reason the mismatch message above declines to
+  // separate "no such account" from "wrong password". Once the password is
+  // right, the person asking is the account holder and is owed the real reason.
+  if (isArchivedClient(user)) {
+    await log(LOGIN_OUTCOME.ARCHIVED);
+    return {
+      error:
+        "This account has been closed by your coach. Your records are kept — ask them to reopen it if you need access.",
+    };
   }
 
   await log(LOGIN_OUTCOME.SUCCESS);

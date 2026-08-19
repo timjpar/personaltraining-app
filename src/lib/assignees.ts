@@ -22,7 +22,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "./db";
-import { ROLES } from "./constants";
+import { CLIENT_STAGE, ROLES } from "./constants";
 
 export type Assignee = { id: string; name: string };
 
@@ -30,7 +30,9 @@ export type Assignee = { id: string; name: string };
 // were running this identical query inline.
 export async function assignableClients(trainerId: string): Promise<Assignee[]> {
   return prisma.user.findMany({
-    where: { trainerId, role: ROLES.CLIENT },
+    // Archived clients are excluded: they can't sign in, so a session or a meal
+    // plan assigned to one is written to nobody.
+    where: { trainerId, role: ROLES.CLIENT, stage: { not: CLIENT_STAGE.ARCHIVED } },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
