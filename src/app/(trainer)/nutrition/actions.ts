@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { dbJson, prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import { parseNutritionForm, type ParsedMeal } from "@/lib/nutrition-form";
 import {
@@ -27,6 +27,9 @@ function mealCreateData(meals: ParsedMeal[]) {
         protein: f.protein,
         carbs: f.carbs,
         fat: f.fat,
+        grams: f.grams,
+        gramsPerCup: f.gramsPerCup,
+        nutrients: dbJson(f.nutrients),
         order: f.order,
       })),
     },
@@ -151,6 +154,9 @@ export async function assignNutritionPlan(
         protein: f.protein,
         carbs: f.carbs,
         fat: f.fat,
+        grams: f.grams,
+        gramsPerCup: f.gramsPerCup,
+        nutrients: dbJson(f.nutrients),
         order: f.order,
       })),
     },

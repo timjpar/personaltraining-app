@@ -1,4 +1,4 @@
-import { PrismaClient } from "@/generated/prisma/client";
+import { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 // Prisma 7 uses driver adapters instead of a bundled query engine. We talk to
@@ -43,4 +43,14 @@ export function isUniqueViolation(err: unknown) {
     "code" in err &&
     (err as { code?: string }).code === "P2002"
   );
+}
+
+// A nullable Json column can't be written a bare null: Prisma makes you say
+// whether you mean SQL NULL or the JSON value null. Every nullable Json column
+// in this schema means "nothing known", which is SQL NULL. Also takes a Json
+// value read back out of the database, which is how a plan is deep-copied.
+export function dbJson(
+  value: Prisma.InputJsonValue | Prisma.JsonValue | null | undefined,
+): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  return value == null ? Prisma.DbNull : (value as Prisma.InputJsonValue);
 }

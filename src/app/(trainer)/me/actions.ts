@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { dbJson, prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
 import {
   parseMeasurementForm,
@@ -183,7 +183,11 @@ export async function saveMyNutritionLog(
   await prisma.$transaction([
     prisma.loggedFood.deleteMany({ where: { logId: log.id } }),
     prisma.loggedFood.createMany({
-      data: data.entries.map((e) => ({ ...e, logId: log.id })),
+      data: data.entries.map((e) => ({
+        ...e,
+        nutrients: dbJson(e.nutrients),
+        logId: log.id,
+      })),
     }),
   ]);
 

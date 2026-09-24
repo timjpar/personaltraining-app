@@ -2,6 +2,7 @@
 
 import { requireUser } from "@/lib/auth";
 import type { FoodPreset } from "@/lib/food-presets";
+import { gramsPerCupFromServing, parseGrams } from "@/lib/food-amounts";
 import { lookupBarcodeProduct, normalizeBarcode } from "@/lib/open-food-facts";
 import { geminiConfig, identifyFoods } from "@/lib/gemini";
 
@@ -80,15 +81,25 @@ export async function scanFoodPhoto(formData: FormData): Promise<ScanResult> {
   // Reshaped as presets so a scan result drops into the same slot a catalog
   // pick does — the servings box then scales it, and every downstream helper
   // (scaleMacros, servingLabel) works without knowing where it came from.
+  //
+  // The weight comes out of the model's own portion text ("1 medium (200 g)"),
+  // so the amount can be re-asked for in grams. Micronutrients are not asked
+  // for at all: an iron figure guessed off a photo would be an estimate
+  // dressed as a reading, which is the one thing this feature must not do.
   return {
-    foods: found.map((f) => ({
-      name: f.name,
-      serving: f.quantity ?? "1 serving",
-      calories: f.calories ?? 0,
-      protein: f.protein ?? 0,
-      carbs: f.carbs ?? 0,
-      fat: f.fat ?? 0,
-    })),
+    foods: found.map((f) => {
+      const serving = f.quantity ?? "1 serving";
+      return {
+        name: f.name,
+        serving,
+        calories: f.calories ?? 0,
+        protein: f.protein ?? 0,
+        carbs: f.carbs ?? 0,
+        fat: f.fat ?? 0,
+        grams: parseGrams(serving),
+        gramsPerCup: gramsPerCupFromServing(serving),
+      };
+    }),
     unsure: found.some((f) => f.confidence < 0.6),
   };
 }

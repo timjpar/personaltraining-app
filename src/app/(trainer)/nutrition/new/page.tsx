@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { Container, PageHeading } from "@/components/ui";
 import { NutritionBuilder } from "@/components/NutritionBuilder";
 import { createNutritionTemplate } from "../actions";
+import { toNutrientDetail } from "@/lib/constants";
 
 // Whole positive integers only. A target arriving as "-1" or "2e9" from a
 // hand-edited URL reads as absent rather than as a number the builder then
@@ -78,6 +79,7 @@ export default async function NewNutritionPage({
       <div className="mt-7">
         <NutritionBuilder
           action={createNutritionTemplate}
+          detail={toNutrientDetail(trainer.nutrientDetail)}
           submitLabel="Save plan"
           cancelHref={from ? `/clients/${from.id}/profile` : "/nutrition"}
           initial={{

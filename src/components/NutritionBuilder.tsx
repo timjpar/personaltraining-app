@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import type { NutritionFormState } from "@/app/(trainer)/nutrition/actions";
 import { FoodPicker } from "@/components/FoodPicker";
-import { MacroBar } from "@/components/MacroBar";
+import { AmountControls, NutrientFields } from "@/components/FoodRowControls";
+import { NutritionTotals } from "@/components/NutritionTotals";
 import {
   Card,
   Field,
@@ -14,34 +15,16 @@ import {
   buttonClass,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import type { FoodMacros, FoodPreset } from "@/lib/food-presets";
-import {
-  findFoodPreset,
-  normalizeFoodName,
-  parseServingLabel,
-  parseServings,
-  scaleMacros,
-  servingLabel,
-} from "@/lib/food-presets";
+import type { NutrientDetail } from "@/lib/constants";
+import type { AmountUnit } from "@/lib/food-amounts";
+import type { FoodPreset, StoredFood } from "@/lib/food-presets";
+import * as foodRows from "@/lib/food-rows";
+import type { FoodRowFields, MacroKey } from "@/lib/food-rows";
+import type { NutrientKey } from "@/lib/nutrients";
 
-type MacroKey = "calories" | "protein" | "carbs" | "fat";
-
-type FoodRow = {
-  id: string;
-  name: string;
-  quantity: string;
-  calories: string;
-  protein: string;
-  carbs: string;
-  fat: string;
-  // Client-only, never persisted. `base` is the per-serving preset the macros
-  // were scaled from; null means the row was typed by hand and the servings box
-  // has nothing to multiply. The multiplier survives a save through the
-  // quantity string ("2 × 1 medium (200 g)"), which is what lets an edit page
-  // rebuild both of these.
-  servings: string;
-  base: FoodPreset | null;
-};
+// How a row is edited — scaling, units, what breaks the preset link — lives in
+// src/lib/food-rows.ts, shared with the athlete's day log.
+type FoodRow = FoodRowFields & { id: string };
 type MealRow = { id: string; name: string; foods: FoodRow[] };
 
 type Initial = {
@@ -53,91 +36,17 @@ type Initial = {
   targetFat?: number | null;
   meals?: {
     name: string;
-    foods: {
-      name: string;
-      quantity: string | null;
-      calories: number | null;
-      protein: number | null;
-      carbs: number | null;
-      fat: number | null;
-    }[];
+    foods: StoredFood[];
   }[];
 };
 
-const numStr = (n: number | null | undefined) => (n == null ? "" : String(n));
-const num = (s: string) => {
-  const n = parseInt(s, 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-};
-const macroStrings = (m: FoodMacros) => ({
-  calories: String(m.calories),
-  protein: String(m.protein),
-  carbs: String(m.carbs),
-  fat: String(m.fat),
-});
-
-const blankFood = (id: string): FoodRow => ({
-  id,
-  name: "",
-  quantity: "",
-  calories: "",
-  protein: "",
-  carbs: "",
-  fat: "",
-  servings: "",
-  base: null,
-});
+const blankFood = (id: string): FoodRow => ({ ...foodRows.blankFoodFields(), id });
 const newFood = (): FoodRow => blankFood(crypto.randomUUID());
 const newMeal = (name = ""): MealRow => ({
   id: crypto.randomUUID(),
   name,
   foods: [newFood()],
 });
-
-// Rebuild the preset link for a food loaded from the database. Both helpers are
-// pure, so this runs identically on the server and the client — the initial
-// rows have to hydrate without a mismatch.
-function rehydrate(
-  id: string,
-  f: {
-    name: string;
-    quantity: string | null;
-    calories: number | null;
-    protein: number | null;
-    carbs: number | null;
-    fat: number | null;
-  },
-): FoodRow {
-  const row: FoodRow = {
-    id,
-    name: f.name,
-    quantity: f.quantity ?? "",
-    calories: numStr(f.calories),
-    protein: numStr(f.protein),
-    carbs: numStr(f.carbs),
-    fat: numStr(f.fat),
-    servings: "",
-    base: null,
-  };
-
-  const preset = findFoodPreset(f.name);
-  const parsed = parseServingLabel(f.quantity);
-  if (!preset || !parsed) return row;
-
-  // The stored macros have to still match what this preset and multiplier
-  // produce. If a coach picked Avocado ×2 and then typed over the calories, the
-  // row is theirs now — reattaching the preset would let a later nudge of the
-  // servings box silently throw that edit away.
-  const scaled = scaleMacros(preset, parsed.servings);
-  const matches =
-    scaled.calories === (f.calories ?? 0) &&
-    scaled.protein === (f.protein ?? 0) &&
-    scaled.carbs === (f.carbs ?? 0) &&
-    scaled.fat === (f.fat ?? 0);
-  if (!matches) return row;
-
-  return { ...row, servings: String(parsed.servings), base: preset };
-}
 
 const MACROS: { key: MacroKey; label: string; placeholder: string }[] = [
   { key: "calories", label: "Cal", placeholder: "320" },
@@ -151,6 +60,7 @@ export function NutritionBuilder({
   submitLabel,
   cancelHref,
   initial,
+  detail,
 }: {
   action: (
     state: NutritionFormState,
@@ -159,6 +69,8 @@ export function NutritionBuilder({
   submitLabel: string;
   cancelHref: string;
   initial?: Initial;
+  // The coach's micronutrient preference — see NutritionTotals.
+  detail: NutrientDetail;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   // Deterministic ids for the server-rendered rows so hydration matches; rows
@@ -169,7 +81,10 @@ export function NutritionBuilder({
           id: `m${mi}`,
           name: m.name,
           foods: m.foods.length
-            ? m.foods.map((f, fi) => rehydrate(`m${mi}-f${fi}`, f))
+            ? m.foods.map((f, fi) => ({
+                ...foodRows.rehydrateFoodFields(f),
+                id: `m${mi}-f${fi}`,
+              }))
             : [blankFood(`m${mi}-f0`)],
         }))
       : [
@@ -221,99 +136,39 @@ export function NutritionBuilder({
       ),
     );
 
-  const setField = (
-    mealId: string,
-    foodId: string,
-    key: "quantity",
-    value: string,
-  ) => update(mealId, foodId, (f) => ({ ...f, [key]: value }));
-
-  // Picking from the catalog fills the row: name, serving, and the macros for
-  // exactly one serving.
   const applyPreset = (mealId: string, foodId: string, preset: FoodPreset) =>
-    update(mealId, foodId, (f) => ({
-      ...f,
-      name: preset.name,
-      base: preset,
-      servings: "1",
-      quantity: servingLabel(preset, 1),
-      ...macroStrings(scaleMacros(preset, 1)),
-    }));
-
+    update(mealId, foodId, (f) => foodRows.applyPreset(f, preset));
   const clearPreset = (mealId: string, foodId: string) =>
-    update(mealId, foodId, (f) => ({ ...f, base: null, servings: "" }));
-
-  // Always scaled from the base, never from the numbers currently on screen —
-  // so 1 → 2 → 1 lands back on the exact original figures.
-  const setServings = (mealId: string, foodId: string, raw: string) =>
-    update(mealId, foodId, (f) => {
-      const n = parseServings(raw);
-      // Mid-keystroke ("1." or an empty box) must not rewrite the macros.
-      if (!f.base || n == null) return { ...f, servings: raw };
-      return {
-        ...f,
-        servings: raw,
-        quantity: servingLabel(f.base, n),
-        ...macroStrings(scaleMacros(f.base, n)),
-      };
-    });
-
-  // Renaming past the preset drops the link but keeps the numbers — the coach's
-  // figures are never destroyed as a side effect of an edit.
+    update(mealId, foodId, (f) => foodRows.detachPreset(f));
+  const setAmount = (mealId: string, foodId: string, raw: string) =>
+    update(mealId, foodId, (f) => foodRows.setAmount(f, raw));
+  const setUnit = (mealId: string, foodId: string, unit: AmountUnit) =>
+    update(mealId, foodId, (f) => foodRows.setUnit(f, unit));
   const setFoodName = (mealId: string, foodId: string, name: string) =>
-    update(mealId, foodId, (f) => {
-      const stillPreset =
-        f.base && normalizeFoodName(name) === normalizeFoodName(f.base.name);
-      return stillPreset
-        ? { ...f, name }
-        : { ...f, name, base: null, servings: "" };
-    });
-
-  // Same rule for a hand-edited macro: once a number stops matching the scaled
-  // serving, the row belongs to the coach and the servings box goes inert.
-  const setMacro = (
+    update(mealId, foodId, (f) => foodRows.setName(f, name));
+  const setQuantity = (mealId: string, foodId: string, quantity: string) =>
+    update(mealId, foodId, (f) => foodRows.setQuantity(f, quantity));
+  const setMacro = (mealId: string, foodId: string, key: MacroKey, value: string) =>
+    update(mealId, foodId, (f) => foodRows.setMacro(f, key, value));
+  const setNutrient = (
     mealId: string,
     foodId: string,
-    key: MacroKey,
+    key: NutrientKey,
     value: string,
-  ) =>
-    update(mealId, foodId, (f) => {
-      const next = { ...f, [key]: value };
-      const n = parseServings(f.servings);
-      if (!f.base || n == null) return next;
-      const expected = String(scaleMacros(f.base, n)[key]);
-      return value === expected ? next : { ...next, base: null, servings: "" };
-    });
+  ) => update(mealId, foodId, (f) => foodRows.setNutrient(f, key, value));
 
-  const totals = meals.reduce(
-    (acc, m) => {
-      for (const f of m.foods) {
-        acc.calories += num(f.calories);
-        acc.protein += num(f.protein);
-        acc.carbs += num(f.carbs);
-        acc.fat += num(f.fat);
-      }
-      return acc;
-    },
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  const totals = useMemo(
+    () => foodRows.rowTotals(meals.flatMap((m) => m.foods)),
+    [meals],
   );
 
   // Only the persisted fields travel. `base` is a whole preset object per row
-  // and `servings`/`id` mean nothing to the server.
+  // and `amount`/`unit`/`id` mean nothing to the server.
   const payload = useMemo(
     () =>
       meals.map((m) => ({
         name: m.name,
-        foods: m.foods.map(
-          ({ name, quantity, calories, protein, carbs, fat }) => ({
-            name,
-            quantity,
-            calories,
-            protein,
-            carbs,
-            fat,
-          }),
-        ),
+        foods: m.foods.map(foodRows.persistedFood),
       })),
     [meals],
   );
@@ -407,58 +262,17 @@ export function NutritionBuilder({
                   key={food.id}
                   className="rounded-[var(--radius-sm)] border border-line bg-paper/40 p-2.5"
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* The name takes its own line on a phone; the serving
-                        controls share the next one. */}
+                  {/* Two lines: the food, then how much of it. See the matching
+                      note in NutritionLogForm. */}
+                  <div className="flex items-center gap-2">
                     <FoodPicker
                       value={food.name}
                       onChange={(v) => setFoodName(meal.id, food.id, v)}
                       onPick={(p) => applyPreset(meal.id, food.id, p)}
                       onPickCustom={() => clearPreset(meal.id, food.id)}
                       aria-label={`Food ${fi + 1} name`}
-                      className="min-w-0 basis-full sm:flex-1 sm:basis-auto"
+                      className="min-w-0 flex-1"
                     />
-                    {/* Widths live on the wrappers: `inputBase` sets w-full and
-                        cn() is a plain join, so a width class on the Input
-                        itself loses to it. */}
-                    <div className="relative w-[4.5rem] shrink-0">
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.25"
-                        inputMode="decimal"
-                        value={food.servings}
-                        disabled={food.base == null}
-                        onChange={(e) =>
-                          setServings(meal.id, food.id, e.target.value)
-                        }
-                        placeholder="1"
-                        aria-label={`Food ${fi + 1} servings`}
-                        title={
-                          food.base == null
-                            ? "Pick a food from the list to scale a serving"
-                            : undefined
-                        }
-                        className="metric bg-card px-2 py-1.5 pr-5 text-sm disabled:opacity-50"
-                      />
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-soft"
-                      >
-                        ×
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1 sm:w-44 sm:flex-none">
-                      <Input
-                        value={food.quantity}
-                        onChange={(e) =>
-                          setField(meal.id, food.id, "quantity", e.target.value)
-                        }
-                        placeholder="1 cup"
-                        className="bg-card px-2.5 py-2 text-sm"
-                        aria-label={`Food ${fi + 1} quantity`}
-                      />
-                    </div>
                     <button
                       type="button"
                       onClick={() => removeFood(meal.id, food.id)}
@@ -469,6 +283,26 @@ export function NutritionBuilder({
                         <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                       </svg>
                     </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <AmountControls
+                      row={food}
+                      label={`Food ${fi + 1}`}
+                      onAmount={(raw) => setAmount(meal.id, food.id, raw)}
+                      onUnit={(unit) => setUnit(meal.id, food.id, unit)}
+                      inputClassName="bg-card"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <Input
+                        value={food.quantity}
+                        onChange={(e) =>
+                          setQuantity(meal.id, food.id, e.target.value)
+                        }
+                        placeholder="1 cup"
+                        className="bg-card px-2.5 py-2 text-sm"
+                        aria-label={`Food ${fi + 1} quantity`}
+                      />
+                    </div>
                   </div>
                   <div className="mt-2 grid grid-cols-4 gap-2">
                     {MACROS.map((mac) => (
@@ -485,6 +319,15 @@ export function NutritionBuilder({
                       </label>
                     ))}
                   </div>
+                  <NutrientFields
+                    row={food}
+                    label={`Food ${fi + 1}`}
+                    detail={detail}
+                    onChange={(key, value) =>
+                      setNutrient(meal.id, food.id, key, value)
+                    }
+                    inputClassName="bg-card"
+                  />
                 </div>
               ))}
             </div>
@@ -509,8 +352,12 @@ export function NutritionBuilder({
       </div>
 
       <Card className="p-4">
-        <p className="eyebrow mb-2.5 text-ink-soft">Daily total (from foods)</p>
-        <MacroBar totals={totals} />
+        <NutritionTotals
+          label="Daily total (from foods)"
+          totals={totals.macros}
+          nutrients={totals.nutrients}
+          detail={detail}
+        />
       </Card>
 
       <div className="flex items-center gap-3">

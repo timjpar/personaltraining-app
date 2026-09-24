@@ -95,6 +95,13 @@ model User {
   // scale, and a default nobody has to find is worth more than a symmetric one.
   units String @default("IMPERIAL")
 
+  // How much micronutrient detail this person wants on nutrition pages —
+  // OFF | KEY | ALL, see NUTRIENT_DETAIL in constants.ts. A viewer preference
+  // on User for the reasons `units` gives above. Off by default: most days a
+  // plan is read for its macros, and twenty-nine more numbers on every page
+  // would bury them. Anyone who wants them asks once.
+  nutrientDetail String @default("OFF")
+
   // Which hour of the trainer's own day the digest goes out at, 0-23; null is
   // off. Deliberately NOT the minutes-from-midnight the rest of the app uses
   // for times (see CalendarEvent): the scheduler that fires this runs hourly,
@@ -904,6 +911,20 @@ model Food {
   carbs    Int?
   fat      Int?
   order    Int     @default(0)
+
+  // What this row's amount weighs, and the food's density (grams per US cup).
+  // Facts about the snapshot, not a formula: nothing sums them. They exist so
+  // the amount can be re-read in ounces or cups by whoever opens the plan, and
+  // so the builder can rescale a row it reopens. Null when nobody knows —
+  // "1 medium" typed by hand has neither. See src/lib/food-amounts.ts.
+  grams       Float?
+  gramsPerCup Float?
+  // Micronutrients for this row's amount, keyed by NutrientKey
+  // (src/lib/nutrients.ts): {"fiber": 3.6, "vitaminC": 14.4, ...}. JSON rather
+  // than a column each because there are twenty-nine of them and a typed-in
+  // food carries none. Totals, never per-100 g — the same snapshot contract as
+  // the macros above. An absent key is unknown, not zero.
+  nutrients Json?
 }
 
 // What the athlete actually ate on a day — the other half of NutritionPlan,
@@ -984,6 +1005,11 @@ model LoggedFood {
   // only signal the scanning features will ever produce about whether they get
   // used, and a coach reads "off a barcode" differently from "she guessed".
   source String @default("MANUAL")
+
+  // Same three, same contract, as on Food.
+  grams       Float?
+  gramsPerCup Float?
+  nutrients   Json?
 }
 
 // One row per trainer per day the digest has been claimed for. Its own table

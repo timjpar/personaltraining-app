@@ -687,6 +687,29 @@ export function toUnits(value: unknown): Units {
   return s in UNIT_LABELS ? (s as Units) : UNITS.IMPERIAL;
 }
 
+// How much micronutrient detail a person reads on nutrition pages. A viewer
+// preference like UNITS: it changes what is drawn, never what is stored — a
+// row's micronutrients are saved whichever of these is on.
+export const NUTRIENT_DETAIL = {
+  OFF: "OFF",
+  KEY: "KEY",
+  ALL: "ALL",
+} as const;
+export type NutrientDetail =
+  (typeof NUTRIENT_DETAIL)[keyof typeof NUTRIENT_DETAIL];
+
+export const NUTRIENT_DETAIL_LABELS: Record<NutrientDetail, string> = {
+  OFF: "Off",
+  KEY: "Key",
+  ALL: "All",
+};
+
+// Falls back to the column default, for the same reason toUnits does.
+export function toNutrientDetail(value: unknown): NutrientDetail {
+  const s = String(value ?? "");
+  return s in NUTRIENT_DETAIL_LABELS ? (s as NutrientDetail) : NUTRIENT_DETAIL.OFF;
+}
+
 // The metabolic input to Mifflin–St Jeor, which is the only thing that reads
 // it — the profile form says exactly that under the field. Two values because
 // that is what the equation takes; it is not a question about identity, and

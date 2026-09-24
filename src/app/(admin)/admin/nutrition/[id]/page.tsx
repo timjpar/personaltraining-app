@@ -17,13 +17,14 @@ import { prisma } from "@/lib/db";
 import { Container, PageHeading } from "@/components/ui";
 import { NutritionPlanView } from "@/components/NutritionPlanView";
 import { formatStamp } from "@/lib/format";
+import { toNutrientDetail } from "@/lib/constants";
 
 export default async function AdminNutritionPlanPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const { id } = await params;
 
   // No trainerId filter, and that's the point: requireAdmin() above is the
@@ -76,7 +77,10 @@ export default async function AdminNutritionPlanPage({
       </div>
 
       <div className="mt-6">
-        <NutritionPlanView plan={plan} />
+        <NutritionPlanView
+          plan={plan}
+          detail={toNutrientDetail(admin.nutrientDetail)}
+        />
       </div>
     </Container>
   );

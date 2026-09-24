@@ -10,6 +10,7 @@ import { NutritionLogView } from "@/components/NutritionLogView";
 import { NutritionPlanView } from "@/components/NutritionPlanView";
 import { parseDayParam } from "@/lib/calendar";
 import { formatDateLong } from "@/lib/format";
+import { toNutrientDetail } from "@/lib/constants";
 
 export default async function ClientNutritionDayPage({
   params,
@@ -90,7 +91,11 @@ export default async function ClientNutritionDayPage({
             What they ate
           </h2>
           {log ? (
-            <NutritionLogView log={log} targets={targets} />
+            <NutritionLogView
+              log={log}
+              targets={targets}
+              detail={toNutrientDetail(trainer.nutrientDetail)}
+            />
           ) : (
             <Card className="p-5">
               <p className="text-sm text-ink-soft">
@@ -105,7 +110,10 @@ export default async function ClientNutritionDayPage({
             Their plan
           </h2>
           {plan ? (
-            <NutritionPlanView plan={plan} />
+            <NutritionPlanView
+              plan={plan}
+              detail={toNutrientDetail(trainer.nutrientDetail)}
+            />
           ) : (
             <Card className="p-5">
               <p className="text-sm text-ink-soft">

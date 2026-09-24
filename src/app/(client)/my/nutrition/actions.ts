@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { prisma } from "@/lib/db";
+import { dbJson, prisma } from "@/lib/db";
 import { requireClient } from "@/lib/auth";
 import {
   parseNutritionLogForm,
@@ -71,7 +71,11 @@ export async function saveNutritionLog(
     // rows carry no identity worth preserving across an edit.
     await tx.loggedFood.deleteMany({ where: { logId: log.id } });
     await tx.loggedFood.createMany({
-      data: data.entries.map((e) => ({ ...e, logId: log.id })),
+      data: data.entries.map((e) => ({
+        ...e,
+        nutrients: dbJson(e.nutrients),
+        logId: log.id,
+      })),
     });
 
     // An unattached client has nobody to tell. FeedItem.trainerId is NOT NULL,

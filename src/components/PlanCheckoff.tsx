@@ -9,8 +9,13 @@
 // would have had to start passing a flag saying "not here". This is the day
 // view's copy, and it is the only one that needs a LogRowsProvider above it.
 import { Card } from "@/components/ui";
-import { MacroBar } from "@/components/MacroBar";
+import { AmountSelect } from "@/components/AmountSelect";
+import { FoodNutrients } from "@/components/NutrientPanel";
+import { NutritionTotals } from "@/components/NutritionTotals";
 import { sumMacros } from "@/lib/nutrition-form";
+import { sumNutrients } from "@/lib/nutrients";
+import { foodDetail } from "@/lib/food-presets";
+import type { NutrientDetail } from "@/lib/constants";
 import { planKey, useLogRows, type PlanFood } from "@/components/nutrition-log-state";
 
 type Food = PlanFood & { id: string };
@@ -35,7 +40,13 @@ function foodMacros(f: Food) {
     .join(" · ");
 }
 
-export function PlanCheckoff({ plan }: { plan: Plan }) {
+export function PlanCheckoff({
+  plan,
+  detail,
+}: {
+  plan: Plan;
+  detail: NutrientDetail;
+}) {
   const { togglePlanFood, plannedKeys } = useLogRows();
 
   const totals = sumMacros(plan.meals);
@@ -46,6 +57,9 @@ export function PlanCheckoff({ plan }: { plan: Plan }) {
     fat: plan.targetFat,
   };
   const hasTargets = Object.values(targets).some((v) => v != null);
+  const nutrients = sumNutrients(
+    plan.meals.flatMap((m) => m.foods.map((f) => foodDetail(f))),
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -60,10 +74,13 @@ export function PlanCheckoff({ plan }: { plan: Plan }) {
         Untick to take it back out.
       </p>
 
-      <div>
-        <p className="eyebrow mb-2 text-ink-soft">Daily totals</p>
-        <MacroBar totals={totals} targets={hasTargets ? targets : null} />
-      </div>
+      <NutritionTotals
+        label="Daily totals"
+        totals={totals}
+        targets={hasTargets ? targets : null}
+        nutrients={nutrients}
+        detail={detail}
+      />
 
       <div className="flex flex-col gap-4">
         {plan.meals.map((meal) => {
@@ -104,8 +121,9 @@ export function PlanCheckoff({ plan }: { plan: Plan }) {
               <ul className="mt-2 divide-y divide-line">
                 {meal.foods.map((f) => {
                   const checked = plannedKeys.has(planKey(meal.name, f.name));
+                  const fd = foodDetail(f);
                   return (
-                    <li key={f.id}>
+                    <li key={f.id} className="pb-1">
                       {/* The whole row is the hit target — a bare checkbox is
                           a 13px tap on a phone, and this list is read and
                           ticked one-handed in a kitchen. */}
@@ -126,7 +144,15 @@ export function PlanCheckoff({ plan }: { plan: Plan }) {
                           >
                             {f.name}
                             {f.quantity ? (
-                              <span className="text-ink-soft"> · {f.quantity}</span>
+                              <span className="text-ink-soft">
+                                {" · "}
+                                <AmountSelect
+                                  name={f.name}
+                                  quantity={f.quantity}
+                                  grams={fd.grams}
+                                  gramsPerCup={fd.gramsPerCup}
+                                />
+                              </span>
                             ) : null}
                           </span>
                         </span>
@@ -134,6 +160,12 @@ export function PlanCheckoff({ plan }: { plan: Plan }) {
                           {foodMacros(f)}
                         </span>
                       </label>
+                      {/* Outside the label: opening it is reading, not ticking. */}
+                      <FoodNutrients
+                        nutrients={fd.nutrients}
+                        detail={detail}
+                        className="pl-[1.625rem]"
+                      />
                     </li>
                   );
                 })}
