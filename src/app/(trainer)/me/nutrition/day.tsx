@@ -30,13 +30,17 @@ import { dailyTargets, suggestTargets, targetInputsFrom } from "@/lib/body";
 import { addDays, formatDate, toDateInput } from "@/lib/format";
 import { startOfWeekSunday } from "@/lib/calendar";
 import { recentFoods } from "@/lib/food-presets";
+import type { NutrientDetail } from "@/lib/constants";
 
 export async function MyNutritionDay({
   trainerId,
   day,
+  detail,
 }: {
   trainerId: string;
   day: Date;
+  // The viewer's micronutrient preference, read by the page with the user.
+  detail: NutrientDetail;
 }) {
   const weekStart = startOfWeekSunday(day);
   const weekEnd = addDays(weekStart, 7);
@@ -76,6 +80,9 @@ export async function MyNutritionDay({
         protein: true,
         carbs: true,
         fat: true,
+        grams: true,
+        gramsPerCup: true,
+        nutrients: true,
       },
     }),
     prisma.nutritionLog.findMany({
@@ -125,13 +132,17 @@ export async function MyNutritionDay({
           protein: f.protein,
           carbs: f.carbs,
           fat: f.fat,
+          // Carried through, or saving an old day would quietly wipe them.
+          grams: f.grams,
+          gramsPerCup: f.gramsPerCup,
+          nutrients: f.nutrients,
           source: f.source,
         })),
       }
     : undefined;
 
   const planPanel = plan ? (
-    isFuture ? <NutritionPlanView plan={plan} /> : <PlanCheckoff plan={plan} />
+    isFuture ? <NutritionPlanView plan={plan} detail={detail} /> : <PlanCheckoff plan={plan} detail={detail} />
   ) : null;
 
   return (
@@ -175,6 +186,7 @@ export async function MyNutritionDay({
         ) : (
           <div className="mt-4">
             <NutritionLogForm
+              detail={detail}
               action={saveMyNutritionLog.bind(null, dayKey)}
               targets={targets}
               recent={recentFoods(recentRows)}

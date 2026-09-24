@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireTrainer } from "@/lib/auth";
 import { Container, PageHeading } from "@/components/ui";
+import { toNutrientDetail } from "@/lib/constants";
 import { MyNutritionDay } from "./day";
 
 // The coach's own food log, today.
@@ -30,7 +31,9 @@ export default async function MyOwnNutritionPage() {
       </div>
 
       <div className="mt-7">
-        <MyNutritionDay trainerId={trainer.id} day={today} />
+        <MyNutritionDay trainerId={trainer.id} day={today}
+          detail={toNutrientDetail(trainer.nutrientDetail)}
+        />
       </div>
     </Container>
   );

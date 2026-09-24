@@ -7,7 +7,8 @@ import { useActionState, useId } from "react";
 import type { LogState } from "@/lib/nutrition-form";
 import { FoodPicker } from "@/components/FoodPicker";
 import { FoodScanner } from "@/components/FoodScanner";
-import { MacroBar } from "@/components/MacroBar";
+import { AmountControls, NutrientFields } from "@/components/FoodRowControls";
+import { NutritionTotals } from "@/components/NutritionTotals";
 import {
   Card,
   Field,
@@ -17,6 +18,7 @@ import {
   buttonClass,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import type { NutrientDetail } from "@/lib/constants";
 import type { FoodPreset } from "@/lib/food-presets";
 import { useLogRows, type MacroKey } from "@/components/nutrition-log-state";
 
@@ -47,6 +49,7 @@ export function NutritionLogForm({
   targets,
   recent,
   photoEnabled,
+  detail,
   self = false,
 }: {
   action: (state: LogState, formData: FormData) => Promise<LogState>;
@@ -60,6 +63,8 @@ export function NutritionLogForm({
   recent?: FoodPreset[];
   // Whether GEMINI_API_KEY is set, read on the server and passed down.
   photoEnabled: boolean;
+  // The viewer's micronutrient preference — see NutritionTotals.
+  detail: NutrientDetail;
   // Set when a coach is logging their own day — see the notes field below,
   // which is the only thing it changes.
   self?: boolean;
@@ -72,13 +77,17 @@ export function NutritionLogForm({
     addRow,
     addScanned,
     removeRow,
-    update,
+    setMeal,
     applyPreset,
     clearPreset,
-    setServings,
+    setAmount,
+    setUnit,
     setName,
+    setQuantity,
     setMacro,
+    setNutrient,
     totals,
+    nutrientTotals,
     payload,
     initialNotes,
   } = useLogRows();
@@ -104,10 +113,13 @@ export function NutritionLogForm({
             key={row.id}
             className="rounded-[var(--radius-card)] border border-line bg-card p-3"
           >
+            {/* Two lines: what it was, then how much. The amount now carries
+                a unit menu beside it, and on one line the food's name was
+                the only thing left to give — the part you're scanning for. */}
             <div className="flex flex-wrap items-center gap-2">
               <Input
                 value={row.meal}
-                onChange={(e) => update(row.id, (r) => ({ ...r, meal: e.target.value }))}
+                onChange={(e) => setMeal(row.id, e.target.value)}
                 list={mealListId}
                 placeholder="Meal"
                 aria-label={`Food ${i + 1} meal`}
@@ -121,46 +133,8 @@ export function NutritionLogForm({
                 custom={recent}
                 customLabel="Foods you log"
                 aria-label={`Food ${i + 1} name`}
-                className="min-w-0 basis-full sm:flex-1 sm:basis-auto"
+                className="min-w-0 flex-1"
               />
-              {/* Widths live on the wrappers: inputBase sets w-full and cn() is
-                  a plain join, so a width class on the Input itself loses. */}
-              <div className="relative w-[4.5rem] shrink-0">
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.25"
-                  inputMode="decimal"
-                  value={row.servings}
-                  disabled={row.base == null}
-                  onChange={(e) => setServings(row.id, e.target.value)}
-                  placeholder="1"
-                  aria-label={`Food ${i + 1} servings`}
-                  title={
-                    row.base == null
-                      ? "Pick a food from the list to scale a serving"
-                      : undefined
-                  }
-                  className="metric bg-paper/40 px-2 py-1.5 pr-5 text-sm disabled:opacity-50"
-                />
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-soft"
-                >
-                  ×
-                </span>
-              </div>
-              <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
-                <Input
-                  value={row.quantity}
-                  onChange={(e) =>
-                    update(row.id, (r) => ({ ...r, quantity: e.target.value }))
-                  }
-                  placeholder="1 cup"
-                  aria-label={`Food ${i + 1} quantity`}
-                  className="bg-paper/40 px-2.5 py-2 text-sm"
-                />
-              </div>
               <button
                 type="button"
                 onClick={() => removeRow(row.id)}
@@ -178,6 +152,25 @@ export function NutritionLogForm({
               </button>
             </div>
 
+            <div className="mt-2 flex items-center gap-2">
+              <AmountControls
+                row={row}
+                label={`Food ${i + 1}`}
+                onAmount={(raw) => setAmount(row.id, raw)}
+                onUnit={(unit) => setUnit(row.id, unit)}
+                inputClassName="bg-paper/40"
+              />
+              <div className="min-w-0 flex-1">
+                <Input
+                  value={row.quantity}
+                  onChange={(e) => setQuantity(row.id, e.target.value)}
+                  placeholder="1 cup"
+                  aria-label={`Food ${i + 1} quantity`}
+                  className="bg-paper/40 px-2.5 py-2 text-sm"
+                />
+              </div>
+            </div>
+
             <div className="mt-2 grid grid-cols-4 gap-2">
               {MACROS.map((mac) => (
                 <label key={mac.key} className="flex flex-col gap-1">
@@ -193,6 +186,14 @@ export function NutritionLogForm({
                 </label>
               ))}
             </div>
+
+            <NutrientFields
+              row={row}
+              label={`Food ${i + 1}`}
+              detail={detail}
+              onChange={(key, value) => setNutrient(row.id, key, value)}
+              inputClassName="bg-paper/40"
+            />
           </div>
         ))}
       </div>
@@ -206,10 +207,13 @@ export function NutritionLogForm({
       </button>
 
       <Card className="p-4">
-        <p className="eyebrow mb-2.5 text-ink-soft">
-          {targets ? "Today vs your targets" : "Today's total"}
-        </p>
-        <MacroBar totals={totals} targets={targets} />
+        <NutritionTotals
+          label={targets ? "Today vs your targets" : "Today's total"}
+          totals={totals}
+          targets={targets}
+          nutrients={nutrientTotals}
+          detail={detail}
+        />
       </Card>
 
       {/* The label is the one place this form knows who reads the day. An

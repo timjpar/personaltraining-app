@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { Container, PageHeading } from "@/components/ui";
 import { NutritionBuilder } from "@/components/NutritionBuilder";
 import { updateNutritionTemplate } from "../../actions";
+import { toNutrientDetail } from "@/lib/constants";
 
 export default async function EditNutritionPage({
   params,
@@ -45,6 +46,7 @@ export default async function EditNutritionPage({
           action={updateNutritionTemplate.bind(null, plan.id)}
           submitLabel="Save changes"
           cancelHref={`/nutrition/${plan.id}`}
+          detail={toNutrientDetail(trainer.nutrientDetail)}
           initial={{
             title: plan.title,
             notes: plan.notes,
@@ -61,6 +63,10 @@ export default async function EditNutritionPage({
                 protein: f.protein,
                 carbs: f.carbs,
                 fat: f.fat,
+                // Carried through, or saving the plan would wipe them.
+                grams: f.grams,
+                gramsPerCup: f.gramsPerCup,
+                nutrients: f.nutrients,
               })),
             })),
           }}

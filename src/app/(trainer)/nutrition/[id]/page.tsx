@@ -8,6 +8,7 @@ import { NutritionPlanView } from "@/components/NutritionPlanView";
 import { AssignClients } from "@/components/AssignClients";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
 import { deleteNutritionTemplate, assignNutritionPlan } from "../actions";
+import { toNutrientDetail } from "@/lib/constants";
 
 export default async function NutritionPlanPage({
   params,
@@ -63,7 +64,10 @@ export default async function NutritionPlanPage({
       </div>
 
       <div className="mt-6">
-        <NutritionPlanView plan={plan} />
+        <NutritionPlanView
+          plan={plan}
+          detail={toNutrientDetail(trainer.nutrientDetail)}
+        />
       </div>
 
       <div className="mt-9">

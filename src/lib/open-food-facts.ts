@@ -12,6 +12,8 @@
 // an editable field the athlete can see, which is what the log form does with
 // any preset.
 import type { FoodPreset } from "@/lib/food-presets";
+import { parseGrams } from "@/lib/food-amounts";
+import { NUTRIENTS, parseNutrients, type Nutrients } from "@/lib/nutrients";
 
 const ENDPOINT = "https://world.openfoodfacts.org/api/v2/product";
 
@@ -19,7 +21,8 @@ const ENDPOINT = "https://world.openfoodfacts.org/api/v2/product";
 // that don't. A fork should change this rather than inherit ours.
 const USER_AGENT = "Chalkline/1.0 (https://chalkline.click)";
 
-const FIELDS = "product_name,brands,quantity,serving_size,nutriments";
+const FIELDS =
+  "product_name,brands,quantity,serving_size,serving_quantity,serving_quantity_unit,nutriments";
 
 // kcal per kJ. Some products carry only the kJ figure.
 const KJ_PER_KCAL = 4.184;
@@ -39,6 +42,26 @@ type Nutriments = Record<string, unknown>;
 function numberOrNull(value: unknown): number | null {
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+// OFF normalises every *_100g and *_serving figure to grams, whatever unit the
+// label printed — so 0.012 is 12 mg of vitamin C. Converted back to the unit
+// each nutrient is kept in here. parseNutrients is the last gate: community
+// data does contain the odd 50 g of sodium per 100 g, and that must not reach
+// a coach's screen as a finding.
+const TO_UNIT = { g: 1, mg: 1_000, µg: 1_000_000 } as const;
+
+function micronutrients(n: Nutriments, suffix: string): Nutrients | null {
+  const out: Record<string, number> = {};
+  for (const def of NUTRIENTS) {
+    for (const name of def.off) {
+      const v = numberOrNull(n[`${name}${suffix}`]);
+      if (v == null) continue;
+      out[def.key] = v * TO_UNIT[def.unit];
+      break;
+    }
+  }
+  return parseNutrients(out);
 }
 
 // Energy is the one macro with two possible units and three possible keys.
@@ -79,6 +102,8 @@ export async function lookupBarcodeProduct(
         brands?: string;
         quantity?: string;
         serving_size?: string;
+        serving_quantity?: number | string;
+        serving_quantity_unit?: string;
         nutriments?: Nutriments;
       };
     };
@@ -103,6 +128,16 @@ export async function lookupBarcodeProduct(
     // scan result — it's the manual path with extra steps.
     if (calories == null) return null;
 
+    // What the serving weighs, so it can be re-asked for in grams. OFF parses
+    // the serving text into serving_quantity, but in millilitres for a drink,
+    // so that number is only trusted as grams when OFF says it is.
+    const servingGrams = useServing
+      ? (parseGrams(servingSize) ??
+        (String(product.serving_quantity_unit ?? "g").toLowerCase() === "g"
+          ? numberOrNull(product.serving_quantity)
+          : null))
+      : 100;
+
     // Rounded independently, the same rule scaleMacros follows: the columns are
     // Int, and scaling an already-rounded total compounds the error.
     return {
@@ -114,6 +149,8 @@ export async function lookupBarcodeProduct(
         numberOrNull(nutriments[`carbohydrates${suffix}`]) ?? 0,
       ),
       fat: Math.round(numberOrNull(nutriments[`fat${suffix}`]) ?? 0),
+      grams: servingGrams || null,
+      nutrients: micronutrients(nutriments, suffix),
     };
   } catch (err) {
     console.error("Open Food Facts lookup failed", err);

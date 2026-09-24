@@ -5,6 +5,7 @@
 // Both halves of the loop live here: the coach's plan (parseNutritionForm) and
 // the athlete's day log (parseNutritionLogForm). sumMacros serves both.
 import { toFoodSource, type FoodSource } from "@/lib/constants";
+import { parseNutrients, type Nutrients } from "@/lib/nutrients";
 
 // The state every day-log action returns. It lives here rather than beside one
 // role's actions for the reason BodyState gives in body-form.ts: two actions
@@ -20,6 +21,9 @@ export type ParsedFood = {
   protein: number | null;
   carbs: number | null;
   fat: number | null;
+  grams: number | null;
+  gramsPerCup: number | null;
+  nutrients: Nutrients | null;
   order: number;
 };
 
@@ -44,6 +48,28 @@ function intOrNull(value: unknown): number | null {
   if (!s) return null;
   const n = Math.trunc(Number(s));
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+// A weight or a density from the builder: positive, finite, and capped, the
+// same gate intOrNull is for the macros — with one decimal kept, because 0.5 g
+// of saffron is a real amount and 0 g of anything isn't.
+function measureOrNull(value: unknown, max: number): number | null {
+  const s = String(value ?? "").trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) && n > 0 && n <= max
+    ? Math.round(n * 10) / 10
+    : null;
+}
+
+// The three fields every food row carries beyond its macros, parsed the same
+// way for a plan and a day.
+function measures(food: Record<string, unknown>) {
+  return {
+    grams: measureOrNull(food?.grams, 10_000),
+    gramsPerCup: measureOrNull(food?.gramsPerCup, 2_000),
+    nutrients: parseNutrients(food?.nutrients),
+  };
 }
 
 export function parseNutritionForm(
@@ -82,6 +108,7 @@ export function parseNutritionForm(
           protein: intOrNull(food?.protein),
           carbs: intOrNull(food?.carbs),
           fat: intOrNull(food?.fat),
+          ...measures(food),
           order: foods.length + 1,
         });
       }
@@ -123,6 +150,9 @@ export type ParsedLogEntry = {
   protein: number | null;
   carbs: number | null;
   fat: number | null;
+  grams: number | null;
+  gramsPerCup: number | null;
+  nutrients: Nutrients | null;
   source: FoodSource;
   order: number;
 };
@@ -158,6 +188,7 @@ export function parseNutritionLogForm(
         protein: intOrNull(entry?.protein),
         carbs: intOrNull(entry?.carbs),
         fat: intOrNull(entry?.fat),
+        ...measures(entry),
         source: toFoodSource(entry?.source),
         order: entries.length + 1,
       });

@@ -8,6 +8,29 @@
 // builder scales from those numbers.
 //
 // This module is imported by a client component, so it stays data-only.
+//
+// Micronutrients and gram weights are not typed in below. Weights are read out
+// of each serving string, and micronutrients come from USDA through
+// food-nutrients.generated.ts; both are merged onto the catalog when this
+// module loads (see withMeasures).
+import {
+  ML_PER_CUP,
+  gramsOf,
+  gramsPerCupFromServing,
+  parseGrams,
+  parseMl,
+  parseUnitAmountLabel,
+  unitAmountLabel,
+  type AmountUnit,
+} from "@/lib/food-amounts";
+import { USDA_FOODS, USDA_NUTRIENT_ORDER } from "@/lib/food-nutrients.generated";
+import {
+  parseNutrients,
+  roundNutrient,
+  scaleNutrients,
+  type NutrientKey,
+  type Nutrients,
+} from "@/lib/nutrients";
 
 export type FoodPreset = {
   name: string;
@@ -19,6 +42,14 @@ export type FoodPreset = {
   protein: number;
   carbs: number;
   fat: number;
+  // What one serving weighs, when known. It's what lets a serving be re-asked
+  // for in grams, ounces or cups; without it the servings multiplier is the
+  // only scale there is.
+  grams?: number | null;
+  // Density, for cups and spoons. See food-amounts.ts.
+  gramsPerCup?: number | null;
+  // Per ONE serving, like the macros.
+  nutrients?: Nutrients | null;
 };
 
 export type FoodPresetCategory = {
@@ -34,7 +65,7 @@ export type FoodMacros = Pick<
 // Proteins lead: protein is the number coaches program to first. Supplements
 // trail. Within a category the order is how often a food gets programmed, not
 // alphabetical — the same editorial call EXERCISE_PRESETS makes.
-export const FOOD_PRESETS: FoodPresetCategory[] = [
+const CATALOG: FoodPresetCategory[] = [
   {
     label: "Proteins",
     foods: [
@@ -179,7 +210,7 @@ export const FOOD_PRESETS: FoodPresetCategory[] = [
   {
     label: "Nuts, Seeds & Fats",
     foods: [
-      { name: "Avocado", serving: "1 medium (200 g)", calories: 240, protein: 3, carbs: 13, fat: 22 },
+      { name: "Avocado", serving: "1 medium (150 g)", calories: 240, protein: 3, carbs: 13, fat: 22 },
       { name: "Almonds", serving: "28 g (23 nuts)", calories: 164, protein: 6, carbs: 6, fat: 14 },
       { name: "Walnuts", serving: "28 g", calories: 185, protein: 4, carbs: 4, fat: 18 },
       { name: "Cashews", serving: "28 g", calories: 157, protein: 5, carbs: 9, fat: 12 },
@@ -293,6 +324,46 @@ export function normalizeFoodName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+// Weight, density and micronutrients for one catalog food. A serving written
+// in cups or spoons carries its own density ("1 cup (148 g)"), which wins over
+// USDA's household measure so the picker and the cup option always agree. A
+// drink with no known density is taken as water, 1 g per ml — near enough for
+// anything you'd pour, and it's only ever used to offer cups of it.
+function withMeasures(food: FoodPreset): FoodPreset {
+  const usda = USDA_FOODS[normalizeFoodName(food.name)];
+  const ml = parseMl(food.serving);
+  const gramsPerCup =
+    gramsPerCupFromServing(food.serving) ??
+    usda?.[1] ??
+    (ml != null ? ML_PER_CUP : null);
+  const grams =
+    parseGrams(food.serving) ??
+    (ml != null && gramsPerCup ? (ml / ML_PER_CUP) * gramsPerCup : null);
+
+  let nutrients: Nutrients | null = null;
+  if (usda && grams) {
+    const per100 = usda[2];
+    const out: Nutrients = {};
+    USDA_NUTRIENT_ORDER.forEach((key, i) => {
+      const v = per100[i];
+      if (v != null) out[key as NutrientKey] = roundNutrient((v * grams) / 100);
+    });
+    nutrients = out;
+  }
+
+  return {
+    ...food,
+    grams: grams == null ? null : Math.round(grams * 10) / 10,
+    gramsPerCup: gramsPerCup == null ? null : Math.round(gramsPerCup * 10) / 10,
+    nutrients,
+  };
+}
+
+export const FOOD_PRESETS: FoodPresetCategory[] = CATALOG.map((c) => ({
+  ...c,
+  foods: c.foods.map(withMeasures),
+}));
+
 export const FOOD_PRESET_NAMES: string[] = FOOD_PRESETS.flatMap((c) =>
   c.foods.map((f) => f.name),
 );
@@ -355,6 +426,157 @@ export function parseServingLabel(
   return { servings: 1, serving: s };
 }
 
+// ---------------------------------------------------------------------------
+// Asking for a preset in something other than servings.
+// ---------------------------------------------------------------------------
+
+// What a preset can be measured in. Servings always; weights once a serving
+// has one; cups and spoons once there's a density too. Millilitres only for
+// things that are poured — a millilitre of oats is a real quantity nobody has
+// ever wanted.
+export function presetUnits(preset: FoodPreset): AmountUnit[] {
+  const units: AmountUnit[] = ["serving"];
+  if (!preset.grams) return units;
+  units.push("g", "oz");
+  if (preset.gramsPerCup) {
+    units.push("cup", "tbsp", "tsp");
+    if (parseMl(preset.serving) != null) units.push("ml");
+  }
+  return units;
+}
+
+// How many servings `amount` of `unit` comes to.
+export function servingsIn(
+  preset: FoodPreset,
+  amount: number,
+  unit: AmountUnit,
+): number | null {
+  if (unit === "serving") return amount;
+  if (!preset.grams || !presetUnits(preset).includes(unit)) return null;
+  const g = gramsOf(amount, unit, preset.gramsPerCup);
+  return g == null ? null : g / preset.grams;
+}
+
+export type ScaledFood = {
+  quantity: string;
+  grams: number | null;
+  macros: FoodMacros;
+  nutrients: Nutrients | null;
+};
+
+// Every "the amount changed" path goes through here, so the label, the
+// weight, the macros and the micronutrients can never be scaled by different
+// factors.
+export function scalePreset(
+  preset: FoodPreset,
+  amount: number,
+  unit: AmountUnit,
+): ScaledFood | null {
+  const servings = servingsIn(preset, amount, unit);
+  if (servings == null) return null;
+  const grams = preset.grams
+    ? Math.round(preset.grams * servings * 10) / 10
+    : null;
+  return {
+    quantity:
+      unit === "serving"
+        ? servingLabel(preset, amount)
+        : unitAmountLabel(amount, unit, grams),
+    grams,
+    macros: scaleMacros(preset, servings),
+    nutrients: scaleNutrients(preset.nutrients, servings),
+  };
+}
+
+// The inverse, for reopening a saved row: which amount of which unit wrote
+// this quantity? A serving label is tried first, so "1 cup (148 g)" on
+// blueberries reads back as the one serving that was picked, not as one cup.
+export function parsePresetAmount(
+  preset: FoodPreset,
+  quantity: string | null | undefined,
+): { amount: number; unit: AmountUnit } | null {
+  const serving = parseServingLabel(quantity);
+  if (serving && serving.serving === preset.serving) {
+    return { amount: serving.servings, unit: "serving" };
+  }
+  const measured = parseUnitAmountLabel(quantity);
+  if (measured && presetUnits(preset).includes(measured.unit)) return measured;
+  // A serving whose wording has since changed in the catalog still reads as
+  // that many servings; the caller's macro check decides whether it still fits.
+  return serving ? { amount: serving.servings, unit: "serving" } : null;
+}
+
+type MacroColumns = {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+};
+
+// A food row as the database holds it, plan or log.
+export type StoredFood = MacroColumns & {
+  name: string;
+  quantity: string | null;
+  grams?: number | null;
+  gramsPerCup?: number | null;
+  // Json from Prisma — parsed with parseNutrients before anything trusts it.
+  nutrients?: unknown;
+};
+
+export function sameMacros(a: FoodMacros, b: MacroColumns): boolean {
+  return (
+    a.calories === (b.calories ?? 0) &&
+    a.protein === (b.protein ?? 0) &&
+    a.carbs === (b.carbs ?? 0) &&
+    a.fat === (b.fat ?? 0)
+  );
+}
+
+// A saved row that is still exactly a catalog food at some amount — the same
+// name, and the macros that amount produces. Null the moment anything was
+// typed over, because from then on the row is the person's, not the catalog's.
+export function matchCatalogRow(row: StoredFood): {
+  preset: FoodPreset;
+  amount: number;
+  unit: AmountUnit;
+  scaled: ScaledFood;
+} | null {
+  const preset = findFoodPreset(row.name);
+  if (!preset) return null;
+  const parsed = parsePresetAmount(preset, row.quantity);
+  if (!parsed) return null;
+  const scaled = scalePreset(preset, parsed.amount, parsed.unit);
+  if (!scaled || !sameMacros(scaled.macros, row)) return null;
+  return { preset, ...parsed, scaled };
+}
+
+export type FoodDetail = {
+  grams: number | null;
+  gramsPerCup: number | null;
+  nutrients: Nutrients | null;
+};
+
+// Weight, density and micronutrients for a saved row, for reading it back.
+//
+// Stored values first. A row saved before micronutrients existed has none, and
+// if it is still provably a catalog food it gets the catalog's — the same
+// numbers the builder would have written had it been saved today, so this is a
+// late fill-in, not a second opinion. Failing both, the weight is read out of
+// the quantity text and the nutrients stay unknown.
+export function foodDetail(row: StoredFood): FoodDetail {
+  const nutrients = parseNutrients(row.nutrients);
+  const grams = row.grams ?? null;
+  const gramsPerCup = row.gramsPerCup ?? null;
+  if (nutrients && grams != null) return { grams, gramsPerCup, nutrients };
+
+  const catalog = matchCatalogRow(row);
+  return {
+    grams: grams ?? catalog?.scaled.grams ?? parseGrams(row.quantity),
+    gramsPerCup: gramsPerCup ?? catalog?.preset.gramsPerCup ?? null,
+    nutrients: nutrients ?? catalog?.scaled.nutrients ?? null,
+  };
+}
+
 // Foods this person has logged before, as presets the picker can scale from.
 // Rows come in newest-first; the first spelling of each name wins.
 //
@@ -362,21 +584,12 @@ export function parseServingLabel(
 // it's divided back out here to recover the per-serving base — the exact
 // inverse of what servingLabel/scaleMacros did on the way in. Without that, a
 // day where they logged three eggs would come back as a one-serving "egg" worth
-// three eggs' calories.
+// three eggs' calories. The weight and micronutrients are divided by the same
+// multiplier, for the same reason.
 //
 // Here rather than beside one day view because both of them build it: the
 // athlete's log and the coach's own. Pure, like everything else in this file.
-export function recentFoods(
-  rows: {
-    name: string;
-    quantity: string | null;
-    calories: number | null;
-    protein: number | null;
-    carbs: number | null;
-    fat: number | null;
-  }[],
-  limit = 25,
-): FoodPreset[] {
+export function recentFoods(rows: StoredFood[], limit = 25): FoodPreset[] {
   const seen = new Set<string>();
   const out: FoodPreset[] = [];
   for (const r of rows) {
@@ -389,6 +602,7 @@ export function recentFoods(
 
     const parsed = parseServingLabel(r.quantity);
     const per = parsed?.servings ?? 1;
+    const detail = foodDetail(r);
     out.push({
       name: r.name,
       serving: parsed?.serving ?? (r.quantity || "1 serving"),
@@ -396,6 +610,9 @@ export function recentFoods(
       protein: Math.round((r.protein ?? 0) / per),
       carbs: Math.round((r.carbs ?? 0) / per),
       fat: Math.round((r.fat ?? 0) / per),
+      grams: detail.grams == null ? null : Math.round((detail.grams / per) * 10) / 10,
+      gramsPerCup: detail.gramsPerCup,
+      nutrients: scaleNutrients(detail.nutrients, 1 / per),
     });
     if (out.length >= limit) break;
   }
