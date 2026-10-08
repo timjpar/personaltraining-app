@@ -116,14 +116,18 @@ export function storedFoodFields(f: StoredFood): FoodRowFields {
   };
 }
 
-// Equal to within rounding. The same food's numbers reach a row by two routes
-// — straight from USDA per 100 g, or through a catalog serving and back — and
-// each rounds to two decimals on the way, so they can disagree in the last
-// place without anyone having typed anything.
-function sameNutrients(a: Nutrients | null, b: Nutrients | null): boolean {
+// Equal to within rounding, over the nutrients the saved row actually has. The
+// same food's numbers reach a row by two routes — straight from USDA per 100 g,
+// or through a catalog serving and back — and each rounds to two decimals on
+// the way, so they can disagree in the last place without anyone having typed
+// anything. A key the row never stored is unknown, not zero: a row saved before
+// iodine was tracked hasn't been edited just because the catalog now knows its
+// iodine, and reading the gap as 0 would cut it loose from its preset.
+function sameNutrients(stored: Nutrients, catalog: Nutrients | null): boolean {
   return NUTRIENT_KEYS.every((k) => {
-    const x = a?.[k] ?? 0;
-    const y = b?.[k] ?? 0;
+    const x = stored[k];
+    if (x == null) return true;
+    const y = catalog?.[k] ?? 0;
     return Math.abs(x - y) <= Math.max(0.05, 0.02 * Math.max(x, y));
   });
 }
@@ -135,7 +139,8 @@ function sameNutrients(a: Nutrients | null, b: Nutrients | null): boolean {
 // coach picked Avocado ×2 and then typed over the calories, the row is theirs,
 // and reattaching the preset would let a later nudge of the amount silently
 // throw that edit away. A row saved before micronutrients existed has none
-// stored; that is not an edit, so it reattaches, and picks the catalog's up.
+// stored, and one saved before a nutrient was tracked lacks that key; neither
+// is an edit, so both reattach and pick the catalog's up.
 export function rehydrateFoodFields(f: StoredFood): FoodRowFields {
   const fields = storedFoodFields(f);
   const match = matchCatalogRow(f);
