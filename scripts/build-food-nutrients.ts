@@ -6,7 +6,10 @@
 //   2. Download the USDA, FDA and ODS-NIH iodine database (Release 4, 2024)
 //      and unzip it alongside:
 //      https://www.ars.usda.gov/ARSUserFiles/80400535/Data/Iodine/IODINE_RELEASE_4.zip
-//   3. npx tsx scripts/build-food-nutrients.ts <SR Legacy folder> <iodine "Per 100g" .xlsx>
+//   3. Download the Standard Tables of Food Composition in Japan (eighth
+//      revised edition, 2023 supplement), chapter 2 data:
+//      https://www.mext.go.jp/content/20260327-mxt_kagsei-mext-000029402_02.xlsx
+//   4. npx tsx scripts/build-food-nutrients.ts <SR Legacy folder> <iodine "Per 100g" .xlsx> <Japan .xlsx>
 //
 // Which USDA food each catalog entry is matched to lives in
 // food-nutrients-map.ts; this script only reads the numbers. It also prints a
@@ -19,6 +22,13 @@
 // database names the SR Legacy food each of its entries corresponds to, so a
 // catalog food whose USDA match is listed there is joined automatically; the
 // map names the entry by hand where the same food is filed under another code.
+//
+// Chromium, molybdenum and biotin no US database measures at all. Japan's
+// national tables do, for about half their 2,538 foods, so the map names the
+// Japanese entry by its food number. A borrowed value is adjusted for moisture
+// — scaled by the ratio of the two entries' dry matter, the usual INFOODS
+// practice — so a Japanese grilled chicken breast drier than USDA's roast one
+// doesn't overstate it, and a raw entry can stand in for a cooked food.
 //
 // The CSVs stay out of the repo. They're public domain, but 40 MB of them to
 // regenerate a 30 KB file is the wrong trade.
@@ -36,6 +46,7 @@ import { USDA_MATCHES } from "./food-nutrients-map";
 import { readXlsxRows } from "./read-xlsx";
 
 const ENERGY_KCAL = 1008;
+const WATER = 1051;
 const OUT = path.join(__dirname, "..", "src", "lib", "food-nutrients.generated.ts");
 
 // USDA's CSVs quote every field and escape quotes by doubling them.
@@ -141,15 +152,49 @@ function readIodine(file: string): { byId: Map<number, IodineEntry>; byNdb: Map<
   return { byId, byNdb };
 }
 
+type JapanEntry = { name: string; water: number | null; values: Map<string, number | null> };
+
+// Japan's chapter 2 sheet: header rows, then a row of INFOODS tagnames
+// ("WATER", "CR", "BIOT"), then one row per food keyed by its five-digit food
+// number. "-" is not measured, "Tr" a trace below the reporting floor (read
+// as 0), and parentheses mark an estimate, which is kept.
+function readJapan(file: string): Map<string, JapanEntry> {
+  const rows = readXlsxRows(file);
+  const tagRow = rows.findIndex((r) => r.some((c) => c.trim() === "BIOT"));
+  if (tagRow < 0) throw new Error(`${file}: no INFOODS tagname row — is this chapter 2's data sheet?`);
+  const tags = rows[tagRow].map((t) => t.trim());
+  const wanted = ["WATER", ...NUTRIENTS.flatMap((n) => (n.japan ? [n.japan] : []))];
+  const num = (raw: string | undefined): number | null => {
+    const s = (raw ?? "").trim().replace(/^\((.*)\)$/, "$1");
+    if (!s || s === "-") return null;
+    if (s === "Tr") return 0;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  };
+  const out = new Map<string, JapanEntry>();
+  for (const r of rows.slice(tagRow + 1)) {
+    if (!/^\d{5}$/.test(r[1] ?? "")) continue;
+    const values = new Map(wanted.map((t) => [t, num(r[tags.indexOf(t)])]));
+    out.set(r[1], { name: (r[3] ?? "").replace(/\s+/g, " ").trim(), water: values.get("WATER") ?? null, values });
+  }
+  return out;
+}
+
 function main() {
   const dir = process.argv[2];
   const iodineFile = process.argv[3];
-  if (!dir || !fs.existsSync(path.join(dir, "food.csv")) || !iodineFile || !fs.existsSync(iodineFile)) {
+  const japanFile = process.argv[4];
+  if (
+    !dir || !fs.existsSync(path.join(dir, "food.csv")) ||
+    !iodineFile || !fs.existsSync(iodineFile) ||
+    !japanFile || !fs.existsSync(japanFile)
+  ) {
     throw new Error(
-      "Usage: npx tsx scripts/build-food-nutrients.ts <unzipped SR Legacy CSV folder> <iodine database \"Per 100g\" .xlsx>",
+      "Usage: npx tsx scripts/build-food-nutrients.ts <unzipped SR Legacy CSV folder> <iodine database \"Per 100g\" .xlsx> <Japan chapter 2 .xlsx>",
     );
   }
   const iodine = readIodine(iodineFile);
+  const japan = readJapan(japanFile);
 
   const catalog = FOOD_PRESETS.flatMap((c) => c.foods);
   const catalogNames = new Set(catalog.map((f) => f.name));
@@ -166,7 +211,7 @@ function main() {
   const wanted = new Set(
     Object.values(USDA_MATCHES).flatMap((m) => (m ? [m.fdc] : [])),
   );
-  const nutrientIds = new Set([ENERGY_KCAL, ...NUTRIENTS.flatMap((n) => n.usda)]);
+  const nutrientIds = new Set([ENERGY_KCAL, WATER, ...NUTRIENTS.flatMap((n) => n.usda)]);
 
   const ndbByFdc = new Map<number, string>();
   for (const r of readCsv(dir, "sr_legacy_food.csv")) {
@@ -210,6 +255,7 @@ function main() {
   const flags: string[] = [];
   let matched = 0;
   let withIodine = 0;
+  let withJapan = 0;
 
   for (const food of catalog) {
     const match = USDA_MATCHES[food.name];
@@ -253,10 +299,23 @@ function main() {
     }
     if (iodineEntry) withIodine++;
 
+    // Chromium, molybdenum and biotin from Japan's entry, moved onto the USDA
+    // food's moisture. Without both water figures the value is taken as is.
+    const jp = match.japan ? japan.get(match.japan) : undefined;
+    if (match.japan && !jp) throw new Error(`${food.name}: Japanese food number ${match.japan} is not in this release.`);
+    if (jp) withJapan++;
+    const usdaWater = n.get(WATER);
+    const moisture =
+      jp?.water != null && usdaWater != null && jp.water < 100
+        ? (100 - usdaWater) / (100 - jp.water)
+        : 1;
+
     const values = NUTRIENTS.map((def) => {
+      const fromJapan = def.japan && jp ? jp.values.get(def.japan) : null;
       const v =
         match.extra?.[def.key] ??
         (def.key === "iodine" ? iodineEntry?.per100g : undefined) ??
+        (fromJapan != null ? fromJapan * moisture : undefined) ??
         def.usda.map((id) => n.get(id)).find((x) => x != null);
       return v == null ? "null" : String(sig(v));
     });
@@ -269,9 +328,12 @@ function main() {
   const file = `// Generated by scripts/build-food-nutrients.ts — do not edit by hand. Change
 // scripts/food-nutrients-map.ts and re-run it instead.
 //
-// Sources, both public domain: USDA FoodData Central, SR Legacy (April 2018),
-// and for iodine the USDA, FDA and ODS-NIH Database for the Iodine Content of
-// Common Foods, Release 4 (October 2024).
+// Sources: USDA FoodData Central, SR Legacy (April 2018), and for iodine the
+// USDA, FDA and ODS-NIH Database for the Iodine Content of Common Foods,
+// Release 4 (October 2024), both public domain; for chromium, molybdenum and
+// biotin, moisture-adjusted, the Standard Tables of Food Composition in Japan
+// (eighth revised edition, 2023 supplement), Ministry of Education, Culture,
+// Sports, Science and Technology (MEXT).
 //
 // Per catalog food, keyed by normalizeFoodName(): the fdc_id it was matched to,
 // grams per US cup (null where cups aren't offered), and nutrients per 100 g in
@@ -291,7 +353,7 @@ ${rows.join("\n")}
 
   fs.writeFileSync(OUT, file);
   console.log(
-    `Wrote ${path.relative(process.cwd(), OUT)}: ${matched} of ${catalog.length} catalog foods matched, ${withIodine} with iodine.`,
+    `Wrote ${path.relative(process.cwd(), OUT)}: ${matched} of ${catalog.length} catalog foods matched, ${withIodine} with iodine, ${withJapan} with chromium/molybdenum/biotin.`,
   );
   if (flags.length) {
     console.log(`\nCheck these — catalog calories disagree with USDA by more than 20%:`);
