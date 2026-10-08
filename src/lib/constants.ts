@@ -804,6 +804,93 @@ export function toGoalType(value: unknown): GoalType | null {
   return s in GOAL_LABELS ? (s as GoalType) : null;
 }
 
+// What their job asks of their body — the biggest single piece of non-exercise
+// activity, and the one people underestimate in both directions. One of the
+// inputs suggestActivityLevel weighs; never a multiplier on its own.
+export const OCCUPATION_ACTIVITIES = {
+  DESK: "DESK",
+  MIXED: "MIXED",
+  ON_FEET: "ON_FEET",
+  PHYSICAL: "PHYSICAL",
+} as const;
+export type OccupationActivity =
+  (typeof OCCUPATION_ACTIVITIES)[keyof typeof OCCUPATION_ACTIVITIES];
+
+export const OCCUPATION_ORDER = [
+  "DESK",
+  "MIXED",
+  "ON_FEET",
+  "PHYSICAL",
+] as const satisfies readonly OccupationActivity[];
+
+export const OCCUPATION_LABELS: Record<OccupationActivity, string> = {
+  DESK: "Desk or seated",
+  MIXED: "Mixed",
+  ON_FEET: "On their feet",
+  PHYSICAL: "Physical labour",
+};
+
+export const OCCUPATION_HINTS: Record<OccupationActivity, string> = {
+  DESK: "Office, driving, studying",
+  MIXED: "Some walking — teaching, lab work, retail with breaks",
+  ON_FEET: "Standing and walking most of the shift — nursing, retail, coaching",
+  PHYSICAL: "Lifting and carrying all day — trades, warehouse, farm",
+};
+
+export function toOccupationActivity(value: unknown): OccupationActivity | null {
+  const s = String(value ?? "");
+  return s in OCCUPATION_LABELS ? (s as OccupationActivity) : null;
+}
+
+// What the goal is for. goalType is the direction the scale moves; this is the
+// intent behind it, and the two are deliberately separate — a recomp and a cut
+// can both be "lose", and nobody programs them alike.
+export const GOAL_FOCUSES = {
+  FAT_LOSS: "FAT_LOSS",
+  MUSCLE_GAIN: "MUSCLE_GAIN",
+  RECOMP: "RECOMP",
+  STRENGTH: "STRENGTH",
+  ENDURANCE: "ENDURANCE",
+  PERFORMANCE: "PERFORMANCE",
+  HEALTH: "HEALTH",
+} as const;
+export type GoalFocus = (typeof GOAL_FOCUSES)[keyof typeof GOAL_FOCUSES];
+
+export const GOAL_FOCUS_ORDER = [
+  "FAT_LOSS",
+  "MUSCLE_GAIN",
+  "RECOMP",
+  "STRENGTH",
+  "ENDURANCE",
+  "PERFORMANCE",
+  "HEALTH",
+] as const satisfies readonly GoalFocus[];
+
+export const GOAL_FOCUS_LABELS: Record<GoalFocus, string> = {
+  FAT_LOSS: "Fat loss",
+  MUSCLE_GAIN: "Muscle gain",
+  RECOMP: "Recomposition",
+  STRENGTH: "Strength",
+  ENDURANCE: "Endurance",
+  PERFORMANCE: "Sport performance",
+  HEALTH: "Health and longevity",
+};
+
+export const GOAL_FOCUS_HINTS: Record<GoalFocus, string> = {
+  FAT_LOSS: "Lose fat, keep the muscle",
+  MUSCLE_GAIN: "Build muscle, accept some fat",
+  RECOMP: "Lose fat and gain muscle at roughly the same weight",
+  STRENGTH: "Lift more — bodyweight is secondary",
+  ENDURANCE: "Go longer or faster",
+  PERFORMANCE: "Train for a sport or event",
+  HEALTH: "Feel well, move well, stay that way",
+};
+
+export function toGoalFocus(value: unknown): GoalFocus | null {
+  const s = String(value ?? "");
+  return s in GOAL_FOCUS_LABELS ? (s as GoalFocus) : null;
+}
+
 export const EXPERIENCE_LEVELS = {
   BEGINNER: "BEGINNER",
   INTERMEDIATE: "INTERMEDIATE",
