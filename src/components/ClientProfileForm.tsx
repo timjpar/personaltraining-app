@@ -138,7 +138,11 @@ export function ClientProfileForm({
             </Select>
           </Field>
 
-          <Field label="Date of birth" htmlFor="p-dob">
+          <Field
+            label="Date of birth"
+            hint="Age is worked out from this, so it never goes stale."
+            htmlFor="p-dob"
+          >
             <Input
               id="p-dob"
               name="birthDate"

@@ -116,7 +116,18 @@ export default async function MePage() {
 
   return (
     <Container>
-      <PageHeading eyebrow="You" title={trainer.name.split(/\s+/)[0]}>
+      {/* The profile is the one part of this file with no card of its own,
+          and its only other links appear conditionally (no plan assigned, or
+          a goal weight already set) — so it gets a permanent door up here. */}
+      <PageHeading
+        eyebrow="You"
+        title={trainer.name.split(/\s+/)[0]}
+        action={
+          <ButtonLink href="/me/profile" size="sm" variant="outline">
+            Profile &amp; goals
+          </ButtonLink>
+        }
+      >
         Your own weigh-ins and food log, kept the same way your athletes keep
         theirs. Nobody else can see any of it.
       </PageHeading>
