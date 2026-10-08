@@ -104,7 +104,12 @@ export default async function MyOwnBodyPage({
           title="Weigh-ins"
           action={<UnitsToggle value={units} />}
         >
-          One entry a day — saving a day you already have edits it.
+          One entry a day — saving a day you already have edits it. Height,
+          age, activity and goals live on{" "}
+          <Link href="/me/profile" className="text-jade-strong hover:underline">
+            your profile
+          </Link>
+          .
         </PageHeading>
       </div>
 
