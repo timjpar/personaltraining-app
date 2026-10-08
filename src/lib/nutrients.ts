@@ -5,7 +5,7 @@
 // Macros stay where they were — four Int columns on every food row, because
 // they are the numbers a plan is written in. Everything here rides in one
 // nullable JSON column beside them (Food.nutrients, LoggedFood.nutrients),
-// keyed by NutrientKey. Twenty-nine more columns on two tables would be the
+// keyed by NutrientKey. Forty more columns on two tables would be the
 // honest-looking alternative and the wrong one: most rows only ever carry a
 // handful of these, and a typed-in food carries none.
 //
@@ -15,7 +15,7 @@
 export type NutrientUnit = "g" | "mg" | "µg";
 
 // "key" is the short list most people mean by micronutrients; "all" is
-// everything USDA reports for a whole food that is worth a coach's attention.
+// everything on a US nutrition label, plus the fats a coach programs around.
 export type NutrientTier = "key" | "all";
 
 // The three families a nutrition panel reads in. Real categories, not
@@ -41,8 +41,13 @@ export type NutrientDef = {
   limit?: boolean;
   tier: NutrientTier;
   group: NutrientGroup;
-  // USDA FoodData Central nutrient id, for scripts/build-food-nutrients.ts.
-  usda: number;
+  // USDA FoodData Central nutrient ids, for scripts/build-food-nutrients.ts,
+  // first one reported wins. Most of SR Legacy reports omega-3 and omega-6 only
+  // as the undifferentiated 18:3 and 18:2, so those follow the specific ids.
+  // Several of these (iodine, biotin, chromium, molybdenum, chloride, added
+  // sugars) SR Legacy never reports at all; iodine comes from the USDA/FDA/ODS
+  // iodine database instead, and the rest only from labels and typed values.
+  usda: number[];
   // Open Food Facts nutriment names, first match wins. OFF normalises every one
   // of these to grams per 100 g, so they're converted to `unit` on the way in.
   off: string[];
@@ -78,6 +83,17 @@ export const NUTRIENT_KEYS = [
   "vitaminB6",
   "choline",
   "pantothenicAcid",
+  "addedSugar",
+  "transFat",
+  "omega3Ala",
+  "omega3Epa",
+  "omega3Dha",
+  "omega6La",
+  "iodine",
+  "chloride",
+  "chromium",
+  "molybdenum",
+  "biotin",
 ] as const;
 
 export type NutrientKey = (typeof NUTRIENT_KEYS)[number];
@@ -89,35 +105,46 @@ export type Nutrients = Partial<Record<NutrientKey, number>>;
 // Order is display order, grouped: fibre, sugar and the fats first, then
 // minerals, then vitamins — roughly the order a nutrition facts panel reads in.
 export const NUTRIENTS: NutrientDef[] = [
-  { key: "fiber", label: "Fibre", unit: "g", dv: 28, tier: "key", group: "fats", usda: 1079, off: ["fiber"] },
-  { key: "sugar", label: "Sugar", unit: "g", dv: null, limit: true, tier: "key", group: "fats", usda: 2000, off: ["sugars"] },
-  { key: "satFat", label: "Saturated fat", unit: "g", dv: 20, limit: true, tier: "key", group: "fats", usda: 1258, off: ["saturated-fat"] },
-  { key: "monoFat", label: "Monounsaturated fat", unit: "g", dv: null, tier: "all", group: "fats", usda: 1292, off: ["monounsaturated-fat"] },
-  { key: "polyFat", label: "Polyunsaturated fat", unit: "g", dv: null, tier: "all", group: "fats", usda: 1293, off: ["polyunsaturated-fat"] },
-  { key: "cholesterol", label: "Cholesterol", unit: "mg", dv: 300, limit: true, tier: "key", group: "fats", usda: 1253, off: ["cholesterol"] },
-  { key: "sodium", label: "Sodium", unit: "mg", dv: 2300, limit: true, tier: "key", group: "minerals", usda: 1093, off: ["sodium"] },
-  { key: "potassium", label: "Potassium", unit: "mg", dv: 4700, tier: "key", group: "minerals", usda: 1092, off: ["potassium"] },
-  { key: "calcium", label: "Calcium", unit: "mg", dv: 1300, tier: "key", group: "minerals", usda: 1087, off: ["calcium"] },
-  { key: "iron", label: "Iron", unit: "mg", dv: 18, tier: "key", group: "minerals", usda: 1089, off: ["iron"] },
-  { key: "magnesium", label: "Magnesium", unit: "mg", dv: 420, tier: "key", group: "minerals", usda: 1090, off: ["magnesium"] },
-  { key: "zinc", label: "Zinc", unit: "mg", dv: 11, tier: "key", group: "minerals", usda: 1095, off: ["zinc"] },
-  { key: "phosphorus", label: "Phosphorus", unit: "mg", dv: 1250, tier: "all", group: "minerals", usda: 1091, off: ["phosphorus"] },
-  { key: "copper", label: "Copper", unit: "mg", dv: 0.9, tier: "all", group: "minerals", usda: 1098, off: ["copper"] },
-  { key: "manganese", label: "Manganese", unit: "mg", dv: 2.3, tier: "all", group: "minerals", usda: 1101, off: ["manganese"] },
-  { key: "selenium", label: "Selenium", unit: "µg", dv: 55, tier: "all", group: "minerals", usda: 1103, off: ["selenium"] },
-  { key: "vitaminA", label: "Vitamin A", unit: "µg", dv: 900, tier: "key", group: "vitamins", usda: 1106, off: ["vitamin-a"] },
-  { key: "vitaminC", label: "Vitamin C", unit: "mg", dv: 90, tier: "key", group: "vitamins", usda: 1162, off: ["vitamin-c"] },
-  { key: "vitaminD", label: "Vitamin D", unit: "µg", dv: 20, tier: "key", group: "vitamins", usda: 1114, off: ["vitamin-d"] },
-  { key: "vitaminE", label: "Vitamin E", unit: "mg", dv: 15, tier: "all", group: "vitamins", usda: 1109, off: ["vitamin-e"] },
-  { key: "vitaminK", label: "Vitamin K", unit: "µg", dv: 120, tier: "all", group: "vitamins", usda: 1185, off: ["vitamin-k"] },
-  { key: "thiamin", label: "Thiamin (B1)", unit: "mg", dv: 1.2, tier: "all", group: "vitamins", usda: 1165, off: ["vitamin-b1"] },
-  { key: "riboflavin", label: "Riboflavin (B2)", unit: "mg", dv: 1.3, tier: "all", group: "vitamins", usda: 1166, off: ["vitamin-b2"] },
-  { key: "niacin", label: "Niacin (B3)", unit: "mg", dv: 16, tier: "all", group: "vitamins", usda: 1167, off: ["vitamin-pp"] },
-  { key: "pantothenicAcid", label: "Pantothenic acid (B5)", unit: "mg", dv: 5, tier: "all", group: "vitamins", usda: 1170, off: ["pantothenic-acid"] },
-  { key: "vitaminB6", label: "Vitamin B6", unit: "mg", dv: 1.7, tier: "all", group: "vitamins", usda: 1175, off: ["vitamin-b6"] },
-  { key: "folate", label: "Folate", unit: "µg", dv: 400, tier: "key", group: "vitamins", usda: 1190, off: ["vitamin-b9", "folates"] },
-  { key: "vitaminB12", label: "Vitamin B12", unit: "µg", dv: 2.4, tier: "key", group: "vitamins", usda: 1178, off: ["vitamin-b12"] },
-  { key: "choline", label: "Choline", unit: "mg", dv: 550, tier: "all", group: "vitamins", usda: 1180, off: ["choline"] },
+  { key: "fiber", label: "Fibre", unit: "g", dv: 28, tier: "key", group: "fats", usda: [1079], off: ["fiber"] },
+  { key: "sugar", label: "Sugar", unit: "g", dv: null, limit: true, tier: "key", group: "fats", usda: [2000], off: ["sugars"] },
+  { key: "addedSugar", label: "Added sugar", unit: "g", dv: 50, limit: true, tier: "key", group: "fats", usda: [1235], off: ["added-sugars"] },
+  { key: "satFat", label: "Saturated fat", unit: "g", dv: 20, limit: true, tier: "key", group: "fats", usda: [1258], off: ["saturated-fat"] },
+  { key: "transFat", label: "Trans fat", unit: "g", dv: null, limit: true, tier: "all", group: "fats", usda: [1257], off: ["trans-fat"] },
+  { key: "monoFat", label: "Monounsaturated fat", unit: "g", dv: null, tier: "all", group: "fats", usda: [1292], off: ["monounsaturated-fat"] },
+  { key: "polyFat", label: "Polyunsaturated fat", unit: "g", dv: null, tier: "all", group: "fats", usda: [1293], off: ["polyunsaturated-fat"] },
+  { key: "omega3Ala", label: "Omega-3 ALA", unit: "g", dv: null, tier: "all", group: "fats", usda: [1404, 1270], off: ["alpha-linolenic-acid"] },
+  { key: "omega3Epa", label: "Omega-3 EPA", unit: "g", dv: null, tier: "all", group: "fats", usda: [1278], off: ["eicosapentaenoic-acid"] },
+  { key: "omega3Dha", label: "Omega-3 DHA", unit: "g", dv: null, tier: "all", group: "fats", usda: [1272], off: ["docosahexaenoic-acid"] },
+  { key: "omega6La", label: "Omega-6 LA", unit: "g", dv: null, tier: "all", group: "fats", usda: [1316, 1269], off: ["linoleic-acid"] },
+  { key: "cholesterol", label: "Cholesterol", unit: "mg", dv: 300, limit: true, tier: "key", group: "fats", usda: [1253], off: ["cholesterol"] },
+  { key: "sodium", label: "Sodium", unit: "mg", dv: 2300, limit: true, tier: "key", group: "minerals", usda: [1093], off: ["sodium"] },
+  { key: "potassium", label: "Potassium", unit: "mg", dv: 4700, tier: "key", group: "minerals", usda: [1092], off: ["potassium"] },
+  { key: "calcium", label: "Calcium", unit: "mg", dv: 1300, tier: "key", group: "minerals", usda: [1087], off: ["calcium"] },
+  { key: "iron", label: "Iron", unit: "mg", dv: 18, tier: "key", group: "minerals", usda: [1089], off: ["iron"] },
+  { key: "magnesium", label: "Magnesium", unit: "mg", dv: 420, tier: "key", group: "minerals", usda: [1090], off: ["magnesium"] },
+  { key: "zinc", label: "Zinc", unit: "mg", dv: 11, tier: "key", group: "minerals", usda: [1095], off: ["zinc"] },
+  { key: "iodine", label: "Iodine", unit: "µg", dv: 150, tier: "key", group: "minerals", usda: [1100], off: ["iodine"] },
+  { key: "phosphorus", label: "Phosphorus", unit: "mg", dv: 1250, tier: "all", group: "minerals", usda: [1091], off: ["phosphorus"] },
+  { key: "copper", label: "Copper", unit: "mg", dv: 0.9, tier: "all", group: "minerals", usda: [1098], off: ["copper"] },
+  { key: "manganese", label: "Manganese", unit: "mg", dv: 2.3, tier: "all", group: "minerals", usda: [1101], off: ["manganese"] },
+  { key: "selenium", label: "Selenium", unit: "µg", dv: 55, tier: "all", group: "minerals", usda: [1103], off: ["selenium"] },
+  { key: "chromium", label: "Chromium", unit: "µg", dv: 35, tier: "all", group: "minerals", usda: [1096], off: ["chromium"] },
+  { key: "molybdenum", label: "Molybdenum", unit: "µg", dv: 45, tier: "all", group: "minerals", usda: [1102], off: ["molybdenum"] },
+  { key: "chloride", label: "Chloride", unit: "mg", dv: 2300, tier: "all", group: "minerals", usda: [1088], off: ["chloride"] },
+  { key: "vitaminA", label: "Vitamin A", unit: "µg", dv: 900, tier: "key", group: "vitamins", usda: [1106], off: ["vitamin-a"] },
+  { key: "vitaminC", label: "Vitamin C", unit: "mg", dv: 90, tier: "key", group: "vitamins", usda: [1162], off: ["vitamin-c"] },
+  { key: "vitaminD", label: "Vitamin D", unit: "µg", dv: 20, tier: "key", group: "vitamins", usda: [1114], off: ["vitamin-d"] },
+  { key: "vitaminE", label: "Vitamin E", unit: "mg", dv: 15, tier: "all", group: "vitamins", usda: [1109], off: ["vitamin-e"] },
+  { key: "vitaminK", label: "Vitamin K", unit: "µg", dv: 120, tier: "all", group: "vitamins", usda: [1185], off: ["vitamin-k"] },
+  { key: "thiamin", label: "Thiamin (B1)", unit: "mg", dv: 1.2, tier: "all", group: "vitamins", usda: [1165], off: ["vitamin-b1"] },
+  { key: "riboflavin", label: "Riboflavin (B2)", unit: "mg", dv: 1.3, tier: "all", group: "vitamins", usda: [1166], off: ["vitamin-b2"] },
+  { key: "niacin", label: "Niacin (B3)", unit: "mg", dv: 16, tier: "all", group: "vitamins", usda: [1167], off: ["vitamin-pp"] },
+  { key: "pantothenicAcid", label: "Pantothenic acid (B5)", unit: "mg", dv: 5, tier: "all", group: "vitamins", usda: [1170], off: ["pantothenic-acid"] },
+  { key: "vitaminB6", label: "Vitamin B6", unit: "mg", dv: 1.7, tier: "all", group: "vitamins", usda: [1175], off: ["vitamin-b6"] },
+  { key: "biotin", label: "Biotin (B7)", unit: "µg", dv: 30, tier: "all", group: "vitamins", usda: [1176], off: ["biotin"] },
+  { key: "folate", label: "Folate", unit: "µg", dv: 400, tier: "key", group: "vitamins", usda: [1190], off: ["vitamin-b9", "folates"] },
+  { key: "vitaminB12", label: "Vitamin B12", unit: "µg", dv: 2.4, tier: "key", group: "vitamins", usda: [1178], off: ["vitamin-b12"] },
+  { key: "choline", label: "Choline", unit: "mg", dv: 550, tier: "all", group: "vitamins", usda: [1180], off: ["choline"] },
 ];
 
 const BY_KEY = new Map(NUTRIENTS.map((n) => [n.key, n]));
@@ -188,6 +215,10 @@ export function scaleNutrients(
 
 export type NutrientTotals = {
   totals: Nutrients;
+  // How many foods reported each nutrient. Iodine or chromium can be known for
+  // two foods in a day of twenty, and a total built from two foods must not
+  // read like a day that was short on it.
+  counts: Partial<Record<NutrientKey, number>>;
   // How many foods contributed anything, out of how many there were. A day's
   // total is only as complete as the foods it is built from, and a typed-in
   // lunch with no micronutrients must never read as a lunch with no iron in it.
@@ -199,16 +230,19 @@ export function sumNutrients(
   foods: { nutrients?: Nutrients | null }[],
 ): NutrientTotals {
   const totals: Nutrients = {};
+  const counts: Partial<Record<NutrientKey, number>> = {};
   let withData = 0;
   for (const f of foods) {
     if (!hasNutrients(f.nutrients)) continue;
     withData += 1;
     for (const key of NUTRIENT_KEYS) {
       const v = f.nutrients[key];
-      if (v != null) totals[key] = roundNutrient((totals[key] ?? 0) + v);
+      if (v == null) continue;
+      totals[key] = roundNutrient((totals[key] ?? 0) + v);
+      counts[key] = (counts[key] ?? 0) + 1;
     }
   }
-  return { totals, withData, foods: foods.length };
+  return { totals, counts, withData, foods: foods.length };
 }
 
 export function percentDV(key: NutrientKey, value: number): number | null {

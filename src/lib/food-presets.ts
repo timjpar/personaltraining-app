@@ -293,6 +293,8 @@ const CATALOG: FoodPresetCategory[] = [
       { name: "Light Mayonnaise", serving: "1 tbsp (15 g)", calories: 35, protein: 0, carbs: 1, fat: 3 },
       { name: "Mustard", serving: "1 tsp (5 g)", calories: 3, protein: 0, carbs: 0, fat: 0 },
       { name: "Soy Sauce", serving: "1 tbsp (16 g)", calories: 9, protein: 1, carbs: 1, fat: 0 },
+      { name: "Iodized Salt", serving: "¼ tsp (1.5 g)", calories: 0, protein: 0, carbs: 0, fat: 0 },
+      { name: "Sea Salt, Not Iodized", serving: "¼ tsp (1.5 g)", calories: 0, protein: 0, carbs: 0, fat: 0 },
       { name: "Sriracha", serving: "1 tsp (5 g)", calories: 5, protein: 0, carbs: 1, fat: 0 },
       { name: "BBQ Sauce", serving: "1 tbsp (17 g)", calories: 29, protein: 0, carbs: 7, fat: 0 },
       { name: "Salsa", serving: "2 tbsp (36 g)", calories: 10, protein: 0, carbs: 2, fat: 0 },
@@ -561,19 +563,21 @@ export type FoodDetail = {
 // Stored values first. A row saved before micronutrients existed has none, and
 // if it is still provably a catalog food it gets the catalog's — the same
 // numbers the builder would have written had it been saved today, so this is a
-// late fill-in, not a second opinion. Failing both, the weight is read out of
-// the quantity text and the nutrients stay unknown.
+// late fill-in, not a second opinion. The same goes key by key: a catalog row
+// saved before iodine or the omega-3s were tracked keeps every number it
+// stored and gains only the ones it never had. Failing both, the weight is
+// read out of the quantity text and the nutrients stay unknown.
 export function foodDetail(row: StoredFood): FoodDetail {
-  const nutrients = parseNutrients(row.nutrients);
+  const stored = parseNutrients(row.nutrients);
   const grams = row.grams ?? null;
   const gramsPerCup = row.gramsPerCup ?? null;
-  if (nutrients && grams != null) return { grams, gramsPerCup, nutrients };
 
   const catalog = matchCatalogRow(row);
+  const filled = catalog?.scaled.nutrients ?? null;
   return {
     grams: grams ?? catalog?.scaled.grams ?? parseGrams(row.quantity),
     gramsPerCup: gramsPerCup ?? catalog?.preset.gramsPerCup ?? null,
-    nutrients: nutrients ?? catalog?.scaled.nutrients ?? null,
+    nutrients: stored && filled ? { ...filled, ...stored } : (stored ?? filled),
   };
 }
 
