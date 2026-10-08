@@ -46,8 +46,13 @@ export type NutrientDef = {
   // as the undifferentiated 18:3 and 18:2, so those follow the specific ids.
   // Several of these (iodine, biotin, chromium, molybdenum, chloride, added
   // sugars) SR Legacy never reports at all; iodine comes from the USDA/FDA/ODS
-  // iodine database instead, and the rest only from labels and typed values.
+  // iodine database instead, chromium, molybdenum and biotin from Japan's
+  // tables (`japan` below), and chloride and added sugar only from labels.
   usda: number[];
+  // INFOODS tagname in the Standard Tables of Food Composition in Japan, for
+  // the nutrients no US database measures: chromium, molybdenum and biotin.
+  // See scripts/build-food-nutrients.ts.
+  japan?: string;
   // Open Food Facts nutriment names, first match wins. OFF normalises every one
   // of these to grams per 100 g, so they're converted to `unit` on the way in.
   off: string[];
@@ -128,8 +133,8 @@ export const NUTRIENTS: NutrientDef[] = [
   { key: "copper", label: "Copper", unit: "mg", dv: 0.9, tier: "all", group: "minerals", usda: [1098], off: ["copper"] },
   { key: "manganese", label: "Manganese", unit: "mg", dv: 2.3, tier: "all", group: "minerals", usda: [1101], off: ["manganese"] },
   { key: "selenium", label: "Selenium", unit: "µg", dv: 55, tier: "all", group: "minerals", usda: [1103], off: ["selenium"] },
-  { key: "chromium", label: "Chromium", unit: "µg", dv: 35, tier: "all", group: "minerals", usda: [1096], off: ["chromium"] },
-  { key: "molybdenum", label: "Molybdenum", unit: "µg", dv: 45, tier: "all", group: "minerals", usda: [1102], off: ["molybdenum"] },
+  { key: "chromium", label: "Chromium", unit: "µg", dv: 35, tier: "all", group: "minerals", usda: [1096], japan: "CR", off: ["chromium"] },
+  { key: "molybdenum", label: "Molybdenum", unit: "µg", dv: 45, tier: "all", group: "minerals", usda: [1102], japan: "MO", off: ["molybdenum"] },
   { key: "chloride", label: "Chloride", unit: "mg", dv: 2300, tier: "all", group: "minerals", usda: [1088], off: ["chloride"] },
   { key: "vitaminA", label: "Vitamin A", unit: "µg", dv: 900, tier: "key", group: "vitamins", usda: [1106], off: ["vitamin-a"] },
   { key: "vitaminC", label: "Vitamin C", unit: "mg", dv: 90, tier: "key", group: "vitamins", usda: [1162], off: ["vitamin-c"] },
@@ -141,7 +146,7 @@ export const NUTRIENTS: NutrientDef[] = [
   { key: "niacin", label: "Niacin (B3)", unit: "mg", dv: 16, tier: "all", group: "vitamins", usda: [1167], off: ["vitamin-pp"] },
   { key: "pantothenicAcid", label: "Pantothenic acid (B5)", unit: "mg", dv: 5, tier: "all", group: "vitamins", usda: [1170], off: ["pantothenic-acid"] },
   { key: "vitaminB6", label: "Vitamin B6", unit: "mg", dv: 1.7, tier: "all", group: "vitamins", usda: [1175], off: ["vitamin-b6"] },
-  { key: "biotin", label: "Biotin (B7)", unit: "µg", dv: 30, tier: "all", group: "vitamins", usda: [1176], off: ["biotin"] },
+  { key: "biotin", label: "Biotin (B7)", unit: "µg", dv: 30, tier: "all", group: "vitamins", usda: [1176], japan: "BIOT", off: ["biotin"] },
   { key: "folate", label: "Folate", unit: "µg", dv: 400, tier: "key", group: "vitamins", usda: [1190], off: ["vitamin-b9", "folates"] },
   { key: "vitaminB12", label: "Vitamin B12", unit: "µg", dv: 2.4, tier: "key", group: "vitamins", usda: [1178], off: ["vitamin-b12"] },
   { key: "choline", label: "Choline", unit: "mg", dv: 550, tier: "all", group: "vitamins", usda: [1180], off: ["choline"] },
