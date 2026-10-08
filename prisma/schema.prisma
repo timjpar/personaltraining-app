@@ -98,7 +98,7 @@ model User {
   // How much micronutrient detail this person wants on nutrition pages —
   // OFF | KEY | ALL, see NUTRIENT_DETAIL in constants.ts. A viewer preference
   // on User for the reasons `units` gives above. Off by default: most days a
-  // plan is read for its macros, and twenty-nine more numbers on every page
+  // plan is read for its macros, and forty more numbers on every page
   // would bury them. Anyone who wants them asks once.
   nutrientDetail String @default("OFF")
 
@@ -921,7 +921,7 @@ model Food {
   gramsPerCup Float?
   // Micronutrients for this row's amount, keyed by NutrientKey
   // (src/lib/nutrients.ts): {"fiber": 3.6, "vitaminC": 14.4, ...}. JSON rather
-  // than a column each because there are twenty-nine of them and a typed-in
+  // than a column each because there are forty of them and a typed-in
   // food carries none. Totals, never per-100 g — the same snapshot contract as
   // the macros above. An absent key is unknown, not zero.
   nutrients Json?

@@ -3,7 +3,10 @@
 //   1. Download the SR Legacy CSV release (about 6 MB zipped) and unzip it
 //      somewhere outside the repo:
 //      https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_csv_2018-04.zip
-//   2. npx tsx scripts/build-food-nutrients.ts <path to the unzipped folder>
+//   2. Download the USDA, FDA and ODS-NIH iodine database (Release 4, 2024)
+//      and unzip it alongside:
+//      https://www.ars.usda.gov/ARSUserFiles/80400535/Data/Iodine/IODINE_RELEASE_4.zip
+//   3. npx tsx scripts/build-food-nutrients.ts <SR Legacy folder> <iodine "Per 100g" .xlsx>
 //
 // Which USDA food each catalog entry is matched to lives in
 // food-nutrients-map.ts; this script only reads the numbers. It also prints a
@@ -11,6 +14,11 @@
 // whose serving weight and calories disagree with USDA by a wide margin has
 // either been matched to the wrong entry or has a wrong serving weight, and
 // both would make gram-based scaling quietly wrong.
+//
+// SR Legacy never measured iodine, so it comes from the iodine database. That
+// database names the SR Legacy food each of its entries corresponds to, so a
+// catalog food whose USDA match is listed there is joined automatically; the
+// map names the entry by hand where the same food is filed under another code.
 //
 // The CSVs stay out of the repo. They're public domain, but 40 MB of them to
 // regenerate a 30 KB file is the wrong trade.
@@ -25,6 +33,7 @@ import {
   parseMl,
 } from "@/lib/food-amounts";
 import { USDA_MATCHES } from "./food-nutrients-map";
+import { readXlsxRows } from "./read-xlsx";
 
 const ENERGY_KCAL = 1008;
 const OUT = path.join(__dirname, "..", "src", "lib", "food-nutrients.generated.ts");
@@ -105,13 +114,42 @@ function cupFromPortions(portions: Portion[]): { grams: number; from: string } |
   return null;
 }
 
+type IodineEntry = { id: number; description: string; per100g: number };
+
+// The iodine database's per-100 g sheet: a title, a header row starting
+// "DB_ID", then food rows under category rows. Its second column is the SR
+// Legacy NDB number the entry corresponds to, sometimes with a Foundation Foods
+// id after it ("01253 (100297)"). A trailing asterisk marks a narrower food than
+// the SR entry — bread "with iodate dough conditioner", at 600 µg per 100 g
+// where most bread has almost none — so those are only ever matched by hand.
+function readIodine(file: string): { byId: Map<number, IodineEntry>; byNdb: Map<string, IodineEntry> } {
+  const rows = readXlsxRows(file);
+  const head = rows.findIndex((r) => r[0]?.trim() === "DB_ID");
+  if (head < 0) throw new Error(`${file}: no "DB_ID" header row — is this the per-100 g sheet?`);
+  const byId = new Map<number, IodineEntry>();
+  const byNdb = new Map<string, IodineEntry>();
+  for (const r of rows.slice(head + 1)) {
+    if (!/^\d+$/.test(r[0]?.trim() ?? "")) continue;
+    const per100g = Number(r[5]);
+    if (!Number.isFinite(per100g)) continue;
+    const entry = { id: Number(r[0]), description: r[3].trim(), per100g };
+    byId.set(entry.id, entry);
+    const ndb = (r[1] ?? "").trim();
+    if (ndb.includes("*")) continue;
+    for (const m of ndb.matchAll(/\b\d{5}\b/g)) byNdb.set(m[0], entry);
+  }
+  return { byId, byNdb };
+}
+
 function main() {
   const dir = process.argv[2];
-  if (!dir || !fs.existsSync(path.join(dir, "food.csv"))) {
+  const iodineFile = process.argv[3];
+  if (!dir || !fs.existsSync(path.join(dir, "food.csv")) || !iodineFile || !fs.existsSync(iodineFile)) {
     throw new Error(
-      "Usage: npx tsx scripts/build-food-nutrients.ts <unzipped SR Legacy CSV folder>",
+      "Usage: npx tsx scripts/build-food-nutrients.ts <unzipped SR Legacy CSV folder> <iodine database \"Per 100g\" .xlsx>",
     );
   }
+  const iodine = readIodine(iodineFile);
 
   const catalog = FOOD_PRESETS.flatMap((c) => c.foods);
   const catalogNames = new Set(catalog.map((f) => f.name));
@@ -128,7 +166,13 @@ function main() {
   const wanted = new Set(
     Object.values(USDA_MATCHES).flatMap((m) => (m ? [m.fdc] : [])),
   );
-  const nutrientIds = new Set([ENERGY_KCAL, ...NUTRIENTS.map((n) => n.usda)]);
+  const nutrientIds = new Set([ENERGY_KCAL, ...NUTRIENTS.flatMap((n) => n.usda)]);
+
+  const ndbByFdc = new Map<number, string>();
+  for (const r of readCsv(dir, "sr_legacy_food.csv")) {
+    const id = Number(r.fdc_id);
+    if (wanted.has(id)) ndbByFdc.set(id, r.NDB_number.padStart(5, "0"));
+  }
 
   const descriptions = new Map<number, string>();
   for (const r of readCsv(dir, "food.csv")) {
@@ -165,6 +209,7 @@ function main() {
   const rows: string[] = [];
   const flags: string[] = [];
   let matched = 0;
+  let withIodine = 0;
 
   for (const food of catalog) {
     const match = USDA_MATCHES[food.name];
@@ -197,8 +242,22 @@ function main() {
     }
     if (grams == null) flags.push(`  ${food.name}: no weight in serving "${food.serving}"`);
 
+    // Iodine: the map's hand-picked entry, or the one filed under this food's
+    // own SR Legacy code, or nothing. `iodine: null` refuses an automatic match.
+    const iodineEntry =
+      match.iodine === null ? undefined
+      : match.iodine !== undefined ? iodine.byId.get(match.iodine)
+      : iodine.byNdb.get(ndbByFdc.get(match.fdc) ?? "");
+    if (match.iodine != null && !iodineEntry) {
+      throw new Error(`${food.name}: iodine DB_ID ${match.iodine} is not in this release.`);
+    }
+    if (iodineEntry) withIodine++;
+
     const values = NUTRIENTS.map((def) => {
-      const v = n.get(def.usda);
+      const v =
+        match.extra?.[def.key] ??
+        (def.key === "iodine" ? iodineEntry?.per100g : undefined) ??
+        def.usda.map((id) => n.get(id)).find((x) => x != null);
       return v == null ? "null" : String(sig(v));
     });
     const cupOut = cup == null ? "null" : String(sig(cup));
@@ -210,7 +269,9 @@ function main() {
   const file = `// Generated by scripts/build-food-nutrients.ts — do not edit by hand. Change
 // scripts/food-nutrients-map.ts and re-run it instead.
 //
-// Source: USDA FoodData Central, SR Legacy (April 2018). Public domain.
+// Sources, both public domain: USDA FoodData Central, SR Legacy (April 2018),
+// and for iodine the USDA, FDA and ODS-NIH Database for the Iodine Content of
+// Common Foods, Release 4 (October 2024).
 //
 // Per catalog food, keyed by normalizeFoodName(): the fdc_id it was matched to,
 // grams per US cup (null where cups aren't offered), and nutrients per 100 g in
@@ -229,7 +290,9 @@ ${rows.join("\n")}
 `;
 
   fs.writeFileSync(OUT, file);
-  console.log(`Wrote ${path.relative(process.cwd(), OUT)}: ${matched} of ${catalog.length} catalog foods matched.`);
+  console.log(
+    `Wrote ${path.relative(process.cwd(), OUT)}: ${matched} of ${catalog.length} catalog foods matched, ${withIodine} with iodine.`,
+  );
   if (flags.length) {
     console.log(`\nCheck these — catalog calories disagree with USDA by more than 20%:`);
     console.log(flags.join("\n"));

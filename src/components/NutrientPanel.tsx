@@ -45,6 +45,9 @@ export function NutrientPanel({
   const defs = defsForDetail(detail);
   if (!defs.length) return null;
   const { withData, foods } = totals;
+  const coverage = (d: NutrientDef) => nutrientCoverage(totals.counts[d.key] ?? 0, withData);
+  const anySparse = defs.some((d) => coverage(d) === "sparse");
+  const anyUnknown = defs.some((d) => coverage(d) === "none");
 
   return (
     <section
@@ -72,6 +75,8 @@ export function NutrientPanel({
                       key={d.key}
                       def={d}
                       value={totals.totals[d.key] ?? 0}
+                      count={totals.counts[d.key] ?? 0}
+                      withData={withData}
                     />
                   ))}
                 </ul>
@@ -83,6 +88,8 @@ export function NutrientPanel({
             <span className="inline-flex items-center gap-1">
               <CeilingMark /> marks a limit to stay under.
             </span>
+            {anySparse ? <span>“3 of 20 foods” beside a name: only those report it, so it runs low.</span> : null}
+            {anyUnknown ? <span>—: none of these foods reports it.</span> : null}
           </p>
         </div>
       ) : null}
@@ -119,14 +126,57 @@ function Coverage({ withData, foods }: { withData: number; foods: number }) {
   );
 }
 
-function NutrientRow({ def, value }: { def: NutrientDef; value: number }) {
+// Whether a day's total for one nutrient can be read as a total. USDA reports
+// nearly everything for nearly every food, so a nutrient a few foods lack is
+// still a fair total; one most foods never report (iodine, chromium, biotin) is
+// a sum of the few that do, and says so rather than reading as a shortfall.
+type Coverage = "full" | "sparse" | "none";
+
+function nutrientCoverage(count: number, withData: number): Coverage {
+  if (count === 0) return "none";
+  return count * 2 < withData ? "sparse" : "full";
+}
+
+function NutrientRow({
+  def,
+  value,
+  count,
+  withData,
+}: {
+  def: NutrientDef;
+  value: number;
+  count: number;
+  withData: number;
+}) {
+  const coverage = nutrientCoverage(count, withData);
+  if (coverage === "none") {
+    return (
+      <li>
+        <div className="flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate text-sm text-ink-soft">{def.label}</span>
+          <span className="metric shrink-0 text-xs text-ink-soft" title="None of these foods reports it">
+            —
+          </span>
+          <span className="w-10 shrink-0" />
+        </div>
+      </li>
+    );
+  }
+
   const pct = percentDV(def.key, value);
   const over = def.limit && pct != null && pct > 100;
 
   return (
     <li>
       <div className="flex items-baseline gap-2">
-        <span className="min-w-0 flex-1 truncate text-sm text-ink">{def.label}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-ink">
+          {def.label}
+          {coverage === "sparse" ? (
+            <span className="ml-1.5 text-[0.6875rem] text-ink-soft">
+              {count} of {withData} foods
+            </span>
+          ) : null}
+        </span>
         <span className="metric shrink-0 text-xs text-ink">
           {formatNutrient(def.key, value)}
         </span>
