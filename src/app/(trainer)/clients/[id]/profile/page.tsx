@@ -10,8 +10,8 @@ import {
   saveClientProfile,
   applyTargetsToPlan,
 } from "@/app/(trainer)/clients/body-actions";
-import { toDateInput } from "@/lib/format";
 import { toUnits } from "@/lib/constants";
+import { activitySuggestionText, profileFormValues } from "@/lib/profile-values";
 
 // The intake file, and the calorie suggestion it earns.
 //
@@ -93,27 +93,8 @@ export default async function ClientProfilePage({
         <ClientProfileForm
           action={saveClientProfile.bind(null, client.id)}
           units={units}
-          values={{
-            sex: profile?.sex ?? null,
-            birthDate: profile?.birthDate
-              ? toDateInput(profile.birthDate)
-              : "",
-            heightCm: profile?.heightCm ?? null,
-            activityLevel: profile?.activityLevel ?? null,
-            goalType: profile?.goalType ?? null,
-            goalWeightKg: profile?.goalWeightKg ?? null,
-            rateKgPerWeek: profile?.rateKgPerWeek ?? null,
-            trainingDaysPerWeek: profile?.trainingDaysPerWeek ?? null,
-            experience: profile?.experience ?? null,
-            trainingLocation: profile?.trainingLocation ?? null,
-            equipmentNotes: profile?.equipmentNotes ?? null,
-            injuries: profile?.injuries ?? null,
-            dietPattern: profile?.dietPattern ?? null,
-            allergies: profile?.allergies ?? null,
-            dietaryNotes: profile?.dietaryNotes ?? null,
-            mealsPerDay: profile?.mealsPerDay ?? null,
-            notes: profile?.notes ?? null,
-          }}
+          values={profileFormValues(profile)}
+          activitySuggestion={activitySuggestionText(profile, latest)}
         />
       </div>
     </Container>

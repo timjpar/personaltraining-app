@@ -18,7 +18,9 @@ import {
   toBiologicalSex,
   toDietPattern,
   toExperienceLevel,
+  toGoalFocus,
   toGoalType,
+  toOccupationActivity,
   toTrainingLocation,
   toUnits,
   UNITS,
@@ -43,6 +45,13 @@ const MIN_TAPE_CM = 10;
 const MAX_TAPE_CM = 200;
 const MIN_AGE = 10;
 const MAX_AGE = 100;
+const MAX_DAILY_STEPS = 60000;
+const MIN_SESSION_MINUTES = 5;
+const MAX_SESSION_MINUTES = 300;
+const MAX_CARDIO_MINUTES_PER_WEEK = 2000;
+// A waist outside this is a typo, not a goal.
+const MIN_GOAL_WAIST_CM = 40;
+const MAX_GOAL_WAIST_CM = 200;
 
 function numberOrNull(value: unknown): number | null {
   const s = String(value ?? "").trim();
@@ -71,6 +80,15 @@ export type ParsedProfile = {
   goalType: string | null;
   goalWeightKg: number | null;
   rateKgPerWeek: number | null;
+  occupationActivity: string | null;
+  dailySteps: number | null;
+  sessionMinutes: number | null;
+  cardioMinutesPerWeek: number | null;
+  goalFocus: string | null;
+  goalBodyFatPct: number | null;
+  goalWaistCm: number | null;
+  goalDate: Date | null;
+  goalNotes: string | null;
   trainingDaysPerWeek: number | null;
   experience: string | null;
   trainingLocation: string | null;
@@ -162,6 +180,57 @@ export function parseProfileForm(
     return { error: "Training days must be 0 to 7." };
   }
 
+  const dailySteps = intOrNull(formData.get("dailySteps"));
+  if (dailySteps != null && (dailySteps < 0 || dailySteps > MAX_DAILY_STEPS)) {
+    return { error: "That step count doesn't look right." };
+  }
+
+  const sessionMinutes = intOrNull(formData.get("sessionMinutes"));
+  if (
+    sessionMinutes != null &&
+    (sessionMinutes < MIN_SESSION_MINUTES || sessionMinutes > MAX_SESSION_MINUTES)
+  ) {
+    return { error: `Session length must be ${MIN_SESSION_MINUTES} to ${MAX_SESSION_MINUTES} minutes.` };
+  }
+
+  const cardioMinutesPerWeek = intOrNull(formData.get("cardioMinutesPerWeek"));
+  if (
+    cardioMinutesPerWeek != null &&
+    (cardioMinutesPerWeek < 0 || cardioMinutesPerWeek > MAX_CARDIO_MINUTES_PER_WEEK)
+  ) {
+    return { error: "That much cardio a week doesn't look right." };
+  }
+
+  const goalBodyFatPct = numberOrNull(formData.get("goalBodyFatPct"));
+  if (
+    goalBodyFatPct != null &&
+    (goalBodyFatPct < MIN_BODY_FAT_PCT || goalBodyFatPct > MAX_BODY_FAT_PCT)
+  ) {
+    return {
+      error: `Goal body fat should be between ${MIN_BODY_FAT_PCT} and ${MAX_BODY_FAT_PCT}%.`,
+    };
+  }
+
+  // In the viewer's length unit, like the tape on the weigh-in form.
+  const goalWaistRaw = numberOrNull(formData.get("goalWaist"));
+  const goalWaistCm =
+    goalWaistRaw == null ? null : imperial ? cmFromIn(goalWaistRaw) : goalWaistRaw;
+  if (
+    goalWaistCm != null &&
+    (goalWaistCm < MIN_GOAL_WAIST_CM || goalWaistCm > MAX_GOAL_WAIST_CM)
+  ) {
+    return { error: "That goal waist doesn't look right." };
+  }
+
+  // Any real day is accepted, past ones included: a profile saved after the
+  // meet has gone by shouldn't refuse to save over it.
+  let goalDate: Date | null = null;
+  const goalDateRaw = String(formData.get("goalDate") ?? "").trim();
+  if (goalDateRaw) {
+    goalDate = parseDayParam(goalDateRaw);
+    if (!goalDate) return { error: "That target date doesn't look right." };
+  }
+
   const mealsPerDay = intOrNull(formData.get("mealsPerDay"));
   if (mealsPerDay != null && (mealsPerDay < 1 || mealsPerDay > 10)) {
     return { error: "Meals per day must be 1 to 10." };
@@ -176,6 +245,15 @@ export function parseProfileForm(
       goalType: toGoalType(formData.get("goalType")),
       goalWeightKg,
       rateKgPerWeek,
+      occupationActivity: toOccupationActivity(formData.get("occupationActivity")),
+      dailySteps,
+      sessionMinutes,
+      cardioMinutesPerWeek,
+      goalFocus: toGoalFocus(formData.get("goalFocus")),
+      goalBodyFatPct,
+      goalWaistCm,
+      goalDate,
+      goalNotes: text(formData.get("goalNotes"), 500),
       trainingDaysPerWeek,
       experience: toExperienceLevel(formData.get("experience")),
       trainingLocation: toTrainingLocation(formData.get("trainingLocation")),

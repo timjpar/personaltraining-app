@@ -10,7 +10,13 @@ import {
   Select,
   Textarea,
 } from "@/components/ui";
-import { heightInputs, massInput, massUnit } from "@/lib/units";
+import {
+  heightInputs,
+  lengthInput,
+  lengthUnit,
+  massInput,
+  massUnit,
+} from "@/lib/units";
 import {
   ACTIVITY_HINTS,
   ACTIVITY_LABELS,
@@ -20,8 +26,14 @@ import {
   EXPERIENCE_HINTS,
   EXPERIENCE_LABELS,
   EXPERIENCE_ORDER,
+  GOAL_FOCUS_HINTS,
+  GOAL_FOCUS_LABELS,
+  GOAL_FOCUS_ORDER,
   GOAL_LABELS,
   GOAL_ORDER,
+  OCCUPATION_HINTS,
+  OCCUPATION_LABELS,
+  OCCUPATION_ORDER,
   SEX_LABELS,
   SEX_ORDER,
   TRAINING_LOCATION_LABELS,
@@ -41,6 +53,15 @@ export type ProfileValues = {
   goalType: string | null;
   goalWeightKg: number | null;
   rateKgPerWeek: number | null;
+  occupationActivity: string | null;
+  dailySteps: number | null;
+  sessionMinutes: number | null;
+  cardioMinutesPerWeek: number | null;
+  goalFocus: string | null;
+  goalBodyFatPct: number | null;
+  goalWaistCm: number | null;
+  goalDate: string; // yyyy-mm-dd, already formatted by the caller
+  goalNotes: string | null;
   trainingDaysPerWeek: number | null;
   experience: string | null;
   trainingLocation: string | null;
@@ -54,8 +75,8 @@ export type ProfileValues = {
 };
 
 // The intake file. Grouped the way a coach thinks about it rather than the way
-// the columns are ordered: who they are, what they're aiming at, how they
-// train, how they eat.
+// the columns are ordered: who they are, what they're aiming at, how much they
+// move, how they train, how they eat.
 //
 // Every select carries a blank first option and every field is optional,
 // because a half-filled profile is the normal state after a first
@@ -66,11 +87,16 @@ export function ClientProfileForm({
   action,
   units,
   values,
+  activitySuggestion = null,
   self = false,
 }: {
   action: (prev: BodyState, formData: FormData) => Promise<BodyState>;
   units: Units;
   values: ProfileValues;
+  // The level the activity details below point to, worked out by the page
+  // (it needs a weigh-in, which this form doesn't have). Shown beside the
+  // select, never applied: the level is still the coach's call.
+  activitySuggestion?: string | null;
   // Set when a coach is filling this in about themselves. Four hints below
   // describe the person being programmed for, and on your own file every one
   // of them means you.
@@ -78,6 +104,7 @@ export function ClientProfileForm({
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
   const mass = massUnit(units);
+  const length = lengthUnit(units);
   const imperial = units === UNITS.IMPERIAL;
   const height = heightInputs(values.heightCm);
   const they = self ? "you" : "they";
@@ -159,25 +186,19 @@ export function ClientProfileForm({
       <Section title="Goal">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
-            label="Activity level"
+            label="Focus"
             hint={
-              values.activityLevel && values.activityLevel in ACTIVITY_HINTS
-                ? ACTIVITY_HINTS[
-                    values.activityLevel as keyof typeof ACTIVITY_HINTS
-                  ]
-                : `Everything outside ${their} training — this is what scales the estimate.`
+              values.goalFocus && values.goalFocus in GOAL_FOCUS_HINTS
+                ? GOAL_FOCUS_HINTS[values.goalFocus as keyof typeof GOAL_FOCUS_HINTS]
+                : `What ${they}'re training for, beside which way the scale moves.`
             }
-            htmlFor="p-activity"
+            htmlFor="p-focus"
           >
-            <Select
-              id="p-activity"
-              name="activityLevel"
-              defaultValue={values.activityLevel ?? ""}
-            >
+            <Select id="p-focus" name="goalFocus" defaultValue={values.goalFocus ?? ""}>
               <option value="">Not set</option>
-              {ACTIVITY_ORDER.map((a) => (
-                <option key={a} value={a}>
-                  {ACTIVITY_LABELS[a]} — {ACTIVITY_HINTS[a]}
+              {GOAL_FOCUS_ORDER.map((g) => (
+                <option key={g} value={g}>
+                  {GOAL_FOCUS_LABELS[g]} — {GOAL_FOCUS_HINTS[g]}
                 </option>
               ))}
             </Select>
@@ -229,7 +250,120 @@ export function ClientProfileForm({
               defaultValue={massInput(values.rateKgPerWeek, units)}
             />
           </Field>
+
+          <Field
+            label="Goal body fat (%)"
+            hint="For when the scale is the wrong scoreboard."
+            htmlFor="p-goalbf"
+          >
+            <Input
+              id="p-goalbf"
+              name="goalBodyFatPct"
+              type="number"
+              step="0.5"
+              inputMode="decimal"
+              placeholder="15"
+              defaultValue={values.goalBodyFatPct == null ? "" : String(values.goalBodyFatPct)}
+            />
+          </Field>
+
+          <Field label={`Goal waist (${length})`} htmlFor="p-goalwaist">
+            <Input
+              id="p-goalwaist"
+              name="goalWaist"
+              type="number"
+              step="0.1"
+              inputMode="decimal"
+              placeholder={length === "cm" ? "84" : "33"}
+              defaultValue={lengthInput(values.goalWaistCm, units)}
+            />
+          </Field>
+
+          <Field
+            label="Target date"
+            hint="A meet, a wedding, a season starting — whatever the date is."
+            htmlFor="p-goaldate"
+          >
+            <Input id="p-goaldate" name="goalDate" type="date" defaultValue={values.goalDate} />
+          </Field>
+
+          <Field label="What it's for" htmlFor="p-goalnotes">
+            <Input
+              id="p-goalnotes"
+              name="goalNotes"
+              placeholder="First powerlifting meet in March"
+              defaultValue={values.goalNotes ?? ""}
+            />
+          </Field>
         </div>
+      </Section>
+
+      <Section title="Activity">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label="Job"
+            hint={
+              values.occupationActivity && values.occupationActivity in OCCUPATION_HINTS
+                ? OCCUPATION_HINTS[values.occupationActivity as keyof typeof OCCUPATION_HINTS]
+                : `What ${their} work asks of ${self ? "you" : "them"} physically.`
+            }
+            htmlFor="p-job"
+          >
+            <Select
+              id="p-job"
+              name="occupationActivity"
+              defaultValue={values.occupationActivity ?? ""}
+            >
+              <option value="">Not set</option>
+              {OCCUPATION_ORDER.map((o) => (
+                <option key={o} value={o}>
+                  {OCCUPATION_LABELS[o]} — {OCCUPATION_HINTS[o]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field
+            label="Steps a day"
+            hint="A typical day's average, from a phone or watch."
+            htmlFor="p-steps"
+          >
+            <Input
+              id="p-steps"
+              name="dailySteps"
+              type="number"
+              min={0}
+              step={500}
+              inputMode="numeric"
+              placeholder="8000"
+              defaultValue={values.dailySteps == null ? "" : String(values.dailySteps)}
+            />
+          </Field>
+        </div>
+
+        <Field
+          label="Activity level"
+          hint={
+            activitySuggestion ??
+            (values.activityLevel && values.activityLevel in ACTIVITY_HINTS
+              ? ACTIVITY_HINTS[values.activityLevel as keyof typeof ACTIVITY_HINTS]
+              : `Everything outside ${their} training — this is what scales the estimate.`)
+          }
+          htmlFor="p-activity"
+        >
+          <Select
+            id="p-activity"
+            name="activityLevel"
+            defaultValue={values.activityLevel ?? ""}
+          >
+            <option value="">Not set</option>
+            {ACTIVITY_ORDER.map((a) => (
+              <option key={a} value={a}>
+                {ACTIVITY_LABELS[a]} — {ACTIVITY_HINTS[a]}
+              </option>
+            ))}
+          </Select>
+        </Field>
       </Section>
 
       <Section title="Training">
@@ -247,6 +381,39 @@ export function ClientProfileForm({
                 values.trainingDaysPerWeek == null
                   ? ""
                   : String(values.trainingDaysPerWeek)
+              }
+            />
+          </Field>
+
+          <Field label="Session length (min)" htmlFor="p-session">
+            <Input
+              id="p-session"
+              name="sessionMinutes"
+              type="number"
+              min={5}
+              max={300}
+              step={5}
+              inputMode="numeric"
+              placeholder="60"
+              defaultValue={values.sessionMinutes == null ? "" : String(values.sessionMinutes)}
+            />
+          </Field>
+
+          <Field
+            label="Cardio (min a week)"
+            hint="On top of the lifting — runs, rides, classes."
+            htmlFor="p-cardio"
+          >
+            <Input
+              id="p-cardio"
+              name="cardioMinutesPerWeek"
+              type="number"
+              min={0}
+              step={10}
+              inputMode="numeric"
+              placeholder="90"
+              defaultValue={
+                values.cardioMinutesPerWeek == null ? "" : String(values.cardioMinutesPerWeek)
               }
             />
           </Field>

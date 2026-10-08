@@ -6,8 +6,8 @@ import { ClientProfileForm } from "@/components/ClientProfileForm";
 import { SuggestedTargets } from "@/components/SuggestedTargets";
 import { UnitsToggle } from "@/components/UnitsToggle";
 import { saveMyProfile } from "../actions";
-import { toDateInput } from "@/lib/format";
 import { toUnits } from "@/lib/constants";
+import { activitySuggestionText, profileFormValues } from "@/lib/profile-values";
 
 // The coach's own intake file, and the calorie suggestion it earns — the same
 // pairing /clients/[id]/profile makes, and for the same reason: filling the form
@@ -66,25 +66,8 @@ export default async function MyOwnProfilePage() {
           action={saveMyProfile}
           units={units}
           self
-          values={{
-            sex: profile?.sex ?? null,
-            birthDate: profile?.birthDate ? toDateInput(profile.birthDate) : "",
-            heightCm: profile?.heightCm ?? null,
-            activityLevel: profile?.activityLevel ?? null,
-            goalType: profile?.goalType ?? null,
-            goalWeightKg: profile?.goalWeightKg ?? null,
-            rateKgPerWeek: profile?.rateKgPerWeek ?? null,
-            trainingDaysPerWeek: profile?.trainingDaysPerWeek ?? null,
-            experience: profile?.experience ?? null,
-            trainingLocation: profile?.trainingLocation ?? null,
-            equipmentNotes: profile?.equipmentNotes ?? null,
-            injuries: profile?.injuries ?? null,
-            dietPattern: profile?.dietPattern ?? null,
-            allergies: profile?.allergies ?? null,
-            dietaryNotes: profile?.dietaryNotes ?? null,
-            mealsPerDay: profile?.mealsPerDay ?? null,
-            notes: profile?.notes ?? null,
-          }}
+          values={profileFormValues(profile)}
+          activitySuggestion={activitySuggestionText(profile, latest)}
         />
       </div>
     </Container>

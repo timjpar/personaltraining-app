@@ -328,6 +328,28 @@ model ClientProfile {
   // would have to win silently.
   rateKgPerWeek Float?
 
+  // What sits behind the activity level, so the choice is evidence rather than a
+  // guess. None of these feeds the TDEE multiplier directly — activityLevel
+  // stays the one input, for the double-counting reason above. They feed
+  // suggestActivityLevel (src/lib/body.ts), which proposes a level the coach
+  // can take or leave.
+  occupationActivity   String? // DESK | MIXED | ON_FEET | PHYSICAL
+  dailySteps           Int? // average, all day
+  sessionMinutes       Int? // a typical training session
+  cardioMinutesPerWeek Int? // on top of the lifting
+
+  // What the goal is for, beside which way the scale moves. goalType says
+  // direction; this says intent — a recomp and a cut can both be LOSE, and
+  // they are programmed nothing alike.
+  goalFocus      String? // FAT_LOSS | MUSCLE_GAIN | RECOMP | STRENGTH | ENDURANCE | PERFORMANCE | HEALTH
+  // Body-composition targets, for when the scale is the wrong scoreboard. Same
+  // units as Measurement, so a goal and a reading compare without converting.
+  goalBodyFatPct Float?
+  goalWaistCm    Float?
+  // A date, local-midnight like birthDate — a meet, a wedding, a season start.
+  goalDate       DateTime?
+  goalNotes      String?
+
   // Programming context, read by the coach writing the block rather than by any
   // formula. 0 is a real answer for someone who hasn't started.
   trainingDaysPerWeek Int?

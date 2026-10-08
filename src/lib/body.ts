@@ -14,10 +14,12 @@
 // than a bare number, and why the coach is the one who accepts it.
 import {
   ACTIVITY_LABELS,
+  ACTIVITY_ORDER,
   GOAL_TYPES,
   type ActivityLevel,
   type BiologicalSex,
   type GoalType,
+  type OccupationActivity,
 } from "@/lib/constants";
 
 // Harris–Benedict style multipliers, the set Mifflin–St Jeor is conventionally
@@ -100,6 +102,170 @@ export function bmr(input: {
 
 export function tdee(bmrKcal: number, activity: ActivityLevel): number {
   return bmrKcal * ACTIVITY_FACTORS[activity];
+}
+
+// ---- Suggesting an activity level from what sits behind it ---------------
+//
+// activityLevel stays the one input to the TDEE multiplier (see ClientProfile),
+// so this never sets it. It answers the question the select can't: given a desk
+// job, 8,000 steps and three hours of lifting a week, which level is that? The
+// coach reads the suggestion beside the select and decides.
+//
+// Built factorially, the way a PAL is: the movement of daily life as a multiple
+// of resting burn, plus the net energy of deliberate exercise on top.
+
+// Daily life, from steps when they're known — Tudor-Locke's step bands, which
+// already count the walking a job involves — or from the job when they aren't.
+// Both, and the larger wins: steps miss the lifting and carrying of a physical
+// job, and a job category misses the evening walk.
+const STEP_BANDS: { min: number; pal: number }[] = [
+  { min: 12500, pal: 1.6 },
+  { min: 10000, pal: 1.5 },
+  { min: 7500, pal: 1.4 },
+  { min: 5000, pal: 1.3 },
+  { min: 0, pal: 1.2 },
+];
+const OCCUPATION_PAL: Record<OccupationActivity, number> = {
+  DESK: 1.2,
+  MIXED: 1.3,
+  ON_FEET: 1.45,
+  PHYSICAL: 1.6,
+};
+
+// Net METs — above the resting 1.0 that BMR already counts — from the 2011
+// Compendium of Physical Activities: a general weight-training session (~5) and
+// moderate-to-vigorous cardio (~7).
+const NET_MET_LIFTING = 4;
+const NET_MET_CARDIO = 6;
+// A training day with no session length given is taken as an hour, the usual
+// booking; the suggestion says so rather than hiding the assumption.
+const DEFAULT_SESSION_MINUTES = 60;
+
+export type ActivitySuggestion = {
+  level: ActivityLevel;
+  // The multiplier the details actually imply, before rounding to a level.
+  factor: number;
+  dailyLifePal: number;
+  exerciseKcalPerDay: number;
+  assumedSessionMinutes: boolean;
+};
+
+export function suggestActivityLevel(input: {
+  occupation: OccupationActivity | null;
+  dailySteps: number | null;
+  trainingDaysPerWeek: number | null;
+  sessionMinutes: number | null;
+  cardioMinutesPerWeek: number | null;
+  weightKg: number;
+  bmrKcal: number;
+}): ActivitySuggestion | null {
+  const fromSteps =
+    input.dailySteps != null
+      ? STEP_BANDS.find((b) => input.dailySteps! >= b.min)!.pal
+      : null;
+  const fromJob = input.occupation ? OCCUPATION_PAL[input.occupation] : null;
+  if (fromSteps == null && fromJob == null) return null;
+  const dailyLifePal = Math.max(fromSteps ?? 0, fromJob ?? 0);
+
+  const days = input.trainingDaysPerWeek ?? 0;
+  const assumedSessionMinutes = days > 0 && input.sessionMinutes == null;
+  const sessionMinutes = input.sessionMinutes ?? DEFAULT_SESSION_MINUTES;
+  const liftingHours = (days * sessionMinutes) / 60;
+  const cardioHours = (input.cardioMinutesPerWeek ?? 0) / 60;
+  const exerciseKcalPerDay =
+    ((liftingHours * NET_MET_LIFTING + cardioHours * NET_MET_CARDIO) *
+      input.weightKg) /
+    7;
+
+  const factor = dailyLifePal + exerciseKcalPerDay / input.bmrKcal;
+  const level = ACTIVITY_ORDER.reduce((best, l) =>
+    Math.abs(ACTIVITY_FACTORS[l] - factor) < Math.abs(ACTIVITY_FACTORS[best] - factor)
+      ? l
+      : best,
+  );
+
+  return {
+    level,
+    factor,
+    dailyLifePal,
+    exerciseKcalPerDay: Math.round(exerciseKcalPerDay),
+    assumedSessionMinutes,
+  };
+}
+
+// ---- Where a calorie intake leads ----------------------------------------
+//
+// Today's maintenance comes from the same Mifflin–St Jeor × activity figure the
+// rest of the app uses. How the weight moves from there comes from Hall et al.'s
+// NIH body-weight model (Lancet 2011), through its two published rules of
+// thumb rather than a home-made line:
+//
+//   - every 10 kcal a day of sustained change moves weight about 1 lb (0.45 kg)
+//     by the time it settles — so the settling point is gap / 22 kcal per kg;
+//   - about half of that change has happened within a year.
+//
+// The equation's own slope (10 kcal per kg of BMR, times the activity factor)
+// would put the settling point a third further out, because it misses the
+// falling cost of moving a lighter body; the "7,700 kcal per kg" rule misses
+// the slowing altogether and has a deficit running at full rate for ever.
+// Hall's figures were fitted to adults carrying extra weight, and a lean lifter
+// can run differently — the panel says so.
+export const KCAL_PER_DAY_PER_KG_SETTLED = 10 / 0.45359237;
+export const HALF_CHANGE_DAYS = 365;
+
+export type WeightProjection = {
+  maintenance: number;
+  // Intake minus today's maintenance; negative is a deficit.
+  gap: number;
+  settleKg: number;
+  // Days for half of the eventual change to happen.
+  halfLifeDays: number;
+  points: { weeks: number; weightKg: number }[];
+  // null when there's no goal weight; Infinity when this intake settles short
+  // of it and the goal is never reached.
+  weeksToGoal: number | null;
+};
+
+export function projectWeight(input: {
+  bmr: BmrInputs;
+  factor: number;
+  intakeKcal: number;
+  goalWeightKg: number | null;
+  weeks?: number[];
+}): WeightProjection {
+  const weightKg = input.bmr.weightKg;
+  const maintenance = input.factor * bmr(input.bmr);
+  const gap = input.intakeKcal - maintenance;
+
+  const settleKg = weightKg + gap / KCAL_PER_DAY_PER_KG_SETTLED;
+  const tauDays = HALF_CHANGE_DAYS / Math.LN2;
+  const at = (days: number) =>
+    settleKg + (weightKg - settleKg) * Math.exp(-days / tauDays);
+
+  const points = (input.weeks ?? [4, 12, 26, 52]).map((w) => ({
+    weeks: w,
+    weightKg: at(w * 7),
+  }));
+
+  let weeksToGoal: number | null = null;
+  const goal = input.goalWeightKg;
+  if (goal != null) {
+    const from = weightKg - settleKg;
+    const to = goal - settleKg;
+    if (Math.abs(weightKg - goal) < 0.05) weeksToGoal = 0;
+    else if (from !== 0 && to / from > 0 && Math.abs(to) < Math.abs(from)) {
+      weeksToGoal = Math.ceil((tauDays * Math.log(from / to)) / 7);
+    } else weeksToGoal = Infinity;
+  }
+
+  return {
+    maintenance: Math.round(maintenance),
+    gap: Math.round(gap),
+    settleKg,
+    halfLifeDays: HALF_CHANGE_DAYS,
+    points,
+    weeksToGoal,
+  };
 }
 
 export type TargetInputs = {

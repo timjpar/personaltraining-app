@@ -8,6 +8,8 @@ import { DeleteMeasurement } from "@/components/DeleteMeasurement";
 import { BodyStats } from "@/components/BodyStats";
 import { BodyTrend } from "@/components/BodyTrend";
 import { BmrPanel } from "@/components/BmrPanel";
+import { ProjectionPanel } from "@/components/ProjectionPanel";
+import { currentIntake } from "@/lib/intake";
 import { UnitsToggle } from "@/components/UnitsToggle";
 import {
   saveMeasurement,
@@ -58,6 +60,14 @@ export default async function ClientMeasurementsPage({
         birthDate: true,
         heightCm: true,
         activityLevel: true,
+        // And what the projection under it reads: the details that suggest
+        // a level when none is chosen, and the target date.
+        occupationActivity: true,
+        dailySteps: true,
+        trainingDaysPerWeek: true,
+        sessionMinutes: true,
+        cardioMinutesPerWeek: true,
+        goalDate: true,
       },
     }),
     prisma.measurement.findMany({
@@ -69,6 +79,8 @@ export default async function ClientMeasurementsPage({
   if (!client) notFound();
 
   const units = toUnits(trainer.units);
+  // After the ownership check above, never alongside it: it reads by id alone.
+  const intake = await currentIntake(client.id);
   const first = client.name.split(/\s+/)[0];
 
   const editDate = parseDayParam(edit);
@@ -141,6 +153,15 @@ export default async function ClientMeasurementsPage({
           earliest={
             weighIns.length >= 2 ? weighIns[weighIns.length - 1] : null
           }
+          units={units}
+        />
+      </div>
+
+      <div className="mt-6">
+        <ProjectionPanel
+          profile={profile}
+          latest={current}
+          intake={intake}
           units={units}
         />
       </div>

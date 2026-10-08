@@ -7,6 +7,8 @@ import { DeleteMeasurement } from "@/components/DeleteMeasurement";
 import { BodyStats } from "@/components/BodyStats";
 import { BodyTrend } from "@/components/BodyTrend";
 import { BmrPanel } from "@/components/BmrPanel";
+import { ProjectionPanel } from "@/components/ProjectionPanel";
+import { currentIntake } from "@/lib/intake";
 import { UnitsToggle } from "@/components/UnitsToggle";
 import { saveMyWeighIn, deleteMyWeighIn } from "../actions";
 import { formatDate, toDateInput } from "@/lib/format";
@@ -44,6 +46,14 @@ export default async function MyOwnBodyPage({
         birthDate: true,
         heightCm: true,
         activityLevel: true,
+        // And what the projection under it reads: the details that suggest
+        // a level when none is chosen, and the target date.
+        occupationActivity: true,
+        dailySteps: true,
+        trainingDaysPerWeek: true,
+        sessionMinutes: true,
+        cardioMinutesPerWeek: true,
+        goalDate: true,
       },
     }),
     prisma.measurement.findMany({
@@ -57,6 +67,7 @@ export default async function MyOwnBodyPage({
   ]);
 
   const units = toUnits(trainer.units);
+  const intake = await currentIntake(trainer.id);
 
   // Editing is not a separate mode. A measurement is keyed on [clientId, date],
   // so re-saving a date overwrites it — "edit" is the form prefilled with that
@@ -145,6 +156,16 @@ export default async function MyOwnBodyPage({
           profile={profile}
           latest={current}
           earliest={weighIns.length >= 2 ? weighIns[weighIns.length - 1] : null}
+          units={units}
+          self
+        />
+      </div>
+
+      <div className="mt-6">
+        <ProjectionPanel
+          profile={profile}
+          latest={current}
+          intake={intake}
           units={units}
           self
         />
