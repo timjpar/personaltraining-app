@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Card, Input, EmptyState } from "@/components/ui";
+import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { ExerciseFigure } from "@/components/ExerciseFigure";
+import { animationFor } from "@/lib/exercise-anim/lookup";
 import { archetypeFor, demoSearchUrl } from "@/lib/exercise-archetypes";
 import {
   EXERCISE_CATEGORIES,
@@ -194,9 +196,15 @@ export function ExerciseCatalog({ custom }: { custom: CustomMovement[] }) {
                     key={row.name}
                     className="flex items-start gap-3 px-4 py-3.5"
                   >
-                    <span className="mt-0.5 shrink-0 text-ink-soft">
-                      <ExerciseFigure archetype={archetypeFor(row.name)} />
-                    </span>
+                    {/* The drawn animation where there is one; a trainer's own
+                        movements fall back to the stick figure. */}
+                    {animationFor(row.name) ? (
+                      <ExerciseAnimation name={row.name} className="h-14 w-14" />
+                    ) : (
+                      <span className="mt-0.5 shrink-0 text-ink-soft">
+                        <ExerciseFigure archetype={archetypeFor(row.name)} />
+                      </span>
+                    )}
                     <div className="min-w-0 flex-1">
                       {/* The same fallback the client workout page uses when a
                           trainer hasn't attached their own demo. */}

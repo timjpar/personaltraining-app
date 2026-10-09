@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { Badge } from "@/components/ui";
+import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { VideoEmbed } from "@/components/VideoEmbed";
 import { setValuesFor, storedSetCount } from "@/lib/exercise-sets";
 
@@ -203,22 +204,32 @@ export function PrescriptionCard({
           {String(index).padStart(2, "0")}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            {/* Crossed off recedes. The eye should land on what still needs
-                doing, so a struck lift drops to secondary ink and the rule
-                rides at 55% — a finished line on a sheet, not a redaction. */}
-            <h3
-              className={cn(
-                "font-display text-base font-semibold leading-tight transition-colors",
-                struck ? "text-ink-soft" : "text-ink",
-              )}
-            >
-              <span className={cn("strike", struck && "strike-on")}>{name}</span>
-            </h3>
-            {logged ? <Badge tone="jade">Logged</Badge> : null}
-          </div>
-          <div className="mt-3">
-            <MetricStrip metrics={metrics} />
+          {/* The animation sits beside the prescription, not beside the
+              footer: on a phone the logging rows need the card's full width. */}
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                {/* Crossed off recedes. The eye should land on what still needs
+                    doing, so a struck lift drops to secondary ink and the rule
+                    rides at 55% — a finished line on a sheet, not a redaction. */}
+                <h3
+                  className={cn(
+                    "font-display text-base font-semibold leading-tight transition-colors",
+                    struck ? "text-ink-soft" : "text-ink",
+                  )}
+                >
+                  <span className={cn("strike", struck && "strike-on")}>{name}</span>
+                </h3>
+                {logged ? <Badge tone="jade">Logged</Badge> : null}
+              </div>
+              <div className="mt-3">
+                <MetricStrip metrics={metrics} />
+              </div>
+            </div>
+            <ExerciseAnimation
+              name={name}
+              className={cn("h-[76px] w-[76px] sm:h-[104px] sm:w-[104px]", struck && "opacity-55")}
+            />
           </div>
           {notes ? (
             <p className="mt-3 border-l-2 border-line pl-3 text-sm leading-relaxed text-ink-soft">
