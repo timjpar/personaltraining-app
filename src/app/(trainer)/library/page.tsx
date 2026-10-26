@@ -1,16 +1,26 @@
-import Link from "next/link";
+import { cookies } from "next/headers";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Container, PageHeading, Card, ButtonLink, EmptyState } from "@/components/ui";
+import { Container, PageHeading, ButtonLink, EmptyState } from "@/components/ui";
+import { WorkoutLibrary } from "@/components/WorkoutLibrary";
+import { formatDateShort } from "@/lib/format";
+import {
+  DEFAULT_LIBRARY_VIEW,
+  LIBRARY_VIEW_COOKIE,
+  toLibraryView,
+} from "@/lib/library-view";
 
 export default async function LibraryPage() {
   const trainer = await requireTrainer();
 
   const templates = await prisma.workoutTemplate.findMany({
     where: { trainerId: trainer.id },
-    orderBy: { updatedAt: "desc" },
     include: { _count: { select: { exercises: true } } },
   });
+
+  const stored =
+    toLibraryView((await cookies()).get(LIBRARY_VIEW_COOKIE)?.value) ??
+    DEFAULT_LIBRARY_VIEW;
 
   return (
     <Container>
@@ -47,23 +57,17 @@ export default async function LibraryPage() {
             it whenever you like.
           </EmptyState>
         ) : (
-          <Card className="divide-y divide-line">
-            {templates.map((t) => (
-              <Link
-                key={t.id}
-                href={`/library/${t.id}`}
-                className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-paper"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{t.title}</p>
-                  <p className="metric mt-0.5 text-xs text-ink-soft">
-                    {t._count.exercises} exercise{t._count.exercises === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <span className="text-ink-soft">›</span>
-              </Link>
-            ))}
-          </Card>
+          <WorkoutLibrary
+            stored={stored}
+            rows={templates.map((t) => ({
+              id: t.id,
+              title: t.title,
+              discipline: t.discipline,
+              exercises: t._count.exercises,
+              updatedAt: t.updatedAt.getTime(),
+              updatedLabel: formatDateShort(t.updatedAt),
+            }))}
+          />
         )}
       </div>
     </Container>
