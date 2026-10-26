@@ -578,6 +578,57 @@ const rearDeltFly: Spec = {
   },
 };
 
+// An upright machine handle, gripped round its middle.
+const uprightHandle = () => ({
+  svg: `<rect class="steel" x="-1.6" y="-9" width="3.2" height="18" rx="1.4"/>`,
+  box: [-1.6, -9, 1.6, 9] as [number, number, number, number],
+});
+
+// Seated facing the pad, seen from behind: the handles start out in front at
+// shoulder height, where the arms point away from the viewer, and the arms
+// sweep back level until they line up with the shoulders. The machine's arms
+// hang from a pivot above the pad, so they swing out with the hands.
+const REVERSE_DECK_PIVOT = v(0, -168);
+const reversePecDeck: Spec = {
+  name: "Reverse Pec Deck",
+  aka: ["Reverse Pec Deck Fly", "Rear Delt Machine Fly"],
+  view: "back",
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist" },
+  primary: ["delts_rear", "upper_back"],
+  secondary: ["traps"],
+  still: 1,
+  scene: [
+    { draw: column(-6, REVERSE_DECK_PIVOT.y - 6), layer: "back" },
+    { draw: { svg: `<rect class="pad" x="-15" y="-118" width="30" height="56" rx="5"/>`, box: [-15, -118, 15, -62] }, layer: "back" },
+    { draw: seat(-24, 24, -50), layer: "back" },
+  ],
+  props: [
+    { id: "lN", draw: barLine(), layer: "back" },
+    { id: "lF", draw: barLine(), layer: "back" },
+    { id: "hN", draw: uprightHandle(), layer: "mid" },
+    { id: "hF", draw: uprightHandle(), layer: "mid" },
+  ],
+  motion: (p) => {
+    // Elbows a touch soft and leading, so the forearm trails the upper arm.
+    const k = lerp(0.2, 1, p);
+    const arm = { ...limb(90, 95, 95), ku: k, kl: k };
+    const pose: Pose = { ...seatedSquare(), armN: arm, armF: mirror(arm) };
+    const g = grips(pose, "back");
+    const top = (q: typeof g.N) => add(q, v(0, -8));
+    return {
+      pose,
+      props: {
+        lN: line(REVERSE_DECK_PIVOT, top(g.N)),
+        lF: line(REVERSE_DECK_PIVOT, top(g.F)),
+        hN: at(g.N),
+        hF: at(g.F),
+      },
+    };
+  },
+};
+
 const FACE_PULLEY = v(84, -152);
 const facePull: Spec = {
   name: "Face Pull",
@@ -654,6 +705,7 @@ export const PUSH: Spec[] = [
   lateralRaise,
   cableLateralRaise,
   rearDeltFly,
+  reversePecDeck,
   facePull,
   handstand({ name: "Handstand Hold", primary: ["delts_front", "triceps"], secondary: ["traps", "abs", "forearms"] }),
   handstand({ name: "Handstand Push-Up", push: true, primary: ["delts_front", "triceps"], secondary: ["traps", "chest"] }),

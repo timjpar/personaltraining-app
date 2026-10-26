@@ -106,6 +106,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Chest Press Machine",
       "Shoulder Press Machine",
       "Pec Deck",
+      "Reverse Pec Deck",
       "Back Extension",
       "Cable Pull-Through",
       "Cable Woodchop",
