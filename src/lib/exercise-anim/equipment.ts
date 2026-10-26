@@ -162,6 +162,44 @@ export function dumbbellGoblet(): Drawing {
   };
 }
 
+// A weight plate seen face-on, drawn around its centre: held by the rim, as
+// in a halo.
+export function plateFace(r = 15): Drawing {
+  return {
+    svg:
+      `<circle class="iron" r="${r}"/>` +
+      `<circle fill="none" stroke="#5b6461" stroke-width=".6" r="${n(r * 0.72)}"/>` +
+      `<circle class="steel" r="${n(r * 0.18)}"/><circle class="iron" r="${n(r * 0.08)}"/>`,
+    box: [-r, -r, r, r],
+  };
+}
+
+// A barbell lying in the plane of the drawing, as a unit line along +x
+// stretched by the frame's scaleX: the landmine's bar, pivot to hand.
+export function barLine(): Drawing {
+  return {
+    svg: `<path d="M0 0H1" fill="none" stroke="#6f7976" stroke-width="2.8" stroke-linecap="round" style="vector-effect:non-scaling-stroke"/>`,
+    box: [0, -1.4, 1, 1.4],
+  };
+}
+
+// A plate on that bar, seen edge-on: drawn across the bar, which runs along
+// +x.
+export function plateEdge(r = 14): Drawing {
+  return { svg: `<rect class="iron" x="-3" y="${-r}" width="6" height="${2 * r}" rx="1.8"/>`, box: [-3, -r, 3, r] };
+}
+
+// The landmine's floor base, with the sleeve the bar pivots in at `pivot`.
+export function landmineBase(pivot: V): Drawing {
+  return {
+    svg:
+      `<rect class="frame" x="${n(pivot.x - 14)}" y="-3" width="28" height="3" rx="1"/>` +
+      `<path class="frame" d="M${n(pivot.x - 4)} -3L${n(pivot.x - 2.5)} ${n(pivot.y - 1)}L${n(pivot.x + 2.5)} ${n(pivot.y - 1)}L${n(pivot.x + 4)} -3Z"/>` +
+      `<circle class="steel" cx="${n(pivot.x)}" cy="${n(pivot.y)}" r="2.6"/>`,
+    box: [pivot.x - 14, pivot.y - 3, pivot.x + 14, 0],
+  };
+}
+
 export function medBall(r = 9): Drawing {
   return {
     svg: `<circle cx="0" cy="0" r="${r}" fill="#6d5a8c" stroke="#43365a" stroke-width=".8"/><path d="M${-r} 0C${-r / 2} ${r / 3} ${r / 2} ${r / 3} ${r} 0" fill="none" stroke="#43365a" stroke-width=".6"/>`,
@@ -234,13 +272,14 @@ export function legPressFrame(from: V, angle = 45, length = 150): Drawing {
 }
 
 // A hyperextension bench: hip pad on a 45° frame, ankle rollers at the foot.
-export function hyperBench(hipPad: V, ankle: V): Drawing {
+// `rollers` moves the two ankle pads, for an athlete lying in it side-on.
+export function hyperBench(hipPad: V, ankle: V, rollers: [V, V] = [{ x: ankle.x + 2, y: ankle.y - 6 }, { x: ankle.x - 3, y: ankle.y + 5 }]): Drawing {
   return {
     svg:
       `<path class="frame" d="M${n(ankle.x - 4)} 0L${n(ankle.x - 4)} ${n(ankle.y + 2)}L${n(hipPad.x + 6)} ${n(hipPad.y + 8)}L${n(hipPad.x + 10)} ${n(hipPad.y + 12)}L${n(hipPad.x + 10)} 0Z" style="fill-opacity:.9"/>` +
       `<rect class="pad" x="${n(hipPad.x - 2)}" y="${n(hipPad.y - 4)}" width="14" height="8" rx="3.5" transform="rotate(-40 ${n(hipPad.x + 5)} ${n(hipPad.y)})"/>` +
-      `<circle class="pad" cx="${n(ankle.x + 2)}" cy="${n(ankle.y - 6)}" r="3.6"/><circle class="pad" cx="${n(ankle.x - 3)}" cy="${n(ankle.y + 5)}" r="3.6"/>`,
-    box: [ankle.x - 8, hipPad.y - 10, hipPad.x + 14, 0],
+      rollers.map((r) => `<circle class="pad" cx="${n(r.x)}" cy="${n(r.y)}" r="3.6"/>`).join(""),
+    box: [Math.min(ankle.x - 8, ...rollers.map((r) => r.x - 3.6)), hipPad.y - 10, hipPad.x + 14, 0],
   };
 }
 

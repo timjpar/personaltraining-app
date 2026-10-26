@@ -1,7 +1,7 @@
 // Trunk and hip work: planks, hollows, hanging raises, rollouts, crunches,
 // rotations, levers, and the banded/cabled hip moves.
 
-import { box, cable, cableTower, medBall, pullUpBar, pullUpBarAcross } from "./equipment";
+import { box, cable, cableTower, hyperBench, medBall, pullUpBar, pullUpBarAcross } from "./equipment";
 import {
   add,
   allFours,
@@ -107,6 +107,51 @@ const copenhagenPlank: Spec = {
     const pose = sidePlankPose(v(46, -40), 22 + breathe(p, 2));
     return { pose: { ...pose, legN: limb(pose.torso + 18, pose.torso - 40, pose.torso - 30) } };
   },
+};
+
+// Lying on the near hip across a 45° hyperextension bench, seen from the
+// front: the bench in profile, the athlete side-on in it. The pelvis stays on
+// the pad and the trunk side-bends down toward the floor and back up past
+// level. Feet stacked between the rollers, arms crossed on the chest.
+const SIDE_HYPER_HIP = v(0, -82);
+
+function sideHyperPose(bend: number): Pose {
+  const pelvis = -45 + bend * 0.15;
+  const torso = -45 + bend;
+  let pose = base(SIDE_HYPER_HIP, { pelvis, torso, head: torso + bend * 0.2 });
+  // The top leg closes onto the bottom one, so the feet stack.
+  pose = { ...pose, legN: limb(-45, -45, -40), legF: limb(-39, -39, -34) };
+  // Crossed arms, described upright and turned with the trunk: elbows down
+  // and toward the viewer, each hand to the far side of the chest.
+  const crossed = (s: 1 | -1): Limb => ({ ...limb(torso - 8 * s, torso - 108 * s), ku: 0.55, kl: 0.78 });
+  return { ...pose, armN: crossed(1), armF: crossed(-1) };
+}
+
+const SIDE_HYPER_ANKLES = (() => {
+  const j = frontJoints(sideHyperPose(0));
+  return { N: j.ankleN, F: j.ankleF };
+})();
+
+const sideHyperextension: Spec = {
+  name: "Side Hyperextension",
+  aka: ["Side Back Extension", "45-Degree Side Bend"],
+  view: "front",
+  mode: "alternate",
+  seconds: 3.2,
+  hands: { N: "fist" },
+  primary: ["obliques"],
+  secondary: ["lower_back", "abs", "abductors"],
+  still: 1,
+  scene: [
+    {
+      draw: hyperBench(add(SIDE_HYPER_HIP, v(9, 14)), SIDE_HYPER_ANKLES.N, [
+        add(SIDE_HYPER_ANKLES.F, v(-5, -5)),
+        add(SIDE_HYPER_ANKLES.N, v(5, 5)),
+      ]),
+      layer: "back",
+    },
+  ],
+  motion: (p) => ({ pose: sideHyperPose(lerp(10, -40, p)) }),
 };
 
 // --- Lying ----------------------------------------------------------------------------
@@ -515,6 +560,7 @@ export const CORE: Spec[] = [
   plank,
   sidePlank,
   copenhagenPlank,
+  sideHyperextension,
   hollowHold,
   deadBug,
   birdDog,

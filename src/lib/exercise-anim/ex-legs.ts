@@ -36,6 +36,7 @@ import {
   plant,
   plantLeg,
   rot,
+  seated,
   shoulders,
   stand,
   sub,
@@ -351,6 +352,27 @@ const goodMorning: Spec = {
     const torso = lerp(-4, -72, p);
     const probe = (pose: Pose) => onTrunk(pose, BAR_ON_BACK);
     let pose = stand(lerp(-94.2, -88, p), { torso, pelvis: torso * 0.85, head: torso * 0.6 }, { probe, over: lerp(6, 2, p) });
+    const bar = onTrunk(pose, BAR_ON_BACK);
+    pose = hold(pose, "side", add(bar, v(0.5, 0.5)), undefined, 1);
+    return { pose, props: { bar: at(bar) } };
+  },
+};
+
+// Sitting on the end of a bench, so the hips can't travel back: the hinge is
+// the pelvis tipping forward with the trunk, back flat, bar on the shoulders.
+const seatedGoodMorning: Spec = {
+  name: "Seated Good Morning",
+  mode: "alternate",
+  seconds: 3.4,
+  hands: { N: "fist" },
+  primary: ["lower_back", "glutes"],
+  secondary: ["hamstrings", "adductors"],
+  still: 0.8,
+  scene: [{ draw: flatBench(-100, 8, -44), layer: "back" }],
+  props: barbell(),
+  motion: (p) => {
+    const torso = lerp(-4, -74, p);
+    let pose = seated(-44, 34, { torso, pelvis: torso * 0.9, head: torso * 0.65 });
     const bar = onTrunk(pose, BAR_ON_BACK);
     pose = hold(pose, "side", add(bar, v(0.5, 0.5)), undefined, 1);
     return { pose, props: { bar: at(bar) } };
@@ -727,6 +749,7 @@ export const LEGS: Spec[] = [
   rdl({ name: "Romanian Deadlift", load: "barbell", primary: ["hamstrings", "glutes"], secondary: ["lower_back", "forearms"] }),
   rdl({ name: "Dumbbell Romanian Deadlift", load: "dumbbells", primary: ["hamstrings", "glutes"], secondary: ["lower_back", "forearms"] }),
   goodMorning,
+  seatedGoodMorning,
   swing({ name: "Kettlebell Swing", top: 88 }),
   swing({ name: "American Kettlebell Swing", top: 172 }),
   hipThrust,

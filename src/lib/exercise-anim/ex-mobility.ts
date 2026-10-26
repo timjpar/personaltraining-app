@@ -1,16 +1,19 @@
 // Warm-ups, mobility, stretches, foam rolling, breathing, and the recovery
 // rooms (sauna, cold plunge).
 
-import { box, doorFrame, foamRoller, sauna, tubBack, tubFront, wall } from "./equipment";
+import { FRONT } from "./body-front";
+import { box, doorFrame, foamRoller, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, wall } from "./equipment";
 import {
   add,
   allFours,
   at,
   base,
+  dirAngle,
   frontJoints,
   grips,
   hold,
   kf,
+  LEN,
   lerp,
   lerpV,
   limb,
@@ -27,6 +30,7 @@ import {
   shoulders,
   stand,
   standSquare,
+  sub,
   supine,
   v,
   type Limb,
@@ -150,6 +154,102 @@ const shoulderCars: Spec = {
     const pose = stand(-94.4, { torso: -2 });
     const a = 360 * p;
     return { pose: { ...pose, armN: limb(a, a, a), armF: limb(0, 4, 4) } };
+  },
+};
+
+// A plate circled close around the head, held by its rim at three and nine
+// o'clock: in front of the chin, past one ear, behind the head, past the
+// other. The plate keeps facing the viewer the whole way round, so it is
+// drawn twice — once behind the body, once over the chest — and the front
+// copy folds away to nothing while the plate is behind the head.
+const HALO_R = 15;
+
+// A value going once round a circle through four keys — front, right of the
+// picture, back, left — as smoothly as the circle itself: the lowest
+// harmonics that pass through all four.
+function around(t: number, [front, right, back, left]: [number, number, number, number]): number {
+  const a = 2 * Math.PI * t;
+  return (
+    (front + right + back + left) / 4 +
+    ((front - back) / 2) * Math.cos(a) +
+    ((right - left) / 2) * Math.sin(a) +
+    ((front - right + back - left) / 4) * Math.cos(2 * a)
+  );
+}
+
+// Wide enough at the ears that neither fist is over the face as the plate
+// changes sides of the head.
+const haloPlate = (t: number) => v(around(t, [0, 27, 0, -27]), around(t, [-141, -164, -158, -164]));
+const haloBehind = (t: number) => Math.cos(2 * Math.PI * t) < 0.01;
+
+// An arm from the shoulder to a fist at `grip` through an elbow at `elbow`,
+// either of which may sit toward the viewer: each bone is drawn as long as
+// it looks from the front.
+function throughElbow(shoulder: V, elbow: V, grip: V): Limb {
+  const up = sub(elbow, shoulder);
+  const fore = sub(grip, elbow);
+  const lower = dirAngle(fore);
+  return {
+    upper: dirAngle(up),
+    lower,
+    end: lower,
+    ku: Math.min(1, Math.hypot(up.x, up.y) / LEN.upperArm),
+    kl: Math.min(1, (Math.hypot(fore.x, fore.y) - LEN.grip) / LEN.forearm),
+  };
+}
+
+// The right-of-picture arm at phase t; the left one is its mirror image at
+// 1 - t. Elbows low and forward with the plate at the chest, high and wide
+// with it behind the head, and the far arm crossing the face as it passes
+// an ear.
+function haloArm(pose: Pose, t: number): Limb {
+  const elbow = v(around(t, [25, 44, 34, 10]), around(t, [-118, -138, -168, -150]));
+  return throughElbow(shoulders(pose, "front").N, elbow, add(haloPlate(t), v(HALO_R, 0)));
+}
+
+// The head drawn a second time, over the arms: while the plate is behind it
+// the hands are too, and the head has to hide whichever one is crossing.
+const HEAD_COVER = (() => {
+  const art = FRONT.head;
+  const paths = art.layers.map((l, i) => `<path class="${i === 0 ? "b" : l.line ? "ln" : "m"}" d="${l.d}"/>`).join("");
+  return {
+    svg: `<g transform="translate(${-art.joint.x} ${-art.joint.y})">${paths}<path class="ol" d="${art.layers[0].d}"/></g>`,
+    box: [-10, -26, 10, 2] as [number, number, number, number],
+  };
+})();
+
+// Folded to nothing, for the copy that isn't showing.
+const shown = (at: V, angle: number, show: boolean) => ({ at, angle, scaleX: show ? 1 : 0.001 });
+
+const plateHalo: Spec = {
+  name: "Plate Halo",
+  aka: ["Kettlebell Halo"],
+  view: "front",
+  mode: "loop",
+  seconds: 3.6,
+  samples: 24,
+  hands: { N: "fist" },
+  primary: ["delts_front", "delts_side"],
+  secondary: ["delts_rear", "triceps", "traps", "abs"],
+  still: 0.375,
+  props: [
+    { id: "behind", draw: plateFace(HALO_R), layer: "back" },
+    { id: "front", draw: plateFace(HALO_R), layer: "mid" },
+    { id: "head", draw: HEAD_COVER, layer: "front" },
+  ],
+  motion: (p) => {
+    let pose = standSquare(-94.6, { head: 5 * Math.sin(2 * Math.PI * p) }, 11);
+    pose = { ...pose, armN: haloArm(pose, p), armF: mirror(haloArm(pose, 1 - p)) };
+    const plate = haloPlate(p);
+    const behind = haloBehind(p);
+    return {
+      pose,
+      props: {
+        behind: at(plate),
+        front: shown(plate, 0, !behind),
+        head: shown(frontJoints(pose).neck, pose.head, behind),
+      },
+    };
   },
 };
 
@@ -472,6 +572,49 @@ const seatedForwardFold: Spec = {
   },
 };
 
+// Standing on a box with a light bar, the spine peels down from the top —
+// chin to chest, then the upper back, the lower back, the hips last — until
+// the bar hangs past the toes, then stacks back up from the hips with the head
+// last. The rig's spine is three pieces, so the order shows as which one
+// leads; played backwards, the way up comes out in the right order too.
+const JEFFERSON_BOX = -40;
+const JEFFERSON_ANKLE = v(0, JEFFERSON_BOX - 8);
+
+const jeffersonCurl: Spec = {
+  name: "Jefferson Curl",
+  // The Zercher version cradles the bar in the elbows; the spine does the same.
+  aka: ["Zercher Jefferson Curl"],
+  mode: "alternate",
+  seconds: 6,
+  hands: { N: "fist" },
+  primary: ["lower_back", "hamstrings"],
+  secondary: ["upper_back", "glutes"],
+  still: 0.8,
+  // Mid layer, so the box hides the far plate hanging beside it. The toes
+  // reach its front edge.
+  scene: [{ draw: box(-34, 19, JEFFERSON_BOX), layer: "mid" }],
+  props: [
+    { id: "bar", draw: lightBarFar(), layer: "back" },
+    { id: "bar", draw: lightBarNear(), layer: "front" },
+  ],
+  motion: (p) => {
+    const pelvis = -70 * kf(p, [[0.35, 0], [1, 1]]);
+    const torso = pelvis - 100 * kf(p, [[0.08, 0], [0.85, 1]]);
+    const head = torso - 34 * kf(p, [[0, 0], [0.4, 1]]);
+    // Knees soften as the hips fold, and the hips drift back to keep the bar
+    // over the feet, until at the bottom it hangs just clear of the box.
+    const fold = kf(p, [[0.1, 0], [0.95, 1]]);
+    const reach = lerp(86.4, 83.6, fold);
+    const arm = limb(lerp(8, 0, fold));
+    const trunk: Pose = { ...base(v(0, 0), { torso, pelvis, head }), armN: arm, armF: { ...arm } };
+    const x = kf(fold, [[0, 9], [0.6, 19], [1, 23]]) - grips(trunk).N.x;
+    const hip = v(x, JEFFERSON_ANKLE.y - Math.sqrt(reach * reach - x * x));
+    let pose: Pose = { ...base(hip, { torso, pelvis, head }), armN: arm, armF: { ...arm } };
+    pose = plant(pose, "side", JEFFERSON_ANKLE);
+    return { pose, props: { bar: at(grips(pose).N) } };
+  },
+};
+
 const calfStretch: Spec = {
   name: "Calf Stretch",
   mode: "loop",
@@ -707,6 +850,7 @@ export const MOBILITY: Spec[] = [
   externalRotation,
   wallSlide,
   armCircles,
+  plateHalo,
   shoulderCars,
   wristCircles,
   fingerRolls,
@@ -725,6 +869,7 @@ export const MOBILITY: Spec[] = [
   pigeon,
   hamstringStretch,
   seatedForwardFold,
+  jeffersonCurl,
   calfStretch,
   supineTwist,
   boxBreathing,
