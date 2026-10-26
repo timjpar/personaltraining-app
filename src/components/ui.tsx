@@ -230,7 +230,12 @@ export function PageHeading({
           <div className="mt-1.5 text-sm text-ink-soft">{children}</div>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {/* Free to shrink. Wrapping already drops the action below the title
+          when the pair won't fit side by side, so shrinking only ever applies
+          once the action is alone on its line and still wider than the
+          screen — as three buttons are on a phone — and it is what lets a
+          wrapping row of buttons wrap rather than run off the edge. */}
+      {action ? <div>{action}</div> : null}
     </div>
   );
 }
