@@ -12,6 +12,7 @@ import {
   hold,
   kf,
   lerp,
+  lerpV,
   limb,
   line,
   mirror,
@@ -426,15 +427,28 @@ const hamstringStretch: Spec = {
   primary: ["hamstrings"],
   secondary: ["calves", "lower_back"],
   still: 1,
-  scene: [{ draw: box(40, 76, -46), layer: "back" }],
+  scene: [{ draw: box(56, 92, -43), layer: "back" }],
   motion: (p) => {
     const torso = lerp(-6, -58, p);
-    const hip = v(lerp(0, -8, p), -93);
+    const hip = v(lerp(0, -1.5, p), -93);
+    // The box sits a leg's length out, so the raised leg stays long with the
+    // knee soft, heel on the box and toes pulled back.
+    const ankle = v(73.5, -50);
     let pose = base(hip, { torso, pelvis: torso * 0.7, head: torso * 0.6 });
-    pose = { ...pose, legF: plantLeg(hip, v(-2, -8), 0, 1), legN: plantLeg(hip, v(56, -54), 60, -1) };
-    const j = { ankle: v(56, -54) };
-    const reach = add(j.ankle, v(-14 + (1 - p) * -18, -6 - (1 - p) * 10));
-    pose = hold(pose, "side", reach, reach, -1);
+    pose = { ...pose, legF: plantLeg(hip, v(-2, -8), 0, 1), legN: plantLeg(hip, ankle, 80, 1) };
+    // The hands slide down the leg as far as the fold lets them: the point
+    // just above it that sits an arm's length from the shoulder.
+    const s = shoulders(pose).N;
+    const along = (t: number) => add(lerpV(ankle, hip, t), v(0, -4));
+    let lo = 0.12;
+    let hi = 0.7;
+    for (let i = 0; i < 30; i++) {
+      const mid = (lo + hi) / 2;
+      const q = along(mid);
+      if (Math.hypot(s.x - q.x, s.y - q.y) > 58) lo = mid;
+      else hi = mid;
+    }
+    pose = hold(pose, "side", along(hi), along(hi), -1);
     return { pose };
   },
 };
