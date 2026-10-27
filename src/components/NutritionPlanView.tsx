@@ -36,6 +36,11 @@ function foodMacros(f: {
     .join(" · ");
 }
 
+// A group sits in a box of its own inside the meal: tinted and edged in the
+// accent, the builder's group box at reading size. Shared with PlanCheckoff.
+export const GROUP_BOX =
+  "rounded-[var(--radius-sm)] border border-jade/35 bg-jade-wash/45 px-3 pt-2.5";
+
 // A group's name over the foods in it, with what the whole dish comes to —
 // "my oatmeal is 740 kcal" is the number someone actually wants. Shared with
 // PlanCheckoff, which puts a tick-all checkbox in front of the name — so spans
@@ -160,14 +165,16 @@ export function NutritionPlanView({
               <ul className="mt-2 divide-y divide-line">
                 {foodBlocks(meal.foods, (f) => f.groupName).map((block) =>
                   block.group ? (
-                    <li key={`g-${block.foods[0].id}`} className="pt-2.5">
-                      <FoodGroupHeading
-                        name={block.group}
-                        macros={foodMacros(sumMacros([block]))}
-                      />
-                      <ul className="mt-1 divide-y divide-line border-l-2 border-jade/45 pl-3">
-                        {block.foods.map(foodItem)}
-                      </ul>
+                    <li key={`g-${block.foods[0].id}`} className="py-2">
+                      <div className={GROUP_BOX}>
+                        <FoodGroupHeading
+                          name={block.group}
+                          macros={foodMacros(sumMacros([block]))}
+                        />
+                        <ul className="mt-1 divide-y divide-line">
+                          {block.foods.map(foodItem)}
+                        </ul>
+                      </div>
                     </li>
                   ) : (
                     foodItem(block.foods[0])
