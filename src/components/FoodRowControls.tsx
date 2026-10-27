@@ -6,9 +6,9 @@
 import { Input } from "@/components/ui";
 import { defsForDetail } from "@/components/NutrientPanel";
 import { cn } from "@/lib/cn";
-import type { AmountUnit } from "@/lib/food-amounts";
+import { inputAmount, type AmountUnit } from "@/lib/food-amounts";
 import { presetUnits } from "@/lib/food-presets";
-import type { FoodRowFields } from "@/lib/food-rows";
+import { ownScale, type FoodRowFields } from "@/lib/food-rows";
 import type { NutrientDetail } from "@/lib/constants";
 import type { NutrientKey } from "@/lib/nutrients";
 
@@ -25,8 +25,9 @@ const UNIT_LABELS: Record<AmountUnit, string> = {
 // An amount and what it's measured in. A food picked from the list can be
 // re-asked for in anything its serving converts to — "1 serving" of blueberries
 // becomes "148 g" at the flip of the menu, and the numbers follow what's typed.
-// A food typed by hand has no serving to scale from, so both stay inert, the
-// way the servings box always did.
+// A food typed by hand scales from its own numbers: "150 g" of broccoli reads
+// as 150 g here, and 200 takes its calories up by a third. Only a row with no
+// calories yet has nothing to scale, and both stay inert.
 export function AmountControls({
   row,
   label,
@@ -40,9 +41,15 @@ export function AmountControls({
   onUnit: (unit: AmountUnit) => void;
   inputClassName?: string;
 }) {
-  const units = row.base ? presetUnits(row.base) : (["serving"] as AmountUnit[]);
-  const inert = row.base == null;
-  const hint = inert ? "Pick a food from the list to scale it" : undefined;
+  // Shown, not stored: the row only takes its own scale on as a base once the
+  // amount is actually changed (see setAmount).
+  const own = row.base ? null : ownScale(row);
+  const preset = row.base ?? own?.preset ?? null;
+  const units = preset ? presetUnits(preset) : (["serving"] as AmountUnit[]);
+  const amount = own ? inputAmount(own.amount, own.unit) : row.amount;
+  const unit = own ? own.unit : row.unit;
+  const inert = preset == null;
+  const hint = inert ? "Pick a food from the list, or fill in its calories, to scale it" : undefined;
 
   return (
     // Widths live on the wrappers: `inputBase` sets w-full and cn() is a plain
@@ -56,7 +63,7 @@ export function AmountControls({
           // the browser refuse to submit the form over it.
           step="any"
           inputMode="decimal"
-          value={row.amount}
+          value={amount}
           disabled={inert}
           onChange={(e) => onAmount(e.target.value)}
           placeholder="1"
@@ -67,7 +74,7 @@ export function AmountControls({
       </div>
       <div className="relative w-[5.5rem]">
         <select
-          value={row.unit}
+          value={unit}
           disabled={inert || units.length < 2}
           onChange={(e) => onUnit(e.target.value as AmountUnit)}
           aria-label={`${label} unit`}
