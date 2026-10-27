@@ -141,7 +141,7 @@ export function NutritionPlanView({
         label="Daily totals"
         totals={totals}
         targets={hasTargets ? targets : null}
-        nutrients={sumNutrients(allFoods.map((f) => f.detail))}
+        nutrients={sumNutrients(allFoods.map((f) => ({ name: f.name, ...f.detail })))}
         detail={detail}
       />
 

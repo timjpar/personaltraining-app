@@ -10,6 +10,7 @@ import {
   percentDV,
   type NutrientDef,
   type NutrientGroup,
+  type NutrientSource,
   type NutrientTotals,
   type Nutrients,
 } from "@/lib/nutrients";
@@ -57,7 +58,7 @@ export function NutrientPanel({
         className,
       )}
     >
-      <Coverage withData={withData} foods={foods} />
+      <Coverage withData={withData} foods={foods} missing={totals.missing} />
 
       {withData > 0 ? (
         <div className="mt-3 flex flex-col gap-4">
@@ -77,6 +78,7 @@ export function NutrientPanel({
                       value={totals.totals[d.key] ?? 0}
                       count={totals.counts[d.key] ?? 0}
                       withData={withData}
+                      sources={totals.sources[d.key]}
                     />
                   ))}
                 </ul>
@@ -84,7 +86,7 @@ export function NutrientPanel({
             );
           })}
           <p className="flex flex-wrap items-center gap-x-1.5 text-[0.6875rem] leading-snug text-ink-soft">
-            <span>% of the daily value.</span>
+            <span>% of the daily value. Tap a nutrient to see which foods it comes from.</span>
             <span className="inline-flex items-center gap-1">
               <CeilingMark /> marks a limit to stay under.
             </span>
@@ -99,7 +101,15 @@ export function NutrientPanel({
 
 // A total is only as complete as the foods it is built from. Said first, and
 // plainly, so a day of typed-in foods never reads as a day with no iron in it.
-function Coverage({ withData, foods }: { withData: number; foods: number }) {
+function Coverage({
+  withData,
+  foods,
+  missing,
+}: {
+  withData: number;
+  foods: number;
+  missing: string[];
+}) {
   if (foods === 0) {
     return <p className="text-sm text-ink-soft">Add a food to see its micronutrients.</p>;
   }
@@ -112,18 +122,34 @@ function Coverage({ withData, foods }: { withData: number; foods: number }) {
       </p>
     );
   }
-  const missing = foods - withData;
+  const without = foods - withData;
+  // Named, so the gap can be found and filled in rather than only counted.
+  const many = missing.length > 1 || (!missing.length && without > 1);
   return (
     <p className="text-xs leading-relaxed text-ink-soft">
       <span className="metric text-ink">
         {withData === foods ? `All ${foods}` : `${withData} of ${foods}`}
       </span>{" "}
       {foods === 1 ? "food" : "foods"} counted
-      {missing > 0
-        ? ` — ${missing} ${missing === 1 ? "has" : "have"} no micronutrient data, so these totals run low.`
-        : "."}
+      {without > 0 ? (
+        <>
+          {" — "}
+          {missing.length ? <span className="text-ink">{nameList(missing)}</span> : without}
+          {` ${many ? "have" : "has"} no micronutrient data, so these totals run low.`}
+        </>
+      ) : (
+        "."
+      )}
     </p>
   );
+}
+
+// "Matcha", "Matcha and Creatine", "A, B, C and 2 more".
+function nameList(names: string[], max = 3): string {
+  if (names.length === 1) return names[0];
+  const shown = names.length > max + 1 ? names.slice(0, max) : names.slice(0, -1);
+  const last = names.length > max + 1 ? `${names.length - max} more` : names[names.length - 1];
+  return `${shown.join(", ")} and ${last}`;
 }
 
 // Whether a day's total for one nutrient can be read as a total. USDA reports
@@ -142,17 +168,20 @@ function NutrientRow({
   value,
   count,
   withData,
+  sources,
 }: {
   def: NutrientDef;
   value: number;
   count: number;
   withData: number;
+  sources?: NutrientSource[];
 }) {
   const coverage = nutrientCoverage(count, withData);
   if (coverage === "none") {
     return (
       <li>
         <div className="flex items-baseline gap-2">
+          <Chevron hidden />
           <span className="min-w-0 flex-1 truncate text-sm text-ink-soft">{def.label}</span>
           <span className="metric shrink-0 text-xs text-ink-soft" title="None of these foods reports it">
             —
@@ -165,10 +194,12 @@ function NutrientRow({
 
   const pct = percentDV(def.key, value);
   const over = def.limit && pct != null && pct > 100;
+  const expandable = !!sources?.length && value > 0;
 
-  return (
-    <li>
+  const row = (
+    <>
       <div className="flex items-baseline gap-2">
+        <Chevron hidden={!expandable} />
         <span className="min-w-0 flex-1 truncate text-sm text-ink">
           {def.label}
           {coverage === "sparse" ? (
@@ -208,7 +239,85 @@ function NutrientRow({
           />
         </div>
       ) : null}
+    </>
+  );
+
+  if (!expandable) return <li>{row}</li>;
+  return (
+    <li>
+      <details className="group/row">
+        <summary className="cursor-pointer list-none rounded-sm [&::-webkit-details-marker]:hidden">
+          {row}
+        </summary>
+        <Sources def={def} sources={sources!} total={value} />
+      </details>
     </li>
+  );
+}
+
+// Which foods a total is made of, largest first, each as a share of it. The
+// long tail — a pinch of something from a dozen foods — folds into one line,
+// so the list answers "where is my fibre from" rather than reciting the plan.
+const TAIL_SHARE = 2;
+
+function Sources({
+  def,
+  sources,
+  total,
+}: {
+  def: NutrientDef;
+  sources: NutrientSource[];
+  total: number;
+}) {
+  const share = (v: number) => Math.round((v / total) * 100);
+  const cut = sources.findIndex((s) => share(s.value) < TAIL_SHARE);
+  // A tail of one is just a food; it may as well be named.
+  const shown = cut < 0 || cut >= sources.length - 1 ? sources : sources.slice(0, cut);
+  const tail = sources.slice(shown.length);
+  const tailValue = tail.reduce((sum, s) => sum + s.value, 0);
+
+  return (
+    <ul className="mb-1 ml-1 mt-1.5 flex flex-col gap-0.5 border-l border-line pl-3 text-xs">
+      <li className="flex justify-end text-[0.625rem] text-ink-soft/70">share of total</li>
+      {shown.map((s) => (
+        <li key={s.name} className="flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate text-ink-soft">
+            {s.name}
+            {s.rows > 1 ? <span className="text-ink-soft/70"> ×{s.rows}</span> : null}
+          </span>
+          <span className="metric shrink-0 text-ink">{formatNutrient(def.key, s.value)}</span>
+          <span className="metric w-10 shrink-0 text-right text-ink-soft">{share(s.value)}%</span>
+        </li>
+      ))}
+      {tail.length ? (
+        <li className="flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate text-ink-soft/70">
+            {tail.length} more foods
+          </span>
+          <span className="metric shrink-0 text-ink-soft">{formatNutrient(def.key, tailValue)}</span>
+          <span className="metric w-10 shrink-0 text-right text-ink-soft/70">{share(tailValue)}%</span>
+        </li>
+      ) : null}
+    </ul>
+  );
+}
+
+// The disclosure mark on a nutrient row, or the room for one, so the names
+// line up whether or not a row opens.
+function Chevron({ hidden }: { hidden?: boolean }) {
+  return (
+    <svg
+      width="8"
+      height="8"
+      viewBox="0 0 8 8"
+      aria-hidden
+      className={cn(
+        "shrink-0 self-center text-ink-soft transition-transform group-open/row:rotate-90",
+        hidden && "invisible",
+      )}
+    >
+      <path d="M2.5 1.5 5.5 4l-3 2.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
