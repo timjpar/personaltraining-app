@@ -12,16 +12,20 @@
 //   - Anything typed over a scaled number — a name, a macro, a nutrient —
 //     drops the preset link and keeps the numbers. The row is the person's
 //     from then on, and nothing they typed is destroyed as a side effect.
+//   - A row with no preset still scales: from its own numbers (see ownScale).
 import {
   amountIn,
+  gramsOf,
   inputAmount,
   parseAmount,
   parseGrams,
+  parseUnitAmountLabel,
   type AmountUnit,
 } from "@/lib/food-amounts";
 import {
   matchCatalogRow,
   normalizeFoodName,
+  parseServingLabel,
   presetUnits,
   scalePreset,
   servingsIn,
@@ -33,6 +37,7 @@ import {
 import {
   NUTRIENT_KEYS,
   parseNutrients,
+  scaleNutrients,
   sumNutrients,
   type NutrientKey,
   type NutrientTotals,
@@ -191,12 +196,65 @@ export function applyPreset<T extends FoodRowFields>(row: T, preset: FoodPreset)
   return fill({ ...row, name: preset.name }, preset, "1", "serving", scaled);
 }
 
-// Keeps every number; only the scaling goes.
+// Keeps every number; the row scales from those from now on (see ownScale).
 export function detachPreset<T extends FoodRowFields>(row: T): T {
   return { ...row, base: null, amount: "", unit: "serving" };
 }
 
-export function setAmount<T extends FoodRowFields>(row: T, raw: string): T {
+// A row with no preset behind it — typed by hand, or typed over — scales from
+// itself: what it says now is what it's worth, and its quantity says how much
+// that is. "150 g" is 150 g, so grams and ounces work; "2 × ½ lemon" is two of
+// "½ lemon"; anything else is one serving of whatever it says. Null until
+// there are calories, so a half-built row never sprouts zeros.
+export function ownScale(
+  row: FoodRowFields,
+): { preset: FoodPreset; amount: number; unit: AmountUnit } | null {
+  const calories = Number(row.calories);
+  if (row.calories.trim() === "" || !Number.isFinite(calories)) return null;
+
+  const quantity = row.quantity.trim();
+  const label = parseServingLabel(quantity);
+  const per = label?.servings ?? 1;
+  const measured = parseUnitAmountLabel(quantity);
+  // A weight the label states outright beats one saved beside it, so 150 g
+  // read back at 150 g is exactly one of itself.
+  const grams =
+    (measured && gramsOf(measured.amount, measured.unit, row.gramsPerCup)) ??
+    row.grams ??
+    parseGrams(quantity);
+  const each = (s: string) => (Number(s) || 0) / per;
+
+  const preset: FoodPreset = {
+    name: row.name,
+    serving: label?.serving ?? "1 serving",
+    // Unrounded: scaleMacros rounds on the way out, so the amount it started
+    // at gives back exactly what was typed.
+    calories: calories / per,
+    protein: each(row.protein),
+    carbs: each(row.carbs),
+    fat: each(row.fat),
+    grams: grams == null ? null : grams / per,
+    gramsPerCup: row.gramsPerCup,
+    nutrients: scaleNutrients(parseNutrients(row.nutrients), 1 / per),
+  };
+  if (measured && presetUnits(preset).includes(measured.unit)) {
+    return { preset, amount: measured.amount, unit: measured.unit };
+  }
+  return { preset, amount: per, unit: "serving" };
+}
+
+// The row's own scale made fixed, the first time the amount box is touched,
+// so everything after scales from one base and 1 → 2 → 1 still comes home.
+function seeded<T extends FoodRowFields>(row: T): T {
+  if (row.base) return row;
+  const own = ownScale(row);
+  return own
+    ? { ...row, base: own.preset, amount: inputAmount(own.amount, own.unit), unit: own.unit }
+    : row;
+}
+
+export function setAmount<T extends FoodRowFields>(input: T, raw: string): T {
+  const row = seeded(input);
   const n = parseAmount(raw, row.unit);
   // Mid-keystroke ("1." or an empty box) must not rewrite anything.
   if (!row.base || n == null) return { ...row, amount: raw };
@@ -207,8 +265,9 @@ export function setAmount<T extends FoodRowFields>(row: T, raw: string): T {
 // A unit switch keeps the food the same size: one serving of blueberries
 // becomes 148 g, not 1 g. The converted amount is rounded to something
 // readable, and the numbers follow what the box then says.
-export function setUnit<T extends FoodRowFields>(row: T, unit: AmountUnit): T {
-  if (!row.base || !presetUnits(row.base).includes(unit)) return row;
+export function setUnit<T extends FoodRowFields>(input: T, unit: AmountUnit): T {
+  const row = seeded(input);
+  if (!row.base || !presetUnits(row.base).includes(unit)) return input;
   const current = parseAmount(row.amount, row.unit);
   const servings = current == null ? null : servingsIn(row.base, current, row.unit);
   if (servings == null) return { ...row, unit, amount: "" };
