@@ -67,6 +67,7 @@ export default async function EditNutritionPage({
                 grams: f.grams,
                 gramsPerCup: f.gramsPerCup,
                 nutrients: f.nutrients,
+                groupName: f.groupName,
               })),
             })),
           }}
