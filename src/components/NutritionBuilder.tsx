@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
 import type { NutritionFormState } from "@/app/(trainer)/nutrition/actions";
 import { FoodPicker } from "@/components/FoodPicker";
 import { AmountControls, NutrientFields } from "@/components/FoodRowControls";
 import { NutritionTotals } from "@/components/NutritionTotals";
+import { useMealDrag } from "@/components/useMealDrag";
 import {
   Card,
   Field,
@@ -21,10 +29,22 @@ import { foodBlocks } from "@/lib/food-groups";
 import type { FoodPreset, StoredFood } from "@/lib/food-presets";
 import * as foodRows from "@/lib/food-rows";
 import type { FoodRowFields, MacroKey } from "@/lib/food-rows";
+import {
+  assignGroup,
+  canStepFood,
+  dropFood,
+  dropGroup,
+  dropMeal,
+  stepBlock,
+  stepFood,
+  swap,
+  type Dir,
+} from "@/lib/meal-order";
 import type { NutrientKey } from "@/lib/nutrients";
 
 // How a row is edited — scaling, units, what breaks the preset link — lives in
-// src/lib/food-rows.ts, shared with the athlete's day log.
+// src/lib/food-rows.ts, shared with the athlete's day log. How rows are
+// rearranged lives in src/lib/meal-order.ts.
 type FoodRow = FoodRowFields & { id: string; groupId: string | null };
 // Groups are keyed by a client-side id, not by what they're called, so
 // clearing the name box to retype it doesn't dissolve the group between
@@ -48,8 +68,6 @@ type Initial = {
     foods: (StoredFood & { groupName?: string | null })[];
   }[];
 };
-
-type Dir = -1 | 1;
 
 const blankFood = (id: string, groupId: string | null = null): FoodRow => ({
   ...foodRows.blankFoodFields(),
@@ -92,61 +110,9 @@ function initialMeal(
   };
 }
 
-// The block the food at `i` belongs to — itself if loose, else its whole
-// group — as [first, last] indexes.
-function blockAt(foods: FoodRow[], i: number): [number, number] {
-  const g = foods[i].groupId;
-  if (!g) return [i, i];
-  let first = i;
-  let last = i;
-  while (first > 0 && foods[first - 1].groupId === g) first--;
-  while (last < foods.length - 1 && foods[last + 1].groupId === g) last++;
-  return [first, last];
-}
-
-// One step for one food. Beside a food in the same group (or loose beside
-// loose) it trades places. At its group's edge it steps out and stays put; a
-// loose food beside a group steps in. So a food passes through a group one
-// place at a time rather than jumping it, which is also how it gets into one.
-function stepFood(foods: FoodRow[], i: number, dir: Dir): FoodRow[] {
-  const food = foods[i];
-  const next = foods[i + dir];
-  const out = [...foods];
-  if (next && next.groupId === food.groupId) {
-    out[i] = next;
-    out[i + dir] = food;
-  } else if (food.groupId) {
-    out[i] = { ...food, groupId: null };
-  } else if (next) {
-    out[i] = { ...food, groupId: next.groupId };
-  }
-  return out;
-}
-
-const canStepFood = (foods: FoodRow[], i: number, dir: Dir) =>
-  foods[i + dir] != null || foods[i].groupId != null;
-
-// A whole block past the block beside it: a group moves as one, over a loose
-// food or over another whole group.
-function stepBlock(foods: FoodRow[], i: number, dir: Dir): FoodRow[] {
-  const [first, last] = blockAt(foods, i);
-  const n = dir < 0 ? first - 1 : last + 1;
-  if (n < 0 || n >= foods.length) return foods;
-  const [nFirst, nLast] = blockAt(foods, n);
-  const block = foods.slice(first, last + 1);
-  const other = foods.slice(nFirst, nLast + 1);
-  return dir < 0
-    ? [...foods.slice(0, nFirst), ...block, ...other, ...foods.slice(last + 1)]
-    : [...foods.slice(0, first), ...other, ...block, ...foods.slice(nLast + 1)];
-}
-
-function swap<T>(items: T[], i: number, dir: Dir): T[] {
-  const j = i + dir;
-  if (j < 0 || j >= items.length) return items;
-  const out = [...items];
-  [out[i], out[j]] = [out[j], out[i]];
-  return out;
-}
+// The group picker's value for "start a new group with this food". Not a
+// possible group id: those are uuids, or m0-g1 for saved ones.
+const NEW_GROUP = "new";
 
 const MACROS: { key: MacroKey; label: string; placeholder: string }[] = [
   { key: "calories", label: "Cal", placeholder: "320" },
@@ -180,7 +146,7 @@ function MoveButtons({
   className?: string;
 }) {
   return (
-    <div className={cn("flex shrink-0", stacked ? "flex-col gap-1" : "items-center")}>
+    <div className={cn("flex shrink-0", stacked ? "flex-col" : "items-center")}>
       {([-1, 1] as const).map((dir) => (
         <button
           key={dir}
@@ -203,6 +169,83 @@ function MoveButtons({
         </button>
       ))}
     </div>
+  );
+}
+
+// What drag and drop picks a meal, group or food up by. Out of the tab order
+// and hidden from screen readers: the arrows beside it make the same moves by
+// keyboard. touch-none so a finger on it drags instead of scrolling the page.
+function Grip({
+  label,
+  className,
+  onPointerDown,
+}: {
+  label: string;
+  className?: string;
+  onPointerDown: (e: PointerEvent) => void;
+}) {
+  return (
+    <span
+      aria-hidden
+      title={`Drag to move ${label}`}
+      onPointerDown={onPointerDown}
+      className={cn(
+        "grid shrink-0 cursor-grab touch-none place-items-center rounded-[8px] text-ink-soft/70 transition-colors hover:text-ink active:cursor-grabbing",
+        className,
+      )}
+    >
+      <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden>
+        {[3, 8, 13].map((y) =>
+          [2.5, 7.5].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.4" />),
+        )}
+      </svg>
+    </span>
+  );
+}
+
+// Which group a food is in. A native select, so a phone opens its own picker;
+// it sits invisible over a label that says what it means — "Add to group", or
+// the group it's in — since a select on its own can only show an option.
+function GroupPicker({
+  food,
+  groups,
+  label,
+  onPick,
+}: {
+  food: FoodRow;
+  groups: { id: string; name: string }[];
+  label: string;
+  onPick: (value: string) => void;
+}) {
+  const current = groups.find((g) => g.id === food.groupId);
+  return (
+    <label className="relative mt-2 inline-flex h-8 min-w-0 max-w-[12rem] shrink-0 cursor-pointer items-center gap-1.5 rounded-[8px] px-2 text-ink-soft transition-colors hover:bg-paper hover:text-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-jade">
+      <span
+        className={cn(
+          "metric truncate text-xs",
+          current ? "text-jade-strong" : undefined,
+        )}
+      >
+        {current ? `In ${current.name.trim() || "unnamed group"}` : "Add to group"}
+      </span>
+      <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden className="shrink-0">
+        <path d="M.75.75 4 4 7.25.75" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <select
+        value={food.groupId ?? ""}
+        onChange={(e) => onPick(e.target.value)}
+        aria-label={`Group for ${label}`}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      >
+        <option value="">No group</option>
+        {groups.map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.name.trim() || "Unnamed group"}
+          </option>
+        ))}
+        <option value={NEW_GROUP}>New group</option>
+      </select>
+    </label>
   );
 }
 
@@ -261,6 +304,19 @@ export function NutritionBuilder({
     }
   }, [meals]);
 
+  const drag = useMealDrag(meals, (subject, target) => {
+    const blank = () => newFood();
+    if (subject.kind === "meal" && target.kind === "meal") {
+      setMeals((ms) => dropMeal(ms, subject.id, target.index));
+    } else if (subject.kind === "food" && target.kind === "rows") {
+      setMeals((ms) => dropFood(ms, subject.mealId, subject.id, target.drop, blank));
+    } else if (subject.kind === "group" && target.kind === "rows") {
+      setMeals((ms) => dropGroup(ms, subject.mealId, subject.id, target.drop, blank));
+    }
+  });
+  const isDragging = (kind: "meal" | "group" | "food", id: string) =>
+    drag.dragging?.kind === kind && drag.dragging.id === id;
+
   const setMeal = (mealId: string, fn: (meal: MealRow) => MealRow) =>
     setMeals((ms) => ms.map((m) => (m.id === mealId ? fn(m) : m)));
   const setFoods = (mealId: string, fn: (foods: FoodRow[]) => FoodRow[]) =>
@@ -296,15 +352,19 @@ export function NutritionBuilder({
     );
   };
 
-  // Groups. Starting one wraps a single food; the foods around it join by
-  // stepping in with their arrows.
-  const groupFood = (mealId: string, foodId: string) => {
+  // Groups. A food joins one from its picker, by dragging, or by stepping in
+  // with its arrows; "New group" on the picker starts one around it.
+  const pickGroup = (mealId: string, foodId: string, value: string) => {
+    if (value !== NEW_GROUP) {
+      setFoods(mealId, (foods) => assignGroup(foods, foodId, value || null));
+      return;
+    }
     const groupId = crypto.randomUUID();
     setNamingGroup(groupId);
     setMeal(mealId, (m) => ({
       ...m,
       groups: { ...m.groups, [groupId]: "" },
-      foods: m.foods.map((f) => (f.id === foodId ? { ...f, groupId } : f)),
+      foods: assignGroup(m.foods, foodId, groupId),
     }));
   };
   const addGroup = (mealId: string) => {
@@ -399,28 +459,46 @@ export function NutritionBuilder({
     [meals],
   );
 
-  const foodEditor = (meal: MealRow, food: FoodRow) => {
+  const foodEditor = (
+    meal: MealRow,
+    food: FoodRow,
+    groups: { id: string; name: string }[],
+  ) => {
     const i = meal.foods.indexOf(food);
     const label = `Food ${i + 1}`;
+    const named = food.name.trim() || label.toLowerCase();
+    // White inside a group's tinted box, so each food still reads as its own
+    // card; grey loose, as it always was.
+    const hover = food.groupId ? "hover:bg-paper" : "hover:bg-card";
     return (
       <div
         key={food.id}
-        className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 rounded-[var(--radius-sm)] border border-line bg-paper/40 py-2.5 pl-1 pr-2.5"
+        data-drag-food={food.id}
+        className={cn(
+          "grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 rounded-[var(--radius-sm)] border border-line py-2.5 pl-1 pr-2.5 transition-opacity",
+          food.groupId ? "bg-card" : "bg-paper/40",
+          isDragging("food", food.id) && "opacity-40",
+        )}
       >
-        {/* A gutter rather than two more buttons on the name line: on a
-            phone that line is already the food's name, an × and maybe
-            "Group", and the name is the part that has to stay readable. It
-            runs beside the name and amount only — the macro boxes below take
-            the full width back, or inside a group a phone clips "150". */}
-        <div className="row-span-2">
+        {/* A gutter rather than more buttons on the name line: on a phone
+            that line is already the food's name and an ×, and the name is the
+            part that has to stay readable. It runs beside the name and amount
+            only — the macro boxes below take the full width back, or inside a
+            group a phone clips "150". */}
+        <div className="row-span-2 flex flex-col items-center">
+          <Grip
+            label={named}
+            className={cn("h-9 w-7 sm:h-8", hover)}
+            {...drag.grip({ kind: "food", id: food.id, mealId: meal.id, label: food.name.trim() || label })}
+          />
           <MoveButtons
             moveKey={food.id}
-            label={food.name.trim() || label.toLowerCase()}
+            label={named}
             canUp={canStepFood(meal.foods, i, -1)}
             canDown={canStepFood(meal.foods, i, 1)}
             onMove={(dir) => moveFood(meal.id, food.id, dir)}
             stacked
-            className="h-12 w-7 hover:bg-card sm:h-8"
+            className={cn("h-8 w-7 sm:h-7", hover)}
           />
         </div>
         {/* Two lines: the food, then how much of it. See the matching
@@ -434,21 +512,11 @@ export function NutritionBuilder({
             aria-label={`${label} name`}
             className="min-w-0 flex-1"
           />
-          {food.groupId ? null : (
-            <button
-              type="button"
-              onClick={() => groupFood(meal.id, food.id)}
-              aria-label={`Start a group with ${food.name.trim() || label.toLowerCase()}`}
-              className="metric h-8 shrink-0 rounded-[8px] px-2 text-xs text-ink-soft transition-colors hover:bg-card hover:text-ink"
-            >
-              Group
-            </button>
-          )}
           <button
             type="button"
             onClick={() => removeFood(meal.id, food.id)}
             aria-label={`Remove food ${i + 1}`}
-            className={cn(iconButton, "h-8 w-8 hover:bg-card hover:text-flag")}
+            className={cn(iconButton, "h-8 w-8 hover:text-flag", hover)}
           >
             <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden>
               <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -474,7 +542,7 @@ export function NutritionBuilder({
           </div>
         </div>
         <div className="col-span-2 pl-1.5">
-          <div className="mt-2 grid grid-cols-4 gap-2">
+          <div className="mt-2 grid grid-cols-4 gap-1.5 sm:gap-2">
             {MACROS.map((mac) => (
               <label key={mac.key} className="flex flex-col gap-1">
                 <span className="eyebrow text-ink-soft/70">{mac.label}</span>
@@ -489,13 +557,25 @@ export function NutritionBuilder({
               </label>
             ))}
           </div>
-          <NutrientFields
-            row={food}
-            label={label}
-            detail={detail}
-            onChange={(key, value) => setNutrient(meal.id, food.id, key, value)}
-            inputClassName="bg-card"
-          />
+          {/* The row's two folded-away extras on one line: its
+              micronutrients, and which group it belongs to. */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <NutrientFields
+                row={food}
+                label={label}
+                detail={detail}
+                onChange={(key, value) => setNutrient(meal.id, food.id, key, value)}
+                inputClassName="bg-card"
+              />
+            </div>
+            <GroupPicker
+              food={food}
+              groups={groups}
+              label={named}
+              onPick={(value) => pickGroup(meal.id, food.id, value)}
+            />
+          </div>
         </div>
       </div>
     );
@@ -561,9 +641,21 @@ export function NutritionBuilder({
       <div className="flex flex-col gap-5">
         {meals.map((meal, mi) => {
           const blocks = foodBlocks(meal.foods, (f) => f.groupId);
+          const groups = blocks
+            .filter((b) => b.group)
+            .map((b) => ({ id: b.group!, name: meal.groups[b.group!] ?? "" }));
           return (
-            <Card key={meal.id} className="p-4">
+            <Card
+              key={meal.id}
+              data-drag-meal={meal.id}
+              className={cn("p-4 transition-opacity", isDragging("meal", meal.id) && "opacity-40")}
+            >
               <div className="flex items-center gap-2 sm:gap-3">
+                <Grip
+                  label={meal.name.trim() || `meal ${mi + 1}`}
+                  className="-ml-1.5 h-9 w-6 hover:bg-paper"
+                  {...drag.grip({ kind: "meal", id: meal.id, label: meal.name.trim() || `Meal ${mi + 1}` })}
+                />
                 <span className="metric grid h-7 min-w-7 place-items-center rounded-[6px] border border-line bg-paper px-1.5 text-xs font-medium text-ink-soft">
                   {String(mi + 1).padStart(2, "0")}
                 </span>
@@ -594,55 +686,86 @@ export function NutritionBuilder({
                 </button>
               </div>
 
-              <div className="mt-3 flex flex-col gap-2.5">
+              <div data-drop-list={meal.id} className="mt-3 flex flex-col gap-2.5">
                 {blocks.map((block) => {
-                  if (!block.group) return foodEditor(meal, block.foods[0]);
+                  if (!block.group) return foodEditor(meal, block.foods[0], groups);
 
                   const groupId = block.group;
                   const name = meal.groups[groupId] ?? "";
                   const first = meal.foods.indexOf(block.foods[0]);
                   const last = first + block.foods.length - 1;
+                  const count = block.foods.length;
+                  const kcal = foodRows.rowTotals(block.foods).macros.calories;
                   return (
-                    // The same rule down the side as the plan view draws, so
-                    // a group looks like the same thing while it's edited.
+                    // A box of its own, tinted and edged in the accent, the
+                    // same as the plan view draws it — so nobody has to work
+                    // out from indentation alone what's in the bowl.
                     <section
                       key={groupId}
+                      data-drag-group={groupId}
                       aria-label={name.trim() || "Unnamed group"}
-                      className="flex flex-col gap-2.5 border-l-2 border-jade/45 pl-2.5 sm:pl-3"
+                      className={cn(
+                        "flex flex-col gap-2.5 rounded-[var(--radius-card)] border border-jade/40 bg-jade-wash/50 p-2 transition-opacity sm:p-3",
+                        isDragging("group", groupId) && "opacity-40",
+                      )}
                     >
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={name}
-                          onChange={(e) => setGroupName(meal.id, groupId, e.target.value)}
-                          placeholder="Name it, e.g. Oatmeal"
-                          autoFocus={groupId === namingGroup}
-                          aria-label="Group name"
-                          className="flex-1 py-2 text-sm font-medium"
-                        />
-                        <MoveButtons
-                          moveKey={groupId}
-                          label={name.trim() || "group"}
-                          canUp={first > 0}
-                          canDown={last < meal.foods.length - 1}
-                          onMove={(dir) => moveGroup(meal.id, groupId, dir)}
-                          className="h-9 w-8 hover:bg-paper"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => ungroup(meal.id, groupId)}
-                          className="metric h-9 shrink-0 rounded-[8px] px-2 text-xs text-ink-soft transition-colors hover:bg-paper hover:text-ink"
-                        >
-                          Ungroup
-                        </button>
+                      <div>
+                        {/* Ungroup up here with the label, not on the name
+                            line: on a phone that line is a grip, the name and
+                            two arrows already, and the name needs the room. */}
+                        <div className="mb-1 flex items-center justify-between gap-2 pl-1 sm:pl-9">
+                          <p className="eyebrow min-w-0 truncate text-jade-strong">
+                            Group · {count} {count === 1 ? "food" : "foods"}
+                            {/* Off on a phone, where it would wrap the label
+                                onto a second line beside Ungroup. */}
+                            {kcal ? <span className="hidden sm:inline"> · {kcal} kcal</span> : null}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => ungroup(meal.id, groupId)}
+                            className="metric h-8 shrink-0 rounded-[8px] px-2 text-xs text-ink-soft transition-colors hover:bg-card hover:text-ink"
+                          >
+                            Ungroup
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Grip
+                            label={name.trim() || "group"}
+                            className="h-9 w-7 hover:bg-card"
+                            {...drag.grip({
+                              kind: "group",
+                              id: groupId,
+                              mealId: meal.id,
+                              label: `${name.trim() || "Group"} · ${count} ${count === 1 ? "food" : "foods"}`,
+                            })}
+                          />
+                          <Input
+                            value={name}
+                            onChange={(e) => setGroupName(meal.id, groupId, e.target.value)}
+                            placeholder="Name it, e.g. Oatmeal"
+                            autoFocus={groupId === namingGroup}
+                            aria-label="Group name"
+                            className="flex-1 py-2 text-sm font-medium"
+                          />
+                          <MoveButtons
+                            moveKey={groupId}
+                            label={name.trim() || "group"}
+                            canUp={first > 0}
+                            canDown={last < meal.foods.length - 1}
+                            onMove={(dir) => moveGroup(meal.id, groupId, dir)}
+                            className="h-9 w-8 hover:bg-card"
+                          />
+                        </div>
                       </div>
 
-                      {block.foods.map((food) => foodEditor(meal, food))}
+                      {block.foods.map((food) => foodEditor(meal, food, groups))}
 
                       {/* Said once, while it's still news: the group has its
                           first food and nothing yet explains the second. */}
-                      {block.foods.length === 1 && meal.foods.length > 1 ? (
-                        <p className="text-xs text-ink-soft">
-                          Use the arrows on the foods next to it to move them in.
+                      {count === 1 && meal.foods.length > 1 ? (
+                        <p className="px-1 text-xs text-ink-soft">
+                          Drag more foods in by their handle, or choose this
+                          group under a food&rsquo;s &ldquo;Add to group&rdquo;.
                         </p>
                       ) : null}
 
@@ -704,6 +827,30 @@ export function NutritionBuilder({
           Cancel
         </Link>
       </div>
+
+      {/* Where a drag would land, and what's in hand. Fixed to the viewport
+          because that's what the hit-test measures in. */}
+      {drag.line ? (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed z-50 h-0.5 rounded-full bg-jade"
+          style={{ top: drag.line.top - 1, left: drag.line.left, width: drag.line.width }}
+        >
+          <span className="absolute -left-1 -top-[3px] h-2 w-2 rounded-full border-2 border-jade bg-card" />
+        </div>
+      ) : null}
+      {drag.dragging && drag.pointer ? (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed z-50 max-w-[14rem] truncate rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-paper shadow-[var(--shadow-card)]"
+          style={{
+            top: drag.pointer.y - 44,
+            left: Math.max(8, Math.min(drag.pointer.x + 14, window.innerWidth - 232)),
+          }}
+        >
+          {drag.dragging.label}
+        </div>
+      ) : null}
     </form>
   );
 }

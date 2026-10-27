@@ -12,7 +12,7 @@ import { Card } from "@/components/ui";
 import { AmountSelect } from "@/components/AmountSelect";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
-import { FoodGroupHeading } from "@/components/NutritionPlanView";
+import { FoodGroupHeading, GROUP_BOX } from "@/components/NutritionPlanView";
 import { foodBlocks } from "@/lib/food-groups";
 import { sumMacros } from "@/lib/nutrition-form";
 import { sumNutrients } from "@/lib/nutrients";
@@ -190,31 +190,31 @@ export function PlanCheckoff({
                   ).length;
                   const all = n === block.foods.length;
                   return (
-                    <li key={`g-${block.foods[0].id}`} className="pt-2.5">
-                      {/* "I had my oatmeal" is one tick, not six. Part-eaten
-                          shows as the dash, so it can't pass for done. */}
-                      <label className="block cursor-pointer">
-                        <FoodGroupHeading
-                          name={block.group}
-                          macros={foodMacros(sumMacros([block]))}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={all}
-                            ref={(el) => {
-                              if (el) el.indeterminate = n > 0 && !all;
-                            }}
-                            onChange={() => tickAll(meal.name, block.foods)}
-                            aria-label={`${block.group}, all ${block.foods.length} foods`}
-                            className="h-4 w-4 shrink-0 accent-jade"
-                          />
-                        </FoodGroupHeading>
-                      </label>
-                      {/* The rule runs down from the middle of the checkbox
-                          above it, so the bowl reads as hanging off its tick. */}
-                      <ul className="ml-[7px] mt-1 divide-y divide-line border-l-2 border-jade/45 pl-3">
-                        {block.foods.map((f) => foodItem(meal.name, f))}
-                      </ul>
+                    <li key={`g-${block.foods[0].id}`} className="py-2">
+                      <div className={GROUP_BOX}>
+                        {/* "I had my oatmeal" is one tick, not six. Part-eaten
+                            shows as the dash, so it can't pass for done. */}
+                        <label className="block cursor-pointer">
+                          <FoodGroupHeading
+                            name={block.group}
+                            macros={foodMacros(sumMacros([block]))}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={all}
+                              ref={(el) => {
+                                if (el) el.indeterminate = n > 0 && !all;
+                              }}
+                              onChange={() => tickAll(meal.name, block.foods)}
+                              aria-label={`${block.group}, all ${block.foods.length} foods`}
+                              className="h-4 w-4 shrink-0 accent-jade"
+                            />
+                          </FoodGroupHeading>
+                        </label>
+                        <ul className="mt-1 divide-y divide-line">
+                          {block.foods.map((f) => foodItem(meal.name, f))}
+                        </ul>
+                      </div>
                     </li>
                   );
                 })}
