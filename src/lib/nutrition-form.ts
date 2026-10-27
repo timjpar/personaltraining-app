@@ -5,6 +5,7 @@
 // Both halves of the loop live here: the coach's plan (parseNutritionForm) and
 // the athlete's day log (parseNutritionLogForm). sumMacros serves both.
 import { toFoodSource, type FoodSource } from "@/lib/constants";
+import { groupLabel } from "@/lib/food-groups";
 import { parseNutrients, type Nutrients } from "@/lib/nutrients";
 
 // The state every day-log action returns. It lives here rather than beside one
@@ -24,6 +25,8 @@ export type ParsedFood = {
   grams: number | null;
   gramsPerCup: number | null;
   nutrients: Nutrients | null;
+  // The plan's own — a day log has no groups. See Food.groupName.
+  groupName: string | null;
   order: number;
 };
 
@@ -109,6 +112,7 @@ export function parseNutritionForm(
           carbs: intOrNull(food?.carbs),
           fat: intOrNull(food?.fat),
           ...measures(food),
+          groupName: groupLabel(food?.groupName),
           order: foods.length + 1,
         });
       }

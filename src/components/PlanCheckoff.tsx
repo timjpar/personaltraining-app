@@ -12,13 +12,15 @@ import { Card } from "@/components/ui";
 import { AmountSelect } from "@/components/AmountSelect";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
+import { FoodGroupHeading } from "@/components/NutritionPlanView";
+import { foodBlocks } from "@/lib/food-groups";
 import { sumMacros } from "@/lib/nutrition-form";
 import { sumNutrients } from "@/lib/nutrients";
 import { foodDetail } from "@/lib/food-presets";
 import type { NutrientDetail } from "@/lib/constants";
 import { planKey, useLogRows, type PlanFood } from "@/components/nutrition-log-state";
 
-type Food = PlanFood & { id: string };
+type Food = PlanFood & { id: string; groupName?: string | null };
 type Meal = { id: string; name: string; foods: Food[] };
 type Plan = {
   notes: string | null;
@@ -29,7 +31,12 @@ type Plan = {
   meals: Meal[];
 };
 
-function foodMacros(f: Food) {
+function foodMacros(f: {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}) {
   return [
     f.calories != null ? `${f.calories} kcal` : null,
     f.protein != null ? `P ${f.protein}` : null,
@@ -48,6 +55,68 @@ export function PlanCheckoff({
   detail: NutrientDetail;
 }) {
   const { togglePlanFood, plannedKeys } = useLogRows();
+
+  // Ticks every food given, or clears them all once every one is ticked —
+  // the meal's "Tick all" and a group's checkbox are the same gesture.
+  const tickAll = (mealName: string, foods: Food[]) => {
+    const allTicked = foods.every((f) => plannedKeys.has(planKey(mealName, f.name)));
+    for (const f of foods) {
+      const on = plannedKeys.has(planKey(mealName, f.name));
+      if (on !== allTicked) continue;
+      togglePlanFood(mealName, f);
+    }
+  };
+
+  const foodItem = (mealName: string, f: Food) => {
+    const checked = plannedKeys.has(planKey(mealName, f.name));
+    const fd = foodDetail(f);
+    return (
+      <li key={f.id} className="pb-1">
+        {/* The whole row is the hit target — a bare checkbox is
+            a 13px tap on a phone, and this list is read and
+            ticked one-handed in a kitchen. */}
+        <label className="flex cursor-pointer flex-col gap-0.5 py-2 sm:flex-row sm:items-center sm:gap-3">
+          <span className="flex min-w-0 flex-1 items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => togglePlanFood(mealName, f)}
+              className="h-4 w-4 shrink-0 accent-jade"
+            />
+            <span
+              className={
+                checked
+                  ? "min-w-0 text-sm text-ink-soft line-through"
+                  : "min-w-0 text-sm text-ink"
+              }
+            >
+              {f.name}
+              {f.quantity ? (
+                <span className="text-ink-soft">
+                  {" · "}
+                  <AmountSelect
+                    name={f.name}
+                    quantity={f.quantity}
+                    grams={fd.grams}
+                    gramsPerCup={fd.gramsPerCup}
+                  />
+                </span>
+              ) : null}
+            </span>
+          </span>
+          <span className="metric shrink-0 pl-7 text-xs text-ink-soft sm:pl-0">
+            {foodMacros(f)}
+          </span>
+        </label>
+        {/* Outside the label: opening it is reading, not ticking. */}
+        <FoodNutrients
+          nutrients={fd.nutrients}
+          detail={detail}
+          className="pl-[1.625rem]"
+        />
+      </li>
+    );
+  };
 
   const totals = sumMacros(plan.meals);
   const targets = {
@@ -106,66 +175,46 @@ export function PlanCheckoff({
                   taps to say the same thing. */}
               <button
                 type="button"
-                onClick={() => {
-                  for (const f of meal.foods) {
-                    const on = plannedKeys.has(planKey(meal.name, f.name));
-                    if (on !== allTicked) continue;
-                    togglePlanFood(meal.name, f);
-                  }
-                }}
+                onClick={() => tickAll(meal.name, meal.foods)}
                 className="metric mt-1 text-xs text-jade-strong transition-colors hover:text-ink"
               >
                 {allTicked ? "Clear all" : "Tick all"}
               </button>
 
               <ul className="mt-2 divide-y divide-line">
-                {meal.foods.map((f) => {
-                  const checked = plannedKeys.has(planKey(meal.name, f.name));
-                  const fd = foodDetail(f);
+                {foodBlocks(meal.foods, (f) => f.groupName).map((block) => {
+                  if (!block.group) return foodItem(meal.name, block.foods[0]);
+
+                  const n = block.foods.filter((f) =>
+                    plannedKeys.has(planKey(meal.name, f.name)),
+                  ).length;
+                  const all = n === block.foods.length;
                   return (
-                    <li key={f.id} className="pb-1">
-                      {/* The whole row is the hit target — a bare checkbox is
-                          a 13px tap on a phone, and this list is read and
-                          ticked one-handed in a kitchen. */}
-                      <label className="flex cursor-pointer flex-col gap-0.5 py-2 sm:flex-row sm:items-center sm:gap-3">
-                        <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <li key={`g-${block.foods[0].id}`} className="pt-2.5">
+                      {/* "I had my oatmeal" is one tick, not six. Part-eaten
+                          shows as the dash, so it can't pass for done. */}
+                      <label className="block cursor-pointer">
+                        <FoodGroupHeading
+                          name={block.group}
+                          macros={foodMacros(sumMacros([block]))}
+                        >
                           <input
                             type="checkbox"
-                            checked={checked}
-                            onChange={() => togglePlanFood(meal.name, f)}
+                            checked={all}
+                            ref={(el) => {
+                              if (el) el.indeterminate = n > 0 && !all;
+                            }}
+                            onChange={() => tickAll(meal.name, block.foods)}
+                            aria-label={`${block.group}, all ${block.foods.length} foods`}
                             className="h-4 w-4 shrink-0 accent-jade"
                           />
-                          <span
-                            className={
-                              checked
-                                ? "min-w-0 text-sm text-ink-soft line-through"
-                                : "min-w-0 text-sm text-ink"
-                            }
-                          >
-                            {f.name}
-                            {f.quantity ? (
-                              <span className="text-ink-soft">
-                                {" · "}
-                                <AmountSelect
-                                  name={f.name}
-                                  quantity={f.quantity}
-                                  grams={fd.grams}
-                                  gramsPerCup={fd.gramsPerCup}
-                                />
-                              </span>
-                            ) : null}
-                          </span>
-                        </span>
-                        <span className="metric shrink-0 pl-7 text-xs text-ink-soft sm:pl-0">
-                          {foodMacros(f)}
-                        </span>
+                        </FoodGroupHeading>
                       </label>
-                      {/* Outside the label: opening it is reading, not ticking. */}
-                      <FoodNutrients
-                        nutrients={fd.nutrients}
-                        detail={detail}
-                        className="pl-[1.625rem]"
-                      />
+                      {/* The rule runs down from the middle of the checkbox
+                          above it, so the bowl reads as hanging off its tick. */}
+                      <ul className="ml-[7px] mt-1 divide-y divide-line border-l-2 border-jade/45 pl-3">
+                        {block.foods.map((f) => foodItem(meal.name, f))}
+                      </ul>
                     </li>
                   );
                 })}

@@ -934,6 +934,15 @@ model Food {
   fat      Int?
   order    Int     @default(0)
 
+  // A dish inside the meal — "Oatmeal" for the oats, yogurt and seeds that go
+  // in one bowl. A label, not a FoodGroup table, for the reason LoggedFood.meal
+  // is one: saving deletes and recreates every row, so a group row would never
+  // keep its identity across a save anyway. A group is a run of adjacent foods
+  // (by `order`) carrying the same label; `order` stays the only ordering key,
+  // so nothing that sums or lists foods has to know groups exist. Null is a
+  // loose food, sitting directly in the meal.
+  groupName String?
+
   // What this row's amount weighs, and the food's density (grams per US cup).
   // Facts about the snapshot, not a formula: nothing sums them. They exist so
   // the amount can be re-read in ounces or cups by whoever opens the plan, and
