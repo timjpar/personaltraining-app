@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { Card, Container, EmptyState, PageHeading } from "@/components/ui";
 import { NutritionTrend } from "@/components/NutritionTrend";
 import { suggestTargets, targetInputsFrom } from "@/lib/body";
-import { sumMacros } from "@/lib/nutrition-form";
+import { macroText, sumMacros } from "@/lib/nutrition-form";
 import { toUnits } from "@/lib/constants";
 import { formatDate, formatDateShort, toDateInput } from "@/lib/format";
 import type { NutritionRow } from "@/lib/metrics";
@@ -134,7 +134,7 @@ export default async function MyNutritionHistoryPage() {
                       {formatDate(log.date)}
                     </p>
                     <p className="metric mt-0.5 text-xs text-ink-soft">
-                      P {totals.protein} · C {totals.carbs} · F {totals.fat}
+                      {macroText({ ...totals, calories: null })}
                       {log.foods.length
                         ? ` · ${log.foods.length} item${log.foods.length === 1 ? "" : "s"}`
                         : ""}

@@ -4,7 +4,7 @@
 // (nutrition-log-state.tsx) rather than here, because the plan rendered beside
 // this form writes to them too — see the note at the top of that file.
 import { useActionState, useId } from "react";
-import type { LogState } from "@/lib/nutrition-form";
+import { macroText, type LogState } from "@/lib/nutrition-form";
 import { FoodPicker } from "@/components/FoodPicker";
 import { FoodScanner } from "@/components/FoodScanner";
 import { AmountControls, FormPicker, NutrientFields } from "@/components/FoodRowControls";
@@ -259,17 +259,9 @@ export function NutritionLogForm({
                 <div className="min-w-0 flex-1">
                   <FoodGroupHeading
                     name={name}
-                    // Non-breaking inside each figure, so a phone wraps
-                    // between them rather than leaving "F" without its 0.
-                    macros={[
-                      `${n} food${n === 1 ? "" : "s"}`,
-                      `${macros.calories} kcal`,
-                      `P ${macros.protein}`,
-                      `C ${macros.carbs}`,
-                      `F ${macros.fat}`,
-                    ]
-                      .map((part) => part.replace(/ /g, "\u00a0"))
-                      .join(" · ")}
+                    // The total stays even for a group of one: the foods
+                    // below are folded, so it's the only figure showing.
+                    macros={`${n}\u00a0food${n === 1 ? "" : "s"} · ${macroText(macros)}`}
                   />
                 </div>
                 <button

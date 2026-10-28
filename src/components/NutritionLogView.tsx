@@ -3,7 +3,7 @@ import { AmountSelect } from "@/components/AmountSelect";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
 import { FoodGroupHeading, GROUP_BOX } from "@/components/NutritionPlanView";
-import { sumMacros } from "@/lib/nutrition-form";
+import { macroText, sumMacros } from "@/lib/nutrition-form";
 import { sumNutrients } from "@/lib/nutrients";
 import { foodBlocks } from "@/lib/food-groups";
 import { foodDetail, type FoodDetail, type StoredFood } from "@/lib/food-presets";
@@ -19,22 +19,6 @@ type Log = {
   notes: string | null;
   foods: LoggedFood[];
 };
-
-function foodMacros(f: {
-  calories: number | null;
-  protein: number | null;
-  carbs: number | null;
-  fat: number | null;
-}) {
-  return [
-    f.calories != null ? `${f.calories} kcal` : null,
-    f.protein != null ? `P ${f.protein}` : null,
-    f.carbs != null ? `C ${f.carbs}` : null,
-    f.fat != null ? `F ${f.fat}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
 
 // Read-only rendering of a day's log, shared by the athlete's past days and
 // both trainer surfaces — the same job NutritionPlanView does for a plan.
@@ -76,13 +60,13 @@ export function NutritionLogView({
     else groups.set(key, [f]);
   }
 
-  // Stacked on phones for the same reason NutritionPlanView stacks: side by
-  // side, the macro string is rigid and the name is the only thing that can
-  // give.
+  // Stacked unless the row is wide, for the same reason NutritionPlanView
+  // stacks: side by side, the macro string is rigid and the name is the only
+  // thing that can give.
   const foodItem = (f: LoggedFood & { detail: FoodDetail }) => (
-    <li key={f.id} className="py-2">
-      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
-        <p className="min-w-0 flex-1 text-sm text-ink sm:truncate">
+    <li key={f.id} className="@container py-2">
+      <div className="flex flex-col gap-0.5 @2xl:flex-row @2xl:items-center @2xl:gap-3">
+        <p className="min-w-0 flex-1 text-sm text-ink @2xl:truncate">
           {f.name}
           {f.quantity ? (
             <span className="text-ink-soft">
@@ -97,7 +81,7 @@ export function NutritionLogView({
           ) : null}
         </p>
         <span className="metric shrink-0 text-xs text-ink-soft">
-          {foodMacros(f)}
+          {macroText(f)}
         </span>
       </div>
       <FoodNutrients
@@ -146,7 +130,11 @@ export function NutritionLogView({
                       <div className={GROUP_BOX}>
                         <FoodGroupHeading
                           name={block.group}
-                          macros={foodMacros(sumMacros([block]))}
+                          macros={
+                            block.foods.length > 1
+                              ? macroText(sumMacros([block]))
+                              : undefined
+                          }
                         />
                         <ul className="mt-1 divide-y divide-line">
                           {block.foods.map(foodItem)}
