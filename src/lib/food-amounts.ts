@@ -165,15 +165,36 @@ export function gramsPerCupFromServing(serving: string): number | null {
 // Writing amounts back out.
 // ---------------------------------------------------------------------------
 
+// Every amount shown in another unit has to come to the same weight as the one
+// written, so no figure printed is more than 2% off what it stands for. Wider
+// than that and 126 g of rice read as "¾ cup" (it's 0.8), and 1 g of matcha
+// as "0 oz".
+const CLOSE = 0.02;
+
+// The fewest decimals that keep `v` within CLOSE of itself: 246.5 g
+// reads "247", 13.5 g "13.5", ¾ g "0.75".
+function closeNumber(v: number): string {
+  for (let digits = 0; digits < 3; digits++) {
+    const r = Number(v.toFixed(digits));
+    if (r > 0 && Math.abs(r - v) <= v * CLOSE) return String(r);
+  }
+  return String(Number(v.toFixed(3)));
+}
+
+// Weights are kept to a hundredth of a gram wherever they're stored. ⅛ tsp of
+// salt is 0.75 g; a tenth would store 0.8, and every unit read from it after
+// would be a fifteenth too much.
+export const roundGrams = (g: number) => Math.round(g * 100) / 100;
+
 const GLYPHS: [number, string][] = [
   [1 / 8, "⅛"], [1 / 4, "¼"], [1 / 3, "⅓"], [3 / 8, "⅜"], [1 / 2, "½"],
   [5 / 8, "⅝"], [2 / 3, "⅔"], [3 / 4, "¾"], [7 / 8, "⅞"],
 ];
 
 // Kitchen measures read as fractions — "⅔ cup", "2¼ tbsp" — because that is
-// what a measuring cup is marked in. Snapped to the nearest mark when it lands
-// within 6% of one, which is closer than anyone levels a cup; a short decimal
-// otherwise.
+// what a measuring cup is marked in. Snapped to the nearest mark only when it
+// is within CLOSE of one; a decimal otherwise, so "0.8 cup" is never passed
+// off as "¾ cup".
 function kitchenNumber(v: number): string {
   let best = { value: Math.round(v), text: String(Math.round(v)) };
   const whole = Math.floor(v);
@@ -185,22 +206,22 @@ function kitchenNumber(v: number): string {
       }
     }
   }
-  if (best.value > 0 && Math.abs(best.value - v) / v <= 0.06) return best.text;
-  return String(Number(v.toFixed(v >= 10 ? 0 : v >= 1 ? 1 : 2)));
+  if (best.value > 0 && Math.abs(best.value - v) <= v * CLOSE) return best.text;
+  return closeNumber(v);
 }
 
-// Rounding for display, per unit: whole grams and millilitres, tenths of an
-// ounce, kitchen fractions for spoons and cups.
+// Rounding for display: kitchen fractions for spoons and cups, and for
+// everything else the shortest number that still reads as the same amount.
 export function formatAmount(value: number, unit: AmountUnit): string {
   switch (unit) {
     case "g":
-      return `${value >= 10 ? Math.round(value) : Number(value.toFixed(1))} g`;
+      return `${closeNumber(value)} g`;
     case "ml":
-      return `${Math.round(value)} ml`;
+      return `${closeNumber(value)} ml`;
     case "oz":
-      return `${Number(value.toFixed(value >= 10 ? 0 : 1))} oz`;
+      return `${closeNumber(value)} oz`;
     case "cup": {
-      // Plural by what's printed, not the raw value: 1.04 cups prints as "1".
+      // Plural by what's printed, not the raw value: 1.01 cups prints as "1".
       const n = kitchenNumber(value);
       const one = n === "1" || (!/\d/.test(n)) || Number(n) < 1;
       return `${n} ${one ? "cup" : "cups"}`;
@@ -218,7 +239,7 @@ export function formatAmount(value: number, unit: AmountUnit): string {
 // shown).
 export function inputAmount(value: number, unit: AmountUnit): string {
   const digits =
-    unit === "g" || unit === "ml" ? (value >= 10 ? 0 : 1)
+    unit === "g" || unit === "ml" ? (value >= 100 ? 0 : value >= 10 ? 1 : 2)
     : unit === "oz" || unit === "tbsp" || unit === "tsp" ? 1
     : 2;
   return String(Number(value.toFixed(digits)));
@@ -244,7 +265,7 @@ export function parseAmount(value: unknown, unit: AmountUnit): number | null {
 export function unitAmountLabel(amount: number, unit: AmountUnit, grams: number | null): string {
   const main = formatAmountExact(amount, unit);
   if (unit === "g" || unit === "ml" || grams == null) return main;
-  return `${main} (${Math.round(grams)} g)`;
+  return `${main} (${closeNumber(grams)} g)`;
 }
 
 // Halves, quarters and eighths only: they are exact in binary, so "½ cup"
@@ -314,7 +335,10 @@ export function displayAmounts(
 
   if (full.grams != null && full.grams > 0) {
     out.push({ unit: "g", label: formatAmount(full.grams, "g") });
-    out.push({ unit: "oz", label: formatAmount(full.grams / G_PER_OZ, "oz") });
+    // Ounces from a tenth up: the finest a kitchen scale reads them in. A gram
+    // of matcha is weighed in grams, not as "0.035 oz".
+    const oz = full.grams / G_PER_OZ;
+    if (oz >= 0.1) out.push({ unit: "oz", label: formatAmount(oz, "oz") });
   }
   if (full.ml != null && full.ml > 0) {
     // Cups from a quarter up, tablespoons under half a cup, teaspoons under
