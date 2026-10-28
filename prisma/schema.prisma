@@ -1021,6 +1021,12 @@ model LoggedFood {
   // the whole log, exactly as Exercise.order does across a whole workout.
   meal String @default("")
 
+  // The plan's dish this food was ticked off as part of — "Smoothie" — so the
+  // day reads back the way the plan was written. Same contract as
+  // Food.groupName: a run of adjacent rows (by `order`) in one meal carrying
+  // the same label is one group, and null is a food logged on its own.
+  groupName String?
+
   name String
   // Same contract as Food.quantity, including the "2 × 1 medium (200 g)" form
   // a scaled preset produces. Deliberately no servings column, for the reason

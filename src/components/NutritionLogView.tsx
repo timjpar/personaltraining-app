@@ -2,14 +2,17 @@ import { Card } from "@/components/ui";
 import { AmountSelect } from "@/components/AmountSelect";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
+import { FoodGroupHeading, GROUP_BOX } from "@/components/NutritionPlanView";
 import { sumMacros } from "@/lib/nutrition-form";
 import { sumNutrients } from "@/lib/nutrients";
-import { foodDetail, type StoredFood } from "@/lib/food-presets";
+import { foodBlocks } from "@/lib/food-groups";
+import { foodDetail, type FoodDetail, type StoredFood } from "@/lib/food-presets";
 import type { NutrientDetail } from "@/lib/constants";
 
 type LoggedFood = StoredFood & {
   id: string;
   meal: string;
+  groupName?: string | null;
 };
 
 type Log = {
@@ -17,7 +20,12 @@ type Log = {
   foods: LoggedFood[];
 };
 
-function foodMacros(f: StoredFood) {
+function foodMacros(f: {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}) {
   return [
     f.calories != null ? `${f.calories} kcal` : null,
     f.protein != null ? `P ${f.protein}` : null,
@@ -68,6 +76,38 @@ export function NutritionLogView({
     else groups.set(key, [f]);
   }
 
+  // Stacked on phones for the same reason NutritionPlanView stacks: side by
+  // side, the macro string is rigid and the name is the only thing that can
+  // give.
+  const foodItem = (f: LoggedFood & { detail: FoodDetail }) => (
+    <li key={f.id} className="py-2">
+      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+        <p className="min-w-0 flex-1 text-sm text-ink sm:truncate">
+          {f.name}
+          {f.quantity ? (
+            <span className="text-ink-soft">
+              {" · "}
+              <AmountSelect
+                name={f.name}
+                quantity={f.quantity}
+                grams={f.detail.grams}
+                gramsPerCup={f.detail.gramsPerCup}
+              />
+            </span>
+          ) : null}
+        </p>
+        <span className="metric shrink-0 text-xs text-ink-soft">
+          {foodMacros(f)}
+        </span>
+      </div>
+      <FoodNutrients
+        nutrients={f.detail.nutrients}
+        detail={detail}
+        className="mt-1"
+      />
+    </li>
+  );
+
   return (
     <div className="flex flex-col gap-5">
       {log.notes ? (
@@ -97,38 +137,26 @@ export function NutritionLogView({
                   {mealTotals.calories} kcal
                 </span>
               </div>
-              {/* Stacked on phones for the same reason NutritionPlanView
-                  stacks: side by side, the macro string is rigid and the name
-                  is the only thing that can give. */}
+              {/* The plan's groups, kept when they were ticked off it —
+                  boxed exactly as the plan beside this draws them. */}
               <ul className="mt-2 divide-y divide-line">
-                {mealFoods.map((f) => (
-                  <li key={f.id} className="py-2">
-                    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
-                      <p className="min-w-0 flex-1 text-sm text-ink sm:truncate">
-                        {f.name}
-                        {f.quantity ? (
-                          <span className="text-ink-soft">
-                            {" · "}
-                            <AmountSelect
-                              name={f.name}
-                              quantity={f.quantity}
-                              grams={f.detail.grams}
-                              gramsPerCup={f.detail.gramsPerCup}
-                            />
-                          </span>
-                        ) : null}
-                      </p>
-                      <span className="metric shrink-0 text-xs text-ink-soft">
-                        {foodMacros(f)}
-                      </span>
-                    </div>
-                    <FoodNutrients
-                      nutrients={f.detail.nutrients}
-                      detail={detail}
-                      className="mt-1"
-                    />
-                  </li>
-                ))}
+                {foodBlocks(mealFoods, (f) => f.groupName).map((block) =>
+                  block.group ? (
+                    <li key={`g-${block.foods[0].id}`} className="py-2">
+                      <div className={GROUP_BOX}>
+                        <FoodGroupHeading
+                          name={block.group}
+                          macros={foodMacros(sumMacros([block]))}
+                        />
+                        <ul className="mt-1 divide-y divide-line">
+                          {block.foods.map(foodItem)}
+                        </ul>
+                      </div>
+                    </li>
+                  ) : (
+                    foodItem(block.foods[0])
+                  ),
+                )}
               </ul>
             </Card>
           );

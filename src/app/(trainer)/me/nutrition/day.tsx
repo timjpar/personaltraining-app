@@ -126,6 +126,7 @@ export async function MyNutritionDay({
         notes: log.notes,
         entries: log.foods.map((f) => ({
           meal: f.meal,
+          groupName: f.groupName,
           name: f.name,
           quantity: f.quantity,
           calories: f.calories,
