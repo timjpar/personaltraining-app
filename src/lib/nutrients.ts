@@ -229,25 +229,56 @@ export type NutrientTotals = {
   // lunch with no micronutrients must never read as a lunch with no iron in it.
   withData: number;
   foods: number;
+  // The foods with no micronutrients at all, by name, so "1 has no data" can
+  // say which one to go and fill in.
+  missing: string[];
+  // Where each total came from: what every food put in, largest first. Rows
+  // with the same name are one food here — the blueberries in the smoothie and
+  // the ones with the shake are blueberries, and `rows` says there were two.
+  sources: Partial<Record<NutrientKey, NutrientSource[]>>;
 };
 
+export type NutrientSource = { name: string; value: number; rows: number };
+
 export function sumNutrients(
-  foods: { nutrients?: Nutrients | null }[],
+  foods: { name: string; nutrients?: Nutrients | null }[],
 ): NutrientTotals {
   const totals: Nutrients = {};
   const counts: Partial<Record<NutrientKey, number>> = {};
+  const missing: string[] = [];
+  const byFood = new Map<string, { name: string; rows: number; nutrients: Nutrients }>();
   let withData = 0;
   for (const f of foods) {
-    if (!hasNutrients(f.nutrients)) continue;
+    const name = f.name.trim();
+    if (!hasNutrients(f.nutrients)) {
+      if (name && !missing.includes(name)) missing.push(name);
+      continue;
+    }
     withData += 1;
-    for (const key of NUTRIENT_KEYS) {
-      const v = f.nutrients[key];
+    const key = name.toLowerCase().replace(/\s+/g, " ");
+    const food = byFood.get(key) ?? { name, rows: 0, nutrients: {} };
+    food.rows += 1;
+    byFood.set(key, food);
+    for (const k of NUTRIENT_KEYS) {
+      const v = f.nutrients[k];
       if (v == null) continue;
-      totals[key] = roundNutrient((totals[key] ?? 0) + v);
-      counts[key] = (counts[key] ?? 0) + 1;
+      totals[k] = roundNutrient((totals[k] ?? 0) + v);
+      counts[k] = (counts[k] ?? 0) + 1;
+      food.nutrients[k] = roundNutrient((food.nutrients[k] ?? 0) + v);
     }
   }
-  return { totals, counts, withData, foods: foods.length };
+
+  // A food that reports none of something didn't contribute to it, so it isn't
+  // listed as a source of it.
+  const sources: Partial<Record<NutrientKey, NutrientSource[]>> = {};
+  for (const k of NUTRIENT_KEYS) {
+    const list = [...byFood.values()]
+      .filter((f) => (f.nutrients[k] ?? 0) > 0)
+      .map((f) => ({ name: f.name, value: f.nutrients[k]!, rows: f.rows }))
+      .sort((a, b) => b.value - a.value);
+    if (list.length) sources[k] = list;
+  }
+  return { totals, counts, withData, foods: foods.length, missing, sources };
 }
 
 export function percentDV(key: NutrientKey, value: number): number | null {

@@ -80,7 +80,7 @@ export function NutritionLogView({
         label={hasTargets ? "Logged vs target" : "Logged"}
         totals={totals}
         targets={hasTargets ? targets : null}
-        nutrients={sumNutrients(foods.map((f) => f.detail))}
+        nutrients={sumNutrients(foods.map((f) => ({ name: f.name, ...f.detail })))}
         detail={detail}
       />
 

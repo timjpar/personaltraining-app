@@ -127,7 +127,7 @@ export function PlanCheckoff({
   };
   const hasTargets = Object.values(targets).some((v) => v != null);
   const nutrients = sumNutrients(
-    plan.meals.flatMap((m) => m.foods.map((f) => foodDetail(f))),
+    plan.meals.flatMap((m) => m.foods.map((f) => ({ name: f.name, ...foodDetail(f) }))),
   );
 
   return (

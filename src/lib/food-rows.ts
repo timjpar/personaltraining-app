@@ -366,7 +366,7 @@ export function rowTotals(rows: FoodRowFields[]): {
   return {
     macros,
     nutrients: sumNutrients(
-      foods.map((r) => ({ nutrients: parseNutrients(r.nutrients) })),
+      foods.map((r) => ({ name: r.name, nutrients: parseNutrients(r.nutrients) })),
     ),
   };
 }
