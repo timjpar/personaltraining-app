@@ -8,7 +8,11 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
+  // Only the CLI reads this (migrate deploy in the build); the app connects in
+  // src/lib/db.ts. Migrate holds a session advisory lock, and through Neon's
+  // pooled (pgbouncer) URL that lock can outlive the build and time out the
+  // next one with P1002, so use the direct URL where the host provides it.
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: process.env["DATABASE_URL_UNPOOLED"] || process.env["DATABASE_URL"],
   },
 });

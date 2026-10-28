@@ -277,6 +277,10 @@ disk, so it runs fine on serverless platforms.
 2. **Set environment variables** on the host, for every environment that serves
    traffic (on Vercel: Production, Preview, and Development):
    - `DATABASE_URL` — the **pooled** connection string
+   - `DATABASE_URL_UNPOOLED` — the **direct** connection string, used only by
+     `prisma migrate deploy` in the build. Neon's Vercel integration sets it.
+     Without it migrations go over `DATABASE_URL`, and a pooler can strand
+     their advisory lock (P1002 on the next build).
    - `AUTH_SECRET` — a long random string (see above). Without it every request
      that touches a session fails. Rotating it signs everyone out and drops
      every Google Calendar connection.
