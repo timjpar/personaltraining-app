@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getPickerCatalog } from "@/lib/exercise-catalog";
-import { Container, PageHeading } from "@/components/ui";
+import { Container } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { updateTemplate } from "../../actions";
 
@@ -33,13 +33,12 @@ export default async function EditTemplatePage({
       </Link>
 
       <div className="mt-3">
-        <PageHeading eyebrow="Edit workout" title={template.title}>
-          Changes here don&rsquo;t touch sessions you&rsquo;ve already assigned.
-        </PageHeading>
-      </div>
-
-      <div className="mt-7">
         <WorkoutBuilder
+          heading={{
+            eyebrow: "Edit workout",
+            title: template.title,
+            intro: <>Changes here don&rsquo;t touch sessions you&rsquo;ve already assigned.</>,
+          }}
           action={updateTemplate.bind(null, template.id)}
           submitLabel="Save changes"
           cancelHref={`/library/${template.id}`}

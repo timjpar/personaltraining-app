@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useRef, useState, type ReactNode } from "react";
 import type { WorkoutFormState } from "@/app/(trainer)/workout-actions";
 import { DragOverlay, Grip } from "@/components/Drag";
 import { ExercisePicker } from "@/components/ExercisePicker";
-import { Card, Field, Input, Select, Textarea, FormError, buttonClass } from "@/components/ui";
+import {
+  Card,
+  Field,
+  Input,
+  Select,
+  Textarea,
+  FormError,
+  PageHeading,
+  buttonClass,
+} from "@/components/ui";
 import { useExerciseDrag } from "@/components/useExerciseDrag";
 import { cn } from "@/lib/cn";
 import {
@@ -137,6 +146,7 @@ export function WorkoutBuilder({
   initial,
   showDate = true,
   catalog,
+  heading,
 }: {
   action: (state: WorkoutFormState, formData: FormData) => Promise<WorkoutFormState>;
   submitLabel: string;
@@ -147,6 +157,11 @@ export function WorkoutBuilder({
   // The trainer's own recent and custom exercise names. Presets come from the
   // picker's own import — they're the same for everyone.
   catalog: PickerCatalog;
+  // The page's heading, drawn here rather than by the page so a second save
+  // can sit beside it. An edit is often one change near the top of a workout
+  // whose bottom button is screens away, and being inside the form lets the
+  // top button submit it and show the same "Saving…" as the bottom one.
+  heading?: { eyebrow: string; title: string; intro?: ReactNode };
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [rows, setRows] = useState<Rows>(() => seedRows(initial));
@@ -240,8 +255,23 @@ export function WorkoutBuilder({
       0,
     );
 
+  const saveButton = (size?: "sm") => (
+    <button type="submit" disabled={pending} className={buttonClass("primary", size)}>
+      {pending ? "Saving…" : submitLabel}
+    </button>
+  );
+
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-6">
+      {heading ? (
+        // mb-1 tops the form's gap up to the mt-7 the pages leave under a heading.
+        <div className="mb-1">
+          <PageHeading eyebrow={heading.eyebrow} title={heading.title} action={saveButton("sm")}>
+            {heading.intro}
+          </PageHeading>
+        </div>
+      ) : null}
+
       <FormError>{state.error}</FormError>
 
       <Card className="grid gap-4 p-5 sm:grid-cols-2">
@@ -621,9 +651,7 @@ export function WorkoutBuilder({
       </div>
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className={buttonClass("primary")}>
-          {pending ? "Saving…" : submitLabel}
-        </button>
+        {saveButton()}
         <Link href={cancelHref} className={buttonClass("ghost")}>
           Cancel
         </Link>
