@@ -20,7 +20,7 @@ import { foodDetail } from "@/lib/food-presets";
 import type { NutrientDetail } from "@/lib/constants";
 import { planKey, useLogRows, type PlanFood } from "@/components/nutrition-log-state";
 
-type Food = PlanFood & { id: string; groupName?: string | null };
+type Food = PlanFood & { id: string };
 type Meal = { id: string; name: string; foods: Food[] };
 type Plan = {
   notes: string | null;
@@ -59,16 +59,16 @@ export function PlanCheckoff({
   // Ticks every food given, or clears them all once every one is ticked —
   // the meal's "Tick all" and a group's checkbox are the same gesture.
   const tickAll = (mealName: string, foods: Food[]) => {
-    const allTicked = foods.every((f) => plannedKeys.has(planKey(mealName, f.name)));
+    const allTicked = foods.every((f) => plannedKeys.has(planKey(mealName, f)));
     for (const f of foods) {
-      const on = plannedKeys.has(planKey(mealName, f.name));
+      const on = plannedKeys.has(planKey(mealName, f));
       if (on !== allTicked) continue;
       togglePlanFood(mealName, f);
     }
   };
 
   const foodItem = (mealName: string, f: Food) => {
-    const checked = plannedKeys.has(planKey(mealName, f.name));
+    const checked = plannedKeys.has(planKey(mealName, f));
     const fd = foodDetail(f);
     return (
       <li key={f.id} className="pb-1">
@@ -155,7 +155,7 @@ export function PlanCheckoff({
         {plan.meals.map((meal) => {
           const mealTotals = sumMacros([meal]);
           const ticked = meal.foods.filter((f) =>
-            plannedKeys.has(planKey(meal.name, f.name)),
+            plannedKeys.has(planKey(meal.name, f)),
           ).length;
           const allTicked = ticked === meal.foods.length && ticked > 0;
 
@@ -186,7 +186,7 @@ export function PlanCheckoff({
                   if (!block.group) return foodItem(meal.name, block.foods[0]);
 
                   const n = block.foods.filter((f) =>
-                    plannedKeys.has(planKey(meal.name, f.name)),
+                    plannedKeys.has(planKey(meal.name, f)),
                   ).length;
                   const all = n === block.foods.length;
                   return (

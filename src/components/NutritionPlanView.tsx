@@ -44,7 +44,13 @@ export const GROUP_BOX =
 // A group's name over the foods in it, with what the whole dish comes to —
 // "my oatmeal is 740 kcal" is the number someone actually wants. Shared with
 // PlanCheckoff, which puts a tick-all checkbox in front of the name — so spans
-// all the way down, since there it sits inside a <label>.
+// all the way down, since there it sits inside a <label> — and with the day
+// log's form and view.
+//
+// Side by side only when the box itself is wide, not the screen: beside the
+// log, the plan is a narrow column on a wide screen, and a viewport breakpoint
+// put the rigid macro string next to the name there and cut it to "YOGURT B…".
+// The name wraps rather than truncating, since it's the part being looked for.
 export function FoodGroupHeading({
   name,
   macros,
@@ -55,19 +61,21 @@ export function FoodGroupHeading({
   children?: ReactNode;
 }) {
   return (
-    <span className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
-      <span className="flex min-w-0 flex-1 items-center gap-2.5">
-        {children}
-        <span className="eyebrow min-w-0 truncate text-jade-strong">{name}</span>
-      </span>
-      <span
-        className={
-          children
-            ? "metric shrink-0 pl-[1.625rem] text-xs text-ink-soft sm:pl-0"
-            : "metric shrink-0 text-xs text-ink-soft"
-        }
-      >
-        {macros}
+    <span className="@container block">
+      <span className="flex flex-col gap-0.5 @md:flex-row @md:items-center @md:gap-3">
+        <span className="flex min-w-0 flex-1 items-center gap-2.5">
+          {children}
+          <span className="eyebrow min-w-0 break-words text-jade-strong">{name}</span>
+        </span>
+        <span
+          className={
+            children
+              ? "metric shrink-0 pl-[1.625rem] text-xs text-ink-soft @md:pl-0"
+              : "metric shrink-0 text-xs text-ink-soft"
+          }
+        >
+          {macros}
+        </span>
       </span>
     </span>
   );

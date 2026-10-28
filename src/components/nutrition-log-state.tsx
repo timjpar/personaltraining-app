@@ -11,8 +11,9 @@
 //
 // How a row is edited — scaling, units, what breaks the preset link — is
 // src/lib/food-rows.ts, shared with the coach's builder. What's left here is
-// what only a log has: the meal label, where the numbers came from, and the
-// bridge to the plan (togglePlanFood and plannedKeys at the bottom).
+// what only a log has: the meal label, the plan group a row was ticked off as
+// part of, where the numbers came from, and the bridge to the plan
+// (togglePlanFood and plannedKeys at the bottom).
 import {
   createContext,
   useContext,
@@ -22,6 +23,7 @@ import {
 } from "react";
 import { FOOD_SOURCE, type FoodSource } from "@/lib/constants";
 import type { AmountUnit } from "@/lib/food-amounts";
+import { foodBlocks, groupLabel } from "@/lib/food-groups";
 import {
   foodDetail,
   normalizeFoodName,
@@ -35,35 +37,61 @@ import type { NutrientKey, NutrientTotals } from "@/lib/nutrients";
 
 export type { MacroKey } from "@/lib/food-rows";
 
-// The shared row, plus the two things a log carries that a plan doesn't: which
-// meal it belongs to, and where its numbers came from.
+// The shared row, plus what a log carries that a plan doesn't: which meal it
+// belongs to, and where its numbers came from. And the plan group it was
+// ticked off as part of — groupName is the saved label, groupId the client-only
+// id every row of that run shares, so the form can hold a group together while
+// its meal is retyped or one of its foods is taken out.
 export type Row = FoodRowFields & {
   id: string;
   meal: string;
+  groupName: string | null;
+  groupId: string | null;
   source: FoodSource;
 };
 
 export type InitialEntry = StoredFood & {
   meal: string;
+  groupName?: string | null;
   source: string;
 };
 
 // One food as it appears on a plan — the subset of Food the log can absorb.
-export type PlanFood = StoredFood;
+export type PlanFood = StoredFood & { groupName?: string | null };
 
 const blankRow = (id: string, meal = ""): Row => ({
   ...foodRows.blankFoodFields(),
   id,
   meal,
+  groupName: null,
+  groupId: null,
   source: FOOD_SOURCE.MANUAL,
 });
 
-// What ties a row back to the plan food that produced it. Meal and name
+// What ties a row back to the plan food that produced it. Meal, group and name
 // together, never name alone: a plan that puts blueberries in both breakfast
-// and the pre-workout shake is ordinary, and keying on the name would let one
-// tick check both boxes and one untick delete the wrong row.
-export function planKey(meal: string, name: string): string {
-  return `${normalizeFoodName(meal)}|${normalizeFoodName(name)}`;
+// and the pre-workout shake is ordinary, and so is one with blueberries in the
+// smoothie and on the yogurt in the same breakfast. Keying on less would let
+// one tick check both boxes and one untick delete the wrong row.
+export function planKey(
+  meal: string,
+  food: { name: string; groupName?: string | null },
+): string {
+  return [meal, food.groupName ?? "", food.name].map(normalizeFoodName).join("|");
+}
+
+// A saved day comes back as flat rows with labels, so its groups are found the
+// way a plan's are — runs of adjacent rows, here in the same meal — and each
+// run gets an id. Derived from the first row's id, which is deterministic for
+// server-rendered rows, so hydration matches.
+function withGroupIds(rows: Row[]): Row[] {
+  return foodBlocks(rows, (r) =>
+    r.groupName ? `${normalizeFoodName(r.meal)}|${r.groupName}` : null,
+  ).flatMap((block) =>
+    block.group
+      ? block.foods.map((r) => ({ ...r, groupId: `g-${block.foods[0].id}` }))
+      : block.foods,
+  );
 }
 
 // A plan food, dressed as a catalog preset so the amount box scales it. The
@@ -96,7 +124,9 @@ type LogRows = {
   addRow: () => void;
   addScanned: (foods: FoodPreset[], source: FoodSource) => void;
   removeRow: (id: string) => void;
+  removeGroup: (groupId: string) => void;
   setMeal: (id: string, meal: string) => void;
+  setGroupMeal: (groupId: string, meal: string) => void;
   applyPreset: (id: string, preset: FoodPreset) => void;
   clearPreset: (id: string) => void;
   setAmount: (id: string, raw: string) => void;
@@ -116,6 +146,7 @@ type LogRows = {
 
 const persisted = (r: Row) => ({
   meal: r.meal,
+  groupName: r.groupName,
   source: r.source,
   ...foodRows.persistedFood(r),
 });
@@ -146,12 +177,16 @@ export function LogRowsProvider({
   // typed. Reopening a saved day gives you the numbers, not the formula.
   const [rows, setRows] = useState<Row[]>(() =>
     initial?.entries.length
-      ? initial.entries.map((e, i) => ({
-          ...foodRows.storedFoodFields(e),
-          id: `e${i}`,
-          meal: e.meal,
-          source: e.source as FoodSource,
-        }))
+      ? withGroupIds(
+          initial.entries.map((e, i) => ({
+            ...foodRows.storedFoodFields(e),
+            id: `e${i}`,
+            meal: e.meal,
+            groupName: groupLabel(e.groupName),
+            groupId: null,
+            source: e.source as FoodSource,
+          })),
+        )
       : [blankRow("e0", "Breakfast")],
   );
 
@@ -182,6 +217,14 @@ export function LogRowsProvider({
   const removeRow = (id: string) =>
     setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.id !== id) : [blankRow(crypto.randomUUID())]));
 
+  // A group is one dish, so it leaves the log in one move — the log's
+  // counterpart to the plan's group checkbox.
+  const removeGroup = (groupId: string) =>
+    setRows((rs) => {
+      const left = rs.filter((r) => r.groupId !== groupId);
+      return left.length > 0 ? left : [blankRow(crypto.randomUUID())];
+    });
+
   const update = (id: string, fn: (row: Row) => Row) =>
     setRows((rs) => rs.map((r) => (r.id === id ? fn(r) : r)));
 
@@ -199,7 +242,7 @@ export function LogRowsProvider({
       new Set(
         rows
           .filter((r) => r.name.trim() !== "")
-          .map((r) => planKey(r.meal, r.name)),
+          .map((r) => planKey(r.meal, r)),
       ),
     [rows],
   );
@@ -212,25 +255,46 @@ export function LogRowsProvider({
   // checkbox.
   const togglePlanFood = (meal: string, food: PlanFood) =>
     setRows((rs) => {
-      const key = planKey(meal, food.name);
-      const existing = rs.filter((r) => planKey(r.meal, r.name) === key);
+      const key = planKey(meal, food);
+      const existing = rs.filter((r) => planKey(r.meal, r) === key);
       if (existing.length > 0) {
-        const left = rs.filter((r) => planKey(r.meal, r.name) !== key);
+        const left = rs.filter((r) => planKey(r.meal, r) !== key);
         return left.length > 0 ? left : [blankRow(crypto.randomUUID(), meal)];
       }
 
+      const groupName = groupLabel(food.groupName);
       const added: Row = {
         ...foodRows.applyPreset(
           blankRow(crypto.randomUUID(), meal),
           presetFromPlan(food),
         ),
+        groupName,
+        groupId: groupName ? crypto.randomUUID() : null,
         source: FOOD_SOURCE.PLAN,
       };
       // Only a pristine form is replaced. addScanned drops every empty row, but
       // a tick is a smaller gesture than a scan: if the athlete has a row open
       // and half-typed, it is not scaffolding and it stays.
       const pristine = rs.every((r) => r.name.trim() === "");
-      return pristine ? [added] : [...rs, added];
+      if (pristine) return [added];
+
+      // A food whose group is already partly logged joins it — tick the oats,
+      // then the berries, and that's one smoothie rather than two halves. It
+      // goes in after the group's last row, because a group is a run.
+      const last = groupName
+        ? rs.findLastIndex(
+            (r) =>
+              r.groupId != null &&
+              r.groupName === groupName &&
+              normalizeFoodName(r.meal) === normalizeFoodName(meal),
+          )
+        : -1;
+      if (last < 0) return [...rs, added];
+      return [
+        ...rs.slice(0, last + 1),
+        { ...added, groupId: rs[last].groupId },
+        ...rs.slice(last + 1),
+      ];
     });
 
   const value: LogRows = {
@@ -238,7 +302,10 @@ export function LogRowsProvider({
     addRow,
     addScanned,
     removeRow,
+    removeGroup,
     setMeal: (id, meal) => update(id, (r) => ({ ...r, meal })),
+    setGroupMeal: (groupId, meal) =>
+      setRows((rs) => rs.map((r) => (r.groupId === groupId ? { ...r, meal } : r))),
     applyPreset: (id, preset) =>
       update(id, (r) => ({
         ...foodRows.applyPreset(r, preset),

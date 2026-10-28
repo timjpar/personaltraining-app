@@ -25,7 +25,8 @@ export type ParsedFood = {
   grams: number | null;
   gramsPerCup: number | null;
   nutrients: Nutrients | null;
-  // The plan's own — a day log has no groups. See Food.groupName.
+  // See Food.groupName. A day log carries one too, ticked off the plan with
+  // its foods — see LoggedFood.groupName.
   groupName: string | null;
   order: number;
 };
@@ -157,6 +158,7 @@ export type ParsedLogEntry = {
   grams: number | null;
   gramsPerCup: number | null;
   nutrients: Nutrients | null;
+  groupName: string | null;
   source: FoodSource;
   order: number;
 };
@@ -193,6 +195,7 @@ export function parseNutritionLogForm(
         carbs: intOrNull(entry?.carbs),
         fat: intOrNull(entry?.fat),
         ...measures(entry),
+        groupName: groupLabel(entry?.groupName),
         source: toFoodSource(entry?.source),
         order: entries.length + 1,
       });
