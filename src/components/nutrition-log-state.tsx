@@ -13,7 +13,7 @@
 // src/lib/food-rows.ts, shared with the coach's builder. What's left here is
 // what only a log has: the meal label, the plan group a row was ticked off as
 // part of, where the numbers came from, and the bridge to the plan
-// (togglePlanFood and plannedKeys at the bottom).
+// (togglePlanFood and isPlanned at the bottom).
 import {
   createContext,
   useContext,
@@ -80,6 +80,23 @@ export function planKey(
   return [meal, food.groupName ?? "", food.name].map(normalizeFoodName).join("|");
 }
 
+// Whether a log row answers for a plan food. A row with no group still counts
+// for the food of that name in that meal, whatever group the plan puts it in:
+// it was typed by hand, or ticked before the log kept groups. Read as unticked,
+// a morning logged off the plan would invite a second tick that logs every
+// food twice.
+function answersFor(
+  row: { meal: string; name: string; groupName: string | null },
+  meal: string,
+  food: PlanFood,
+): boolean {
+  const key = planKey(row.meal, row);
+  return (
+    key === planKey(meal, food) ||
+    (!row.groupName && key === planKey(meal, { name: food.name }))
+  );
+}
+
 // A saved day comes back as flat rows with labels, so its groups are found the
 // way a plan's are — runs of adjacent rows, here in the same meal — and each
 // run gets an id. Derived from the first row's id, which is deterministic for
@@ -141,7 +158,7 @@ type LogRows = {
   initialNotes: string | null;
   // The plan side of the bridge.
   togglePlanFood: (meal: string, food: PlanFood) => void;
-  plannedKeys: Set<string>;
+  isPlanned: (meal: string, food: PlanFood) => boolean;
 };
 
 const persisted = (r: Row) => ({
@@ -236,7 +253,9 @@ export function LogRowsProvider({
   const totals = useMemo(() => foodRows.rowTotals(rows), [rows]);
   const payload = useMemo(() => rows.map(persisted), [rows]);
 
-  // Which plan foods are already in the log, for the checkboxes to read.
+  // Which plan foods are already in the log, for the checkboxes to read — the
+  // set behind isPlanned, which applies answersFor's rule to it. A loose row's
+  // key carries no group, so only a loose row can match the fallback.
   const plannedKeys = useMemo(
     () =>
       new Set(
@@ -255,10 +274,9 @@ export function LogRowsProvider({
   // checkbox.
   const togglePlanFood = (meal: string, food: PlanFood) =>
     setRows((rs) => {
-      const key = planKey(meal, food);
-      const existing = rs.filter((r) => planKey(r.meal, r) === key);
+      const existing = rs.filter((r) => answersFor(r, meal, food));
       if (existing.length > 0) {
-        const left = rs.filter((r) => planKey(r.meal, r) !== key);
+        const left = rs.filter((r) => !answersFor(r, meal, food));
         return left.length > 0 ? left : [blankRow(crypto.randomUUID(), meal)];
       }
 
@@ -325,7 +343,9 @@ export function LogRowsProvider({
     payload,
     initialNotes: initial?.notes ?? null,
     togglePlanFood,
-    plannedKeys,
+    isPlanned: (meal, food) =>
+      plannedKeys.has(planKey(meal, food)) ||
+      plannedKeys.has(planKey(meal, { name: food.name })),
   };
 
   return (
