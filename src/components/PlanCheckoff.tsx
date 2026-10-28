@@ -18,7 +18,7 @@ import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
 import { FoodGroupHeading, GROUP_BOX } from "@/components/NutritionPlanView";
 import { foodBlocks } from "@/lib/food-groups";
-import { sumMacros } from "@/lib/nutrition-form";
+import { macroText, sumMacros } from "@/lib/nutrition-form";
 import { sumNutrients } from "@/lib/nutrients";
 import { foodDetail, type StoredFood } from "@/lib/food-presets";
 import { switchSavedForm } from "@/lib/food-rows";
@@ -36,22 +36,6 @@ type Plan = {
   targetFat: number | null;
   meals: Meal[];
 };
-
-function foodMacros(f: {
-  calories: number | null;
-  protein: number | null;
-  carbs: number | null;
-  fat: number | null;
-}) {
-  return [
-    f.calories != null ? `${f.calories} kcal` : null,
-    f.protein != null ? `P ${f.protein}` : null,
-    f.carbs != null ? `C ${f.carbs}` : null,
-    f.fat != null ? `F ${f.fat}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
 
 export function PlanCheckoff({
   plan: saved,
@@ -108,11 +92,11 @@ export function PlanCheckoff({
     const checked = isPlanned(mealName, f);
     const fd = foodDetail(f);
     return (
-      <li key={f.id} className="pb-1">
+      <li key={f.id} className="@container pb-1">
         {/* The whole row is the hit target — a bare checkbox is
             a 13px tap on a phone, and this list is read and
             ticked one-handed in a kitchen. */}
-        <label className="flex cursor-pointer flex-col gap-0.5 py-2 sm:flex-row sm:items-center sm:gap-3">
+        <label className="flex cursor-pointer flex-col gap-0.5 py-2 @2xl:flex-row @2xl:items-center @2xl:gap-3">
           <span className="flex min-w-0 flex-1 items-center gap-2.5">
             <input
               type="checkbox"
@@ -145,8 +129,8 @@ export function PlanCheckoff({
               ) : null}
             </span>
           </span>
-          <span className="metric shrink-0 pl-7 text-xs text-ink-soft sm:pl-0">
-            {foodMacros(f)}
+          <span className="metric shrink-0 pl-7 text-xs text-ink-soft @2xl:pl-0">
+            {macroText(f)}
           </span>
         </label>
         {failed?.id === f.id ? (
@@ -243,7 +227,11 @@ export function PlanCheckoff({
                         <label className="block cursor-pointer">
                           <FoodGroupHeading
                             name={block.group}
-                            macros={foodMacros(sumMacros([block]))}
+                            macros={
+                              block.foods.length > 1
+                                ? macroText(sumMacros([block]))
+                                : undefined
+                            }
                           >
                             <input
                               type="checkbox"

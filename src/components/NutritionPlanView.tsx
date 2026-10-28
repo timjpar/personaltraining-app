@@ -3,7 +3,7 @@ import { Card } from "@/components/ui";
 import { AmountSelect } from "@/components/AmountSelect";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
-import { sumMacros } from "@/lib/nutrition-form";
+import { macroText, sumMacros } from "@/lib/nutrition-form";
 import { sumNutrients } from "@/lib/nutrients";
 import { foodBlocks } from "@/lib/food-groups";
 import { foodDetail, type FoodDetail, type StoredFood } from "@/lib/food-presets";
@@ -20,29 +20,15 @@ type Plan = {
   meals: Meal[];
 };
 
-function foodMacros(f: {
-  calories: number | null;
-  protein: number | null;
-  carbs: number | null;
-  fat: number | null;
-}) {
-  return [
-    f.calories != null ? `${f.calories} kcal` : null,
-    f.protein != null ? `P ${f.protein}` : null,
-    f.carbs != null ? `C ${f.carbs}` : null,
-    f.fat != null ? `F ${f.fat}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
 // A group sits in a box of its own inside the meal: tinted and edged in the
 // accent, the builder's group box at reading size. Shared with PlanCheckoff.
 export const GROUP_BOX =
   "rounded-[var(--radius-sm)] border border-jade/35 bg-jade-wash/45 px-3 pt-2.5";
 
 // A group's name over the foods in it, with what the whole dish comes to —
-// "my oatmeal is 740 kcal" is the number someone actually wants. Shared with
+// "my oatmeal is 740 kcal" is the number someone actually wants. A group of one
+// food passes no macros: its total is that food's own line, word for word, and
+// printed twice it read as two different counts. Shared with
 // PlanCheckoff, which puts a tick-all checkbox in front of the name — so spans
 // all the way down, since there it sits inside a <label> — and with the day
 // log's form and view.
@@ -50,6 +36,7 @@ export const GROUP_BOX =
 // Side by side only when the box itself is wide, not the screen: beside the
 // log, the plan is a narrow column on a wide screen, and a viewport breakpoint
 // put the rigid macro string next to the name there and cut it to "YOGURT B…".
+// Wide means room for the macros spelled out, which take a good 330px.
 // The name wraps rather than truncating, since it's the part being looked for.
 export function FoodGroupHeading({
   name,
@@ -57,25 +44,27 @@ export function FoodGroupHeading({
   children,
 }: {
   name: string;
-  macros: string;
+  macros?: string;
   children?: ReactNode;
 }) {
   return (
     <span className="@container block">
-      <span className="flex flex-col gap-0.5 @md:flex-row @md:items-center @md:gap-3">
+      <span className="flex flex-col gap-0.5 @xl:flex-row @xl:items-center @xl:gap-3">
         <span className="flex min-w-0 flex-1 items-center gap-2.5">
           {children}
           <span className="eyebrow min-w-0 break-words text-jade-strong">{name}</span>
         </span>
-        <span
-          className={
-            children
-              ? "metric shrink-0 pl-[1.625rem] text-xs text-ink-soft @md:pl-0"
-              : "metric shrink-0 text-xs text-ink-soft"
-          }
-        >
-          {macros}
-        </span>
+        {macros ? (
+          <span
+            className={
+              children
+                ? "metric shrink-0 pl-[1.625rem] text-xs text-ink-soft @xl:pl-0"
+                : "metric shrink-0 text-xs text-ink-soft"
+            }
+          >
+            {macros}
+          </span>
+        ) : null}
       </span>
     </span>
   );
@@ -109,9 +98,9 @@ export function NutritionPlanView({
   const allFoods = meals.flatMap((m) => m.foods);
 
   const foodItem = (f: Food & { detail: FoodDetail }) => (
-    <li key={f.id} className="py-2">
-      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
-        <p className="min-w-0 flex-1 text-sm text-ink sm:truncate">
+    <li key={f.id} className="@container py-2">
+      <div className="flex flex-col gap-0.5 @2xl:flex-row @2xl:items-center @2xl:gap-3">
+        <p className="min-w-0 flex-1 text-sm text-ink @2xl:truncate">
           {f.name}
           {f.quantity ? (
             <span className="text-ink-soft">
@@ -126,7 +115,7 @@ export function NutritionPlanView({
           ) : null}
         </p>
         <span className="metric shrink-0 text-xs text-ink-soft">
-          {foodMacros(f)}
+          {macroText(f)}
         </span>
       </div>
       <FoodNutrients
@@ -166,10 +155,10 @@ export function NutritionPlanView({
                   {mealTotals.calories} kcal
                 </span>
               </div>
-              {/* Rows stack on phones. Side by side, the macro string is
-                  rigid and the name is the only thing that can give, so real
-                  foods came out as "Chicken brea…" — and the name is the part
-                  you're scanning for. */}
+              {/* Rows stack unless the row is wide. Side by side, the macro
+                  string is rigid and the name is the only thing that can
+                  give, so real foods came out as "Chicken brea…" — and the
+                  name is the part you're scanning for. */}
               <ul className="mt-2 divide-y divide-line">
                 {foodBlocks(meal.foods, (f) => f.groupName).map((block) =>
                   block.group ? (
@@ -177,7 +166,11 @@ export function NutritionPlanView({
                       <div className={GROUP_BOX}>
                         <FoodGroupHeading
                           name={block.group}
-                          macros={foodMacros(sumMacros([block]))}
+                          macros={
+                            block.foods.length > 1
+                              ? macroText(sumMacros([block]))
+                              : undefined
+                          }
                         />
                         <ul className="mt-1 divide-y divide-line">
                           {block.foods.map(foodItem)}

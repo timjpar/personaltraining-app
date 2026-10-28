@@ -240,3 +240,25 @@ export function sumMacros(
   }
   return totals;
 }
+
+// Macros as one line of text, every figure named: "200 kcal · 16 g protein ·
+// 7 g carbs · 12 g fat". It used to be "P 16 · C 7 · F 12", which only meant
+// something to whoever built it. A null figure is left out rather than shown
+// as 0. Non-breaking inside each figure, so a narrow column wraps between them
+// and never leaves "fat" on a line without its number.
+export function macroText(m: {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}): string {
+  return [
+    m.calories != null ? `${m.calories} kcal` : null,
+    m.protein != null ? `${m.protein} g protein` : null,
+    m.carbs != null ? `${m.carbs} g carbs` : null,
+    m.fat != null ? `${m.fat} g fat` : null,
+  ]
+    .filter((part): part is string => part != null)
+    .map((part) => part.replace(/ /g, " "))
+    .join(" · ");
+}

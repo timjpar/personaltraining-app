@@ -21,7 +21,7 @@ import { assignTemplateToClient } from "@/app/(trainer)/library/actions";
 import { toBodyRows } from "@/lib/metrics";
 import { CLIENT_STAGE, CLIENT_STAGE_LABELS, toClientStage } from "@/lib/constants";
 import { formatDate, toDateInput } from "@/lib/format";
-import { sumMacros } from "@/lib/nutrition-form";
+import { macroText, sumMacros } from "@/lib/nutrition-form";
 import { MeasurementForm } from "@/components/MeasurementForm";
 import { BodyStats } from "@/components/BodyStats";
 import { BodyTrend } from "@/components/BodyTrend";
@@ -469,7 +469,7 @@ export default async function ClientDetailPage({
                       {formatDate(log.date)}
                     </p>
                     <p className="metric mt-0.5 text-xs text-ink-soft">
-                      P {totals.protein} · C {totals.carbs} · F {totals.fat}
+                      {macroText({ ...totals, calories: null })}
                       {log.foods.length
                         ? ` · ${log.foods.length} item${log.foods.length === 1 ? "" : "s"}`
                         : ""}

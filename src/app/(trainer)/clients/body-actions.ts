@@ -192,6 +192,6 @@ export async function applyTargetsToPlan(
   revalidatePath("/my/nutrition/[date]", "page");
 
   return {
-    ok: `${plan.title}: ${targets.calories.toLocaleString()} kcal · ${targets.protein}P / ${targets.carbs}C / ${targets.fat}F`,
+    ok: `${plan.title}: ${targets.calories.toLocaleString()} kcal · ${targets.protein} g protein · ${targets.carbs} g carbs · ${targets.fat} g fat`,
   };
 }

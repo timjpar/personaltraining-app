@@ -264,7 +264,7 @@ export function nutritionLoggedEmail(
     log.targetCalories != null
       ? `${log.calories} / ${log.targetCalories} kcal`
       : `${log.calories} kcal`;
-  const macros = `P ${log.protein} C ${log.carbs} F ${log.fat}`;
+  const macros = `${log.protein} g protein, ${log.carbs} g carbs, ${log.fat} g fat`;
   return {
     to: "",
     subject: `${clientName} updated their food log`,
@@ -337,7 +337,7 @@ export function digestEmail(
   const logLine = (l: DigestLog) =>
     `${l.clientName} — ${l.day}: ${l.calories}${
       l.targetCalories != null ? ` / ${l.targetCalories}` : ""
-    } kcal, P ${l.protein} C ${l.carbs} F ${l.fat}${l.notes ? `: ${l.notes}` : ""}`;
+    } kcal, ${l.protein} g protein, ${l.carbs} g carbs, ${l.fat} g fat${l.notes ? `: ${l.notes}` : ""}`;
 
   return {
     to: "",
@@ -384,9 +384,9 @@ ${
               `${base}/clients/${l.clientId}/nutrition/${l.date}`,
             )}">${escapeHtml(l.clientName)} &mdash; ${escapeHtml(l.day)}</a>: ${
               l.calories
-            }${l.targetCalories != null ? ` / ${l.targetCalories}` : ""} kcal, P ${
+            }${l.targetCalories != null ? ` / ${l.targetCalories}` : ""} kcal, ${
               l.protein
-            } C ${l.carbs} F ${l.fat}${
+            } g protein, ${l.carbs} g carbs, ${l.fat} g fat${
               l.notes ? `<br><span style="color:#666">${escapeHtml(l.notes)}</span>` : ""
             }</li>`,
         )

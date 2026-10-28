@@ -22,7 +22,7 @@ import { mailConfig } from "@/lib/mail";
 import { zoneFor } from "@/lib/time-zone";
 import { relativeTime, formatDate, formatDateLong, toDateInput } from "@/lib/format";
 import { startOfWeek } from "@/lib/calendar";
-import { sumMacros } from "@/lib/nutrition-form";
+import { macroText, sumMacros } from "@/lib/nutrition-form";
 import {
   CLIENT_STAGE,
   FEED_TYPE,
@@ -235,8 +235,7 @@ export default async function DashboardPage() {
                   // so backfilling yesterday's log this morning still parses.
                   badge = (
                     <span className="metric text-xs text-ink-soft">
-                      {totals.calories} kcal · P {totals.protein} · C{" "}
-                      {totals.carbs} · F {totals.fat}
+                      {macroText(totals)}
                     </span>
                   );
                   link = {
