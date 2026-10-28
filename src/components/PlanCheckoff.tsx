@@ -195,9 +195,13 @@ export function PlanCheckoff({
                 <h3 className="font-display text-base font-semibold text-ink">
                   {meal.name}
                 </h3>
-                <span className="metric text-xs text-ink-soft">
-                  {mealTotals.calories} kcal
-                </span>
+                {/* Not for a meal of one food, whose total is that food's
+                    own line again. */}
+                {meal.foods.length > 1 ? (
+                  <span className="metric text-xs text-ink-soft">
+                    {mealTotals.calories} kcal
+                  </span>
+                ) : null}
               </div>
 
               {/* One gesture for the ordinary case: you ate the meal as it was
@@ -227,11 +231,6 @@ export function PlanCheckoff({
                         <label className="block cursor-pointer">
                           <FoodGroupHeading
                             name={block.group}
-                            macros={
-                              block.foods.length > 1
-                                ? macroText(sumMacros([block]))
-                                : undefined
-                            }
                           >
                             <input
                               type="checkbox"

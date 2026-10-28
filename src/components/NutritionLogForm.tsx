@@ -244,7 +244,7 @@ export function NutritionLogForm({
           const n = block.foods.length;
           const macros = rowTotals(block.foods).macros;
           return (
-            <div key={groupId} className={cn(GROUP_BOX, "pb-3")}>
+            <div key={groupId} className={cn(GROUP_BOX, "group/box pb-3")}>
               {/* One box, one meal, one remove: a dish ticked off the plan
                   stays a dish here, and comes back out in one tap. */}
               <div className="flex flex-wrap items-center gap-2">
@@ -257,11 +257,20 @@ export function NutritionLogForm({
                   className="w-full bg-card/70 px-2.5 py-2 text-sm sm:w-32"
                 />
                 <div className="min-w-0 flex-1">
+                  {/* The total only while the foods are folded, when it's
+                      the one figure showing. Open, each food has its own,
+                      and the dish's above the first read as that food's. */}
                   <FoodGroupHeading
                     name={name}
-                    // The total stays even for a group of one: the foods
-                    // below are folded, so it's the only figure showing.
-                    macros={`${n}\u00a0food${n === 1 ? "" : "s"} · ${macroText(macros)}`}
+                    macros={
+                      <>
+                        {n}&nbsp;food{n === 1 ? "" : "s"}
+                        <span className="group-has-[details[open]]/box:hidden">
+                          {" · "}
+                          {macroText(macros)}
+                        </span>
+                      </>
+                    }
                   />
                 </div>
                 <button

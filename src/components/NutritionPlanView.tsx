@@ -25,13 +25,14 @@ type Plan = {
 export const GROUP_BOX =
   "rounded-[var(--radius-sm)] border border-jade/35 bg-jade-wash/45 px-3 pt-2.5";
 
-// A group's name over the foods in it, with what the whole dish comes to —
-// "my oatmeal is 740 kcal" is the number someone actually wants. A group of one
-// food passes no macros: its total is that food's own line, word for word, and
-// printed twice it read as two different counts. Shared with
-// PlanCheckoff, which puts a tick-all checkbox in front of the name — so spans
-// all the way down, since there it sits inside a <label> — and with the day
-// log's form and view.
+// A group's name over the foods in it. Wherever the foods are listed with
+// their own numbers it shows no total: on the line above the first food, a
+// dish's total read as a second, wrong count for that food (the chia soak's
+// 53 kcal taken for its lemon juice's 4). Only the day log's form passes
+// `macros`, for while its foods are folded away. Shared with PlanCheckoff,
+// which puts a tick-all checkbox in front of the name — so spans all the way
+// down, since there it sits inside a <label> — and with the day log's form
+// and view.
 //
 // Side by side only when the box itself is wide, not the screen: beside the
 // log, the plan is a narrow column on a wide screen, and a viewport breakpoint
@@ -44,7 +45,7 @@ export function FoodGroupHeading({
   children,
 }: {
   name: string;
-  macros?: string;
+  macros?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -151,9 +152,13 @@ export function NutritionPlanView({
                 <h3 className="font-display text-base font-semibold text-ink">
                   {meal.name}
                 </h3>
-                <span className="metric text-xs text-ink-soft">
-                  {mealTotals.calories} kcal
-                </span>
+                {/* Not for a meal of one food, whose total is that food's
+                    own line again. */}
+                {meal.foods.length > 1 ? (
+                  <span className="metric text-xs text-ink-soft">
+                    {mealTotals.calories} kcal
+                  </span>
+                ) : null}
               </div>
               {/* Rows stack unless the row is wide. Side by side, the macro
                   string is rigid and the name is the only thing that can
@@ -166,11 +171,6 @@ export function NutritionPlanView({
                       <div className={GROUP_BOX}>
                         <FoodGroupHeading
                           name={block.group}
-                          macros={
-                            block.foods.length > 1
-                              ? macroText(sumMacros([block]))
-                              : undefined
-                          }
                         />
                         <ul className="mt-1 divide-y divide-line">
                           {block.foods.map(foodItem)}
