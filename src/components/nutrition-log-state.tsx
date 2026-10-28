@@ -26,6 +26,7 @@ import type { AmountUnit } from "@/lib/food-amounts";
 import { foodBlocks, groupLabel } from "@/lib/food-groups";
 import {
   foodDetail,
+  foodForms,
   normalizeFoodName,
   type FoodMacros,
   type FoodPreset,
@@ -73,11 +74,17 @@ const blankRow = (id: string, meal = ""): Row => ({
 // and the pre-workout shake is ordinary, and so is one with blueberries in the
 // smoothie and on the yogurt in the same breakfast. Keying on less would let
 // one tick check both boxes and one untick delete the wrong row.
+//
+// Forms of one food key as the first of them, so frozen blueberries logged in
+// place of the plan's fresh ones still tick it off, and unticking takes them
+// out. The cost is a plan with fresh and frozen in the same group of the same
+// meal, where one tick would answer for both.
 export function planKey(
   meal: string,
   food: { name: string; groupName?: string | null },
 ): string {
-  return [meal, food.groupName ?? "", food.name].map(normalizeFoodName).join("|");
+  const name = foodForms(food.name)?.[0].name ?? food.name;
+  return [meal, food.groupName ?? "", name].map(normalizeFoodName).join("|");
 }
 
 // Whether a log row answers for a plan food. A row with no group still counts
@@ -130,6 +137,16 @@ function presetFromPlan(food: PlanFood): FoodPreset {
   };
 }
 
+// Another form of the same food, with the catalog's numbers now. A food ticked
+// off the plan still says so: frozen berries in place of the plan's fresh ones
+// are still the plan's berries (see planKey).
+function switchedForm(r: Row, name: string): Row {
+  return {
+    ...foodRows.setForm(r, name),
+    source: r.source === FOOD_SOURCE.PLAN ? r.source : FOOD_SOURCE.PRESET,
+  };
+}
+
 // An edit that drops the preset link also drops the claim about where the
 // numbers came from: once the athlete has typed over a scan, it is theirs.
 function keepSource(prev: Row, next: Row): Row {
@@ -149,6 +166,7 @@ type LogRows = {
   setAmount: (id: string, raw: string) => void;
   setUnit: (id: string, unit: AmountUnit) => void;
   setName: (id: string, name: string) => void;
+  setForm: (id: string, name: string) => void;
   setQuantity: (id: string, quantity: string) => void;
   setMacro: (id: string, key: MacroKey, value: string) => void;
   setNutrient: (id: string, key: NutrientKey, value: string) => void;
@@ -159,6 +177,7 @@ type LogRows = {
   // The plan side of the bridge.
   togglePlanFood: (meal: string, food: PlanFood) => void;
   isPlanned: (meal: string, food: PlanFood) => boolean;
+  switchPlanFood: (meal: string, food: PlanFood, name: string) => void;
 };
 
 const persisted = (r: Row) => ({
@@ -315,6 +334,15 @@ export function LogRowsProvider({
       ];
     });
 
+  // The plan's food switched to another form — frozen for fresh — while it's
+  // ticked: the row it ticked into switches with it, since a tick says "I ate
+  // the plan's food" and the plan now says frozen. The rows still answer for
+  // it after (see planKey), so the box stays ticked.
+  const switchPlanFood = (meal: string, food: PlanFood, name: string) =>
+    setRows((rs) =>
+      rs.map((r) => (answersFor(r, meal, food) ? switchedForm(r, name) : r)),
+    );
+
   const value: LogRows = {
     rows,
     addRow,
@@ -333,6 +361,7 @@ export function LogRowsProvider({
     setAmount: (id, raw) => update(id, (r) => foodRows.setAmount(r, raw)),
     setUnit: (id, unit) => update(id, (r) => foodRows.setUnit(r, unit)),
     setName: (id, name) => edit(id, (r) => foodRows.setName(r, name)),
+    setForm: (id, name) => update(id, (r) => switchedForm(r, name)),
     setQuantity: (id, quantity) =>
       update(id, (r) => foodRows.setQuantity(r, quantity)),
     setMacro: (id, key, v) => edit(id, (r) => foodRows.setMacro(r, key, v)),
@@ -346,6 +375,7 @@ export function LogRowsProvider({
     isPlanned: (meal, food) =>
       plannedKeys.has(planKey(meal, food)) ||
       plannedKeys.has(planKey(meal, { name: food.name })),
+    switchPlanFood,
   };
 
   return (

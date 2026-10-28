@@ -1,14 +1,15 @@
 "use client";
 
-// The two controls every editable food row carries, in the builder and the
-// day log alike: how much (an amount and its unit), and — once someone has
-// asked to see them — the micronutrients.
+// The controls every editable food row carries, in the builder and the day
+// log alike: how much (an amount and its unit), which form of the food where
+// it comes in several, and — once someone has asked to see them — the
+// micronutrients.
 import { Input } from "@/components/ui";
 import { defsForDetail } from "@/components/NutrientPanel";
 import { cn } from "@/lib/cn";
 import { inputAmount, type AmountUnit } from "@/lib/food-amounts";
-import { presetUnits } from "@/lib/food-presets";
-import { ownScale, type FoodRowFields } from "@/lib/food-rows";
+import { foodForms, normalizeFoodName, presetUnits } from "@/lib/food-presets";
+import { ownScale, setForm, type FoodRowFields } from "@/lib/food-rows";
 import type { NutrientDetail } from "@/lib/constants";
 import type { NutrientKey } from "@/lib/nutrients";
 
@@ -101,6 +102,63 @@ export function AmountControls({
         </svg>
       </div>
     </div>
+  );
+}
+
+// Which form of the food a row is — fresh, frozen, dried — for a food bought
+// more than one way, and nothing at all for any other. Picking another keeps
+// the amount of food the same (see setForm), and each option says what the
+// amount would become, so "Dried · 20 g" is read before it's chosen. A native
+// select under a label, like the builder's group picker, so a phone opens its
+// own menu. Placed by the caller, which also gives it its hover colour.
+export function FormPicker({
+  row,
+  label,
+  onPick,
+  className,
+}: {
+  row: FoodRowFields;
+  label: string;
+  onPick: (name: string) => void;
+  className?: string;
+}) {
+  const forms = foodForms(row.name);
+  const current = forms?.find(
+    (f) => normalizeFoodName(f.name) === normalizeFoodName(row.name),
+  );
+  if (!forms || !current) return null;
+
+  return (
+    <label
+      title="Switch form; the amount converts to the same amount of fruit"
+      className={cn(
+        "relative inline-flex h-8 min-w-0 shrink-0 cursor-pointer items-center gap-1.5 rounded-[8px] px-2 text-ink-soft transition-colors hover:text-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-jade",
+        className,
+      )}
+    >
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden className="shrink-0">
+        <path d="M4 7h11m0 0-3-3m3 3-3 3M16 13H5m0 0 3-3m-3 3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className="metric truncate text-xs">{current.label}</span>
+      <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden className="shrink-0">
+        <path d="M.75.75 4 4 7.25.75" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <select
+        value={current.name}
+        onChange={(e) => onPick(e.target.value)}
+        aria-label={`Form of ${label}`}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      >
+        {forms.map((f) => {
+          const quantity = (f === current ? row : setForm(row, f.name)).quantity.trim();
+          return (
+            <option key={f.name} value={f.name}>
+              {quantity ? `${f.label} · ${quantity}` : f.label}
+            </option>
+          );
+        })}
+      </select>
+    </label>
   );
 }
 

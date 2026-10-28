@@ -1,24 +1,30 @@
 "use client";
 
 // The coach's plan, with a checkbox on every food. Ticking one drops it into
-// the day's log already filled in; unticking takes it back out.
+// the day's log already filled in; unticking takes it back out. A food that
+// comes fresh, frozen or dried can be switched where it's read, which changes
+// the plan itself (see switchPlanFoodForm) and, once ticked, the log too.
 //
 // Deliberately not a mode on NutritionPlanView. That component renders a plan
 // in four places where there is no log to write to — the coach's library, the
 // admin view, and a coach reading an athlete's day — and every one of them
 // would have had to start passing a flag saying "not here". This is the day
 // view's copy, and it is the only one that needs a LogRowsProvider above it.
+import { startTransition, useOptimistic, useState } from "react";
 import { Card } from "@/components/ui";
 import { AmountSelect } from "@/components/AmountSelect";
+import { FormSelect } from "@/components/FormSelect";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
 import { FoodGroupHeading, GROUP_BOX } from "@/components/NutritionPlanView";
 import { foodBlocks } from "@/lib/food-groups";
 import { sumMacros } from "@/lib/nutrition-form";
 import { sumNutrients } from "@/lib/nutrients";
-import { foodDetail } from "@/lib/food-presets";
+import { foodDetail, type StoredFood } from "@/lib/food-presets";
+import { switchSavedForm } from "@/lib/food-rows";
 import type { NutrientDetail } from "@/lib/constants";
 import { useLogRows, type PlanFood } from "@/components/nutrition-log-state";
+import { switchPlanFoodForm } from "@/app/plan-form-actions";
 
 type Food = PlanFood & { id: string };
 type Meal = { id: string; name: string; foods: Food[] };
@@ -48,13 +54,44 @@ function foodMacros(f: {
 }
 
 export function PlanCheckoff({
-  plan,
+  plan: saved,
   detail,
 }: {
   plan: Plan;
   detail: NutrientDetail;
 }) {
-  const { togglePlanFood, isPlanned } = useLogRows();
+  const { togglePlanFood, isPlanned, switchPlanFood } = useLogRows();
+
+  // A switched food shows at once; the saved plan takes over when the server
+  // answers, the same numbers either way since both sides run switchSavedForm.
+  const [plan, showSwitch] = useOptimistic(
+    saved,
+    (p, s: { id: string; food: StoredFood }) => ({
+      ...p,
+      meals: p.meals.map((m) => ({
+        ...m,
+        foods: m.foods.map((f) => (f.id === s.id ? { ...f, ...s.food } : f)),
+      })),
+    }),
+  );
+  // Per food, what its last switch returned, so fresh → dried → fresh comes
+  // back to the same amount instead of to the dried amount's rounding.
+  const [formGrams, setFormGrams] = useState<Record<string, number | null>>({});
+  const [failed, setFailed] = useState<{ id: string; error: string } | null>(null);
+
+  const pickForm = (mealName: string, f: Food, name: string) => {
+    const hint = formGrams[f.id] ?? null;
+    const next = switchSavedForm(f, name, hint);
+    if (!next) return;
+    setFormGrams((m) => ({ ...m, [f.id]: next.formGrams }));
+    setFailed(null);
+    if (isPlanned(mealName, f)) switchPlanFood(mealName, f, name);
+    startTransition(async () => {
+      showSwitch({ id: f.id, food: next.food });
+      const { error } = await switchPlanFoodForm(f.id, name, hint);
+      if (error) setFailed({ id: f.id, error });
+    });
+  };
 
   // Ticks every food given, or clears them all once every one is ticked —
   // the meal's "Tick all" and a group's checkbox are the same gesture.
@@ -90,7 +127,11 @@ export function PlanCheckoff({
                   : "min-w-0 text-sm text-ink"
               }
             >
-              {f.name}
+              <FormSelect
+                food={f}
+                formGrams={formGrams[f.id] ?? null}
+                onPick={(name) => pickForm(mealName, f, name)}
+              />
               {f.quantity ? (
                 <span className="text-ink-soft">
                   {" · "}
@@ -108,6 +149,11 @@ export function PlanCheckoff({
             {foodMacros(f)}
           </span>
         </label>
+        {failed?.id === f.id ? (
+          <p role="alert" className="pb-1 pl-[1.625rem] text-xs text-flag">
+            {failed.error}
+          </p>
+        ) : null}
         {/* Outside the label: opening it is reading, not ticking. */}
         <FoodNutrients
           nutrients={fd.nutrients}

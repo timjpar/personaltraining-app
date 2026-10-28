@@ -159,38 +159,67 @@ const CATALOG: FoodPresetCategory[] = [
     label: "Fruits",
     foods: [
       { name: "Banana", serving: "1 medium (118 g)", calories: 105, protein: 1, carbs: 27, fat: 0 },
+      { name: "Bananas, Frozen", serving: "1 medium (118 g)", calories: 105, protein: 1, carbs: 27, fat: 0 },
       { name: "Apple", serving: "1 medium (182 g)", calories: 95, protein: 0, carbs: 25, fat: 0 },
       { name: "Orange", serving: "1 medium (131 g)", calories: 62, protein: 1, carbs: 15, fat: 0 },
       { name: "Blueberries", serving: "1 cup (148 g)", calories: 84, protein: 1, carbs: 21, fat: 0 },
+      { name: "Blueberries, Frozen", serving: "1 cup (155 g)", calories: 79, protein: 1, carbs: 19, fat: 1 },
       { name: "Strawberries", serving: "1 cup (152 g)", calories: 49, protein: 1, carbs: 12, fat: 0 },
+      { name: "Strawberries, Frozen", serving: "1 cup (149 g)", calories: 52, protein: 1, carbs: 14, fat: 0 },
       { name: "Raspberries", serving: "1 cup (123 g)", calories: 64, protein: 1, carbs: 15, fat: 1 },
+      { name: "Raspberries, Frozen", serving: "1 cup (140 g)", calories: 78, protein: 2, carbs: 18, fat: 1 },
       { name: "Grapes", serving: "1 cup (151 g)", calories: 104, protein: 1, carbs: 27, fat: 0 },
       { name: "Pineapple", serving: "1 cup chunks (165 g)", calories: 83, protein: 1, carbs: 22, fat: 0 },
+      { name: "Pineapple, Frozen", serving: "1 cup chunks (165 g)", calories: 83, protein: 1, carbs: 22, fat: 0 },
       { name: "Mango", serving: "1 cup (165 g)", calories: 99, protein: 1, carbs: 25, fat: 1 },
+      { name: "Mango, Frozen", serving: "1 cup (165 g)", calories: 99, protein: 1, carbs: 25, fat: 1 },
       { name: "Watermelon", serving: "1 cup (152 g)", calories: 46, protein: 1, carbs: 12, fat: 0 },
       { name: "Cantaloupe Melon", serving: "1 cup (160 g)", calories: 54, protein: 1, carbs: 13, fat: 0 },
       { name: "Pear", serving: "1 medium (178 g)", calories: 101, protein: 1, carbs: 27, fat: 0 },
       { name: "Peach", serving: "1 medium (150 g)", calories: 59, protein: 1, carbs: 14, fat: 0 },
+      { name: "Peaches, Frozen", serving: "1 cup slices (154 g)", calories: 60, protein: 1, carbs: 15, fat: 0 },
       { name: "Kiwi", serving: "1 medium (69 g)", calories: 42, protein: 1, carbs: 10, fat: 0 },
       { name: "Cherries", serving: "1 cup (154 g)", calories: 97, protein: 2, carbs: 25, fat: 0 },
+      { name: "Cherries, Frozen", serving: "1 cup (154 g)", calories: 97, protein: 2, carbs: 25, fat: 0 },
       { name: "Grapefruit", serving: "½ medium (123 g)", calories: 52, protein: 1, carbs: 13, fat: 0 },
       { name: "Pomegranate Seeds", serving: "½ cup (87 g)", calories: 72, protein: 1, carbs: 16, fat: 1 },
+      { name: "Apricot", serving: "1 apricot (35 g)", calories: 17, protein: 0, carbs: 4, fat: 0 },
+      { name: "Fig", serving: "1 medium (50 g)", calories: 37, protein: 0, carbs: 10, fat: 0 },
+      { name: "Cranberries", serving: "1 cup (100 g)", calories: 46, protein: 0, carbs: 12, fat: 0 },
       { name: "Medjool Dates", serving: "2 dates (48 g)", calories: 133, protein: 1, carbs: 36, fat: 0 },
       { name: "Raisins", serving: "40 g", calories: 120, protein: 1, carbs: 32, fat: 0 },
       { name: "Dried Apricots", serving: "40 g", calories: 96, protein: 1, carbs: 25, fat: 0 },
+      { name: "Blueberries, Dried, Unsweetened", serving: "¼ cup (40 g)", calories: 113, protein: 1, carbs: 29, fat: 1 },
+      { name: "Blueberries, Dried, Sweetened", serving: "¼ cup (40 g)", calories: 127, protein: 1, carbs: 32, fat: 1 },
+      { name: "Blueberries, Freeze-Dried", serving: "28 g", calories: 98, protein: 1, carbs: 25, fat: 1 },
+      { name: "Strawberries, Freeze-Dried", serving: "28 g", calories: 96, protein: 2, carbs: 23, fat: 1 },
+      { name: "Raspberries, Freeze-Dried", serving: "28 g", calories: 99, protein: 2, carbs: 23, fat: 1 },
+      { name: "Mango, Dried, Sweetened", serving: "40 g", calories: 128, protein: 1, carbs: 31, fat: 0 },
+      { name: "Cherries, Dried, Sweetened", serving: "¼ cup (40 g)", calories: 133, protein: 1, carbs: 32, fat: 0 },
+      { name: "Peaches, Dried", serving: "40 g", calories: 96, protein: 1, carbs: 25, fat: 0 },
+      { name: "Apples, Dried", serving: "40 g", calories: 97, protein: 0, carbs: 26, fat: 0 },
+      { name: "Figs, Dried", serving: "40 g", calories: 100, protein: 1, carbs: 26, fat: 0 },
+      { name: "Cranberries, Dried, Sweetened", serving: "¼ cup (40 g)", calories: 123, protein: 0, carbs: 33, fat: 0 },
     ],
   },
   {
     label: "Vegetables",
     foods: [
       { name: "Broccoli", serving: "1 cup (91 g)", calories: 31, protein: 3, carbs: 6, fat: 0 },
+      { name: "Broccoli, Frozen", serving: "1 cup (156 g)", calories: 41, protein: 4, carbs: 7, fat: 0 },
       { name: "Spinach", serving: "1 cup (30 g)", calories: 7, protein: 1, carbs: 1, fat: 0 },
+      { name: "Spinach, Frozen", serving: "1 cup (156 g)", calories: 45, protein: 6, carbs: 7, fat: 1 },
       { name: "Kale", serving: "1 cup (67 g)", calories: 33, protein: 3, carbs: 6, fat: 1 },
+      { name: "Kale, Frozen", serving: "1 cup (130 g)", calories: 36, protein: 3, carbs: 6, fat: 1 },
       { name: "Cauliflower", serving: "1 cup (107 g)", calories: 27, protein: 2, carbs: 5, fat: 0 },
+      { name: "Cauliflower, Frozen", serving: "1 cup (132 g)", calories: 32, protein: 3, carbs: 6, fat: 0 },
       { name: "Brussels Sprouts", serving: "1 cup (88 g)", calories: 38, protein: 3, carbs: 8, fat: 0 },
+      { name: "Brussels Sprouts, Frozen", serving: "1 cup (155 g)", calories: 64, protein: 6, carbs: 12, fat: 1 },
       { name: "Green Beans", serving: "1 cup (100 g)", calories: 31, protein: 2, carbs: 7, fat: 0 },
+      { name: "Green Beans, Frozen", serving: "1 cup (121 g)", calories: 40, protein: 2, carbs: 9, fat: 0 },
       { name: "Asparagus", serving: "6 spears (90 g)", calories: 20, protein: 2, carbs: 4, fat: 0 },
       { name: "Carrot", serving: "1 medium (61 g)", calories: 25, protein: 1, carbs: 6, fat: 0 },
+      { name: "Carrots, Frozen", serving: "1 cup (128 g)", calories: 46, protein: 1, carbs: 10, fat: 1 },
       { name: "Bell Pepper", serving: "1 medium (119 g)", calories: 31, protein: 1, carbs: 7, fat: 0 },
       { name: "Courgette", serving: "1 medium (196 g)", calories: 33, protein: 2, carbs: 6, fat: 1 },
       { name: "Aubergine", serving: "1 cup (82 g)", calories: 20, protein: 1, carbs: 5, fat: 0 },
@@ -203,8 +232,11 @@ const CATALOG: FoodPresetCategory[] = [
       { name: "Rocket", serving: "2 cups (40 g)", calories: 10, protein: 1, carbs: 1, fat: 0 },
       { name: "Beetroot", serving: "1 cup (136 g)", calories: 58, protein: 2, carbs: 13, fat: 0 },
       { name: "Butternut Squash", serving: "1 cup (140 g)", calories: 63, protein: 1, carbs: 16, fat: 0 },
+      { name: "Butternut Squash, Frozen", serving: "1 cup (140 g)", calories: 80, protein: 2, carbs: 20, fat: 0 },
       { name: "Peas", serving: "1 cup (145 g)", calories: 117, protein: 8, carbs: 21, fat: 1 },
+      { name: "Peas, Frozen", serving: "1 cup (134 g)", calories: 103, protein: 7, carbs: 18, fat: 1 },
       { name: "Sweetcorn", serving: "1 cup (164 g)", calories: 143, protein: 5, carbs: 31, fat: 2 },
+      { name: "Sweetcorn, Frozen", serving: "1 cup (136 g)", calories: 120, protein: 4, carbs: 28, fat: 1 },
     ],
   },
   {
@@ -383,6 +415,91 @@ const BY_SLUG: Map<string, FoodPreset> = new Map(
 
 export function findFoodPreset(name: string): FoodPreset | null {
   return BY_SLUG.get(normalizeFoodName(name)) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Forms of one food: fresh, frozen, dried.
+// ---------------------------------------------------------------------------
+
+// A food bought in more than one form, which a plan or a log can switch
+// between without picking it again. `per100` is how many grams of that form
+// stand in for 100 g of the first: the same amount of food, not the same
+// weight, so 100 g of fresh blueberries becomes 20 g dried rather than 100 g
+// of something five times as dense.
+//
+// Frozen is the fresh food frozen, so it's one for one; USDA's two samples
+// differ by a few calories, but freezing doesn't change what a pea weighs.
+// Dried with nothing added is fresh with the water taken out, so it's the
+// ratio of dry matter, from USDA's water figures for the two (or the water
+// food-nutrients-map.ts dries a food to). Sugar was added to the sweetened
+// kinds, so their weight isn't all fruit, and they're matched on calories
+// instead.
+export type FoodForm = { name: string; label: string; per100: number };
+
+// The vegetables, and the fruit sold frozen with nothing added.
+const freshAndFrozen = (fresh: string, frozen = `${fresh}, Frozen`): FoodForm[] => [
+  { name: fresh, label: "Fresh", per100: 100 },
+  { name: frozen, label: "Frozen", per100: 100 },
+];
+const fresh = (name: string): FoodForm => ({ name, label: "Fresh", per100: 100 });
+
+const FORMS: FoodForm[][] = [
+  [
+    ...freshAndFrozen("Blueberries"),
+    { name: "Blueberries, Dried, Unsweetened", label: "Dried", per100: 20 },
+    { name: "Blueberries, Dried, Sweetened", label: "Dried, sweetened", per100: 18 },
+    { name: "Blueberries, Freeze-Dried", label: "Freeze-dried", per100: 16 },
+  ],
+  [
+    ...freshAndFrozen("Strawberries"),
+    { name: "Strawberries, Freeze-Dried", label: "Freeze-dried", per100: 9.3 },
+  ],
+  [
+    ...freshAndFrozen("Raspberries"),
+    { name: "Raspberries, Freeze-Dried", label: "Freeze-dried", per100: 14.7 },
+  ],
+  [
+    ...freshAndFrozen("Mango"),
+    { name: "Mango, Dried, Sweetened", label: "Dried, sweetened", per100: 19 },
+  ],
+  // Dried cherries are tart ones, matched on calories like any sweetened kind.
+  [
+    ...freshAndFrozen("Cherries"),
+    { name: "Cherries, Dried, Sweetened", label: "Dried, sweetened", per100: 19 },
+  ],
+  [
+    ...freshAndFrozen("Peach", "Peaches, Frozen"),
+    { name: "Peaches, Dried", label: "Dried", per100: 16 },
+  ],
+  freshAndFrozen("Banana", "Bananas, Frozen"),
+  freshAndFrozen("Pineapple"),
+  [fresh("Apple"), { name: "Apples, Dried", label: "Dried", per100: 21 }],
+  [fresh("Apricot"), { name: "Dried Apricots", label: "Dried", per100: 20 }],
+  [fresh("Fig"), { name: "Figs, Dried", label: "Dried", per100: 30 }],
+  [
+    fresh("Cranberries"),
+    { name: "Cranberries, Dried, Sweetened", label: "Dried, sweetened", per100: 15 },
+  ],
+  freshAndFrozen("Peas"),
+  freshAndFrozen("Sweetcorn"),
+  freshAndFrozen("Spinach"),
+  freshAndFrozen("Broccoli"),
+  freshAndFrozen("Cauliflower"),
+  freshAndFrozen("Green Beans"),
+  freshAndFrozen("Brussels Sprouts"),
+  freshAndFrozen("Kale"),
+  freshAndFrozen("Butternut Squash"),
+  freshAndFrozen("Carrot", "Carrots, Frozen"),
+];
+
+const FORMS_BY_SLUG: Map<string, FoodForm[]> = new Map(
+  FORMS.flatMap((forms) => forms.map((f) => [normalizeFoodName(f.name), forms])),
+);
+
+// Every form of the food this name is one form of, or null for a food that
+// only comes one way.
+export function foodForms(name: string): FoodForm[] | null {
+  return FORMS_BY_SLUG.get(normalizeFoodName(name)) ?? null;
 }
 
 // Each macro rounds on its own. The Food columns are Int, and rounding the four
