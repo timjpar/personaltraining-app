@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import type { WorkoutFormState } from "@/app/(trainer)/workout-actions";
+import { DragOverlay, Grip } from "@/components/Drag";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { Card, Field, Input, Select, Textarea, FormError, buttonClass } from "@/components/ui";
+import { useExerciseDrag } from "@/components/useExerciseDrag";
 import { cn } from "@/lib/cn";
 import {
   SECTION_ORDER,
@@ -100,6 +102,9 @@ const initialExtras = (row: BuilderExercise): OptionalKey[] =>
     return typeof v === "string" && v.trim() !== "";
   }).map((m) => m.key);
 
+// The boxes on a row that hold their own value, read off the DOM on save.
+const TYPED_FIELDS = ["sets", "reps", "weight", "load", "tempo", "rest", "notes"] as const;
+
 const ADD_LABEL: Record<ExerciseSection, string> = {
   WARMUP: "+ Add warm-up",
   MAIN: "+ Add exercise",
@@ -145,6 +150,7 @@ export function WorkoutBuilder({
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [rows, setRows] = useState<Rows>(() => seedRows(initial));
+  const formRef = useRef<HTMLFormElement>(null);
 
   const total = SECTION_ORDER.reduce((n, s) => n + rows[s].length, 0);
 
@@ -192,6 +198,31 @@ export function WorkoutBuilder({
       ),
     }));
 
+  // The metrics and note are uncontrolled, and React can move a card within one
+  // section's list but not between two: a card dropped into another section is
+  // a fresh set of inputs, built from the row. So the drop copies what's typed
+  // into the row first, and the new inputs open holding it.
+  const typed = (id: string) => {
+    const fields: Partial<BuilderExercise> = {};
+    for (const key of TYPED_FIELDS) {
+      const el = formRef.current?.elements.namedItem(`ex_${id}_${key}`);
+      if (el instanceof HTMLInputElement) fields[key] = el.value;
+    }
+    return fields;
+  };
+
+  const drag = useExerciseDrag(rows, (subject, target) => {
+    const fields = typed(subject.id);
+    setRows((r) => {
+      const row = r[subject.section].find((x) => x.id === subject.id);
+      if (!row) return r;
+      const without = { ...r, [subject.section]: r[subject.section].filter((x) => x !== row) };
+      const list = [...without[target.section]];
+      list.splice(target.index, 0, { ...row, ...fields });
+      return { ...without, [target.section]: list };
+    });
+  });
+
   // What the demo box shows: whatever the coach typed, else the video this
   // movement already has. The fallback is the point — pick "Back Squat" and the
   // demo you saved months ago is sitting there, rather than an empty box that
@@ -210,7 +241,7 @@ export function WorkoutBuilder({
     );
 
   return (
-    <form action={formAction} className="flex flex-col gap-6">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-6">
       <FormError>{state.error}</FormError>
 
       <Card className="grid gap-4 p-5 sm:grid-cols-2">
@@ -352,9 +383,10 @@ export function WorkoutBuilder({
                   <span className="h-px flex-1 bg-line" />
                 </div>
 
-                <div className="flex flex-col gap-3">
+                <div data-drop-section={section} className="flex flex-col gap-3">
                   {rows[section].map((row, i) => {
                     const n = offset + i + 1;
+                    const named = row.name?.trim();
                     const videoValue = videoFor(row);
                     // Whether the movement itself already carries a demo, as
                     // opposed to something typed into this row just now.
@@ -366,8 +398,24 @@ export function WorkoutBuilder({
                     // paste a second copy of.
                     const videoOpen = row.showVideo === true || videoValue !== "";
                     return (
-                      <Card key={row.id} className="p-4">
-                        <div className="flex items-center gap-3">
+                      <Card
+                        key={row.id}
+                        data-drag-exercise={row.id}
+                        className={cn(
+                          "p-4 transition-opacity",
+                          drag.dragging?.id === row.id && "opacity-40",
+                        )}
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <Grip
+                            label={named || `exercise ${n}`}
+                            className="-ml-1.5 h-9 w-6 hover:bg-paper"
+                            {...drag.grip({
+                              id: row.id,
+                              section,
+                              label: named || `Exercise ${n}`,
+                            })}
+                          />
                           <span className="metric grid h-7 min-w-7 place-items-center rounded-[6px] border border-line bg-paper px-1.5 text-xs font-medium text-ink-soft">
                             {String(n).padStart(2, "0")}
                           </span>
@@ -580,6 +628,8 @@ export function WorkoutBuilder({
           Cancel
         </Link>
       </div>
+
+      <DragOverlay line={drag.line} label={drag.dragging?.label} pointer={drag.pointer} />
     </form>
   );
 }
