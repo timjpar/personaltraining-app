@@ -1,23 +1,31 @@
-// Live barcode scanning through the browser's own BarcodeDetector.
+// Live barcode scanning: the browser's own BarcodeDetector where it has one,
+// and zxing compiled to WASM, behind the same interface, where it doesn't.
 //
-// No polyfill, and that is a decision with a cost worth naming: Safari does not
-// implement BarcodeDetector, so on an iPhone this returns false and no live
-// scanner is offered. The alternatives were a ~200KB WASM decoder (zxing) to
-// serve one browser, in a repo that carries nine runtime dependencies and
-// removed @vercel/blob rather than pay for storage.
+// This was native-only once, and that cost more than it looked: Safari has no
+// BarcodeDetector, so an iPhone got no "Scan barcode" button at all, and typing
+// thirteen digits off a box in a kitchen is not a scanner. The ponyfill
+// (barcode-detector, a thin wrapper over zxing-wasm) is the same class with the
+// same detect(video), so nothing downstream of createDetector knows which one
+// it got.
 //
-// iOS is not left without a way to scan: the photo path uses a plain
-// <input capture="environment">, which opens the camera with no getUserMedia
-// at all, and Gemini reads a packaged label perfectly well. Typing the digits
-// under the barcode is the third path, and doubles as the fallback everywhere
-// when the camera is refused or busy.
-//
-// Everything the capability check needs is behind these two functions, so
-// adding a ponyfill later is one import in one file and no call-site changes.
+// What it costs is paid only where it's needed: the module is a dynamic import
+// and its .wasm (~450KB gzipped) is fetched on the first tap of "Scan barcode",
+// and only by a browser without a detector of its own. Android and Chrome on a
+// Mac keep the native one, which is faster and was never the problem.
 
 // The formats worth asking for: retail food carries EAN-13, EAN-8 or UPC-A,
 // and UPC-E on small packages.
 const FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"] as const;
+
+// Served from public/ rather than the jsDelivr URL the library defaults to, so
+// scanning doesn't hang off a third-party CDN. The version is in the name and
+// the path is built from the version the package reports, so upgrading
+// barcode-detector without copying the new file in fails loudly as a 404 for
+// the new name rather than quietly pairing new glue code with old WASM:
+//
+//   cp node_modules/zxing-wasm/dist/reader/zxing_reader.wasm \
+//      public/zxing/zxing_reader-<version>.wasm
+const wasmPath = (version: string) => `/zxing/zxing_reader-${version}.wasm`;
 
 type DetectedBarcode = { rawValue: string };
 type BarcodeDetectorLike = {
@@ -35,28 +43,49 @@ function ctor(): BarcodeDetectorCtor | null {
   return c ?? null;
 }
 
-// Async, and all three checks matter. getSupportedFormats() is the one that
-// looks like paranoia and isn't: some Android builds ship the constructor but
-// come back without ean_13, and a scanner that opens the camera and can never
-// match anything is worse than no button.
-export async function supportsBarcodeScanning(): Promise<boolean> {
-  const C = ctor();
-  if (!C) return false;
-  if (!navigator.mediaDevices?.getUserMedia) return false;
-  try {
-    const supported = await C.getSupportedFormats();
-    return FORMATS.some((f) => supported.includes(f));
-  } catch {
-    return false;
-  }
+// A camera is the whole requirement now. Whether the browser can decode is
+// createDetector's problem, and it always has an answer.
+export function supportsBarcodeScanning(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!navigator.mediaDevices?.getUserMedia;
 }
 
-export function createDetector(): BarcodeDetectorLike | null {
+// The native detector, but only one that can read retail barcodes.
+// getSupportedFormats() is the check that looks like paranoia and isn't: some
+// Android builds ship the constructor but come back without ean_13, and Chrome
+// on a Mac has no upc_a (its ean_13 reads one anyway, with a leading zero).
+async function nativeDetector(): Promise<BarcodeDetectorLike | null> {
   const C = ctor();
   if (!C) return null;
   try {
-    return new C({ formats: FORMATS });
+    const supported = await C.getSupportedFormats();
+    const formats = FORMATS.filter((f) => supported.includes(f));
+    if (!formats.length) return null;
+    return new C({ formats });
   } catch {
+    return null;
+  }
+}
+
+// Null only when the WASM couldn't be fetched — offline, or the 404 above.
+// Awaiting the module here rather than on the first frame is what turns that
+// into a sentence instead of a camera that never reads anything.
+export async function createDetector(): Promise<BarcodeDetectorLike | null> {
+  const native = await nativeDetector();
+  if (native) return native;
+  try {
+    const { BarcodeDetector, prepareZXingModule, ZXING_WASM_VERSION } =
+      await import("barcode-detector/ponyfill");
+    await prepareZXingModule({
+      overrides: {
+        locateFile: (path: string, prefix: string) =>
+          path.endsWith(".wasm") ? wasmPath(ZXING_WASM_VERSION) : prefix + path,
+      },
+      fireImmediately: true,
+    });
+    return new BarcodeDetector({ formats: [...FORMATS] });
+  } catch (err) {
+    console.error("Barcode decoder failed to load", err);
     return null;
   }
 }
@@ -83,6 +112,10 @@ export async function detectFrom(
 export const CAMERA_UNAVAILABLE =
   "We couldn't open the camera. Enter the barcode number instead.";
 
+// The camera opened but the WASM decoder never arrived — offline, mostly.
+export const DECODER_UNAVAILABLE =
+  "We couldn't load the barcode reader. Enter the barcode number instead.";
+
 // The identical failure on the photo path, where the barcode advice is no use:
 // a plate of food has no digits to type. Two constants rather than one generic
 // sentence, because the half that matters is the way out, not the diagnosis.
@@ -99,7 +132,15 @@ export async function openCamera(
   return navigator.mediaDevices.getUserMedia({
     // `ideal`, never `exact`: a laptop with only a front camera throws
     // OverconstrainedError on exact and the scanner never opens at all.
-    video: { facingMode: { ideal: facing } },
+    //
+    // The size is asked for because the default is 640×480, and at that a
+    // barcode held where the phone can focus on it is too few pixels per bar
+    // to read. 720p is enough for that and cheap enough to decode every frame.
+    video: {
+      facingMode: { ideal: facing },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    },
     audio: false,
   });
 }
