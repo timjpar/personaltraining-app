@@ -23,6 +23,8 @@ import {
   type AmountUnit,
 } from "@/lib/food-amounts";
 import {
+  findFoodPreset,
+  foodForms,
   matchCatalogRow,
   normalizeFoodName,
   parseServingLabel,
@@ -68,6 +70,10 @@ export type FoodRowFields = {
   amount: string;
   unit: AmountUnit;
   base: FoodPreset | null;
+  // Client-only too. While a row is being switched between forms of one food
+  // (see setForm), how much it is in grams of the first form, unrounded, so
+  // switching back lands exactly where it started. Any other edit clears it.
+  formGrams: number | null;
 };
 
 export const blankFoodFields = (): FoodRowFields => ({
@@ -83,6 +89,7 @@ export const blankFoodFields = (): FoodRowFields => ({
   amount: "",
   unit: "serving",
   base: null,
+  formGrams: null,
 });
 
 const numStr = (n: number | null | undefined) => (n == null ? "" : String(n));
@@ -175,6 +182,7 @@ function fill<T extends FoodRowFields>(
     base,
     amount,
     unit,
+    formGrams: null,
     quantity: scaled.quantity,
     grams: scaled.grams,
     gramsPerCup: base.gramsPerCup ?? null,
@@ -198,7 +206,43 @@ export function applyPreset<T extends FoodRowFields>(row: T, preset: FoodPreset)
 
 // Keeps every number; the row scales from those from now on (see ownScale).
 export function detachPreset<T extends FoodRowFields>(row: T): T {
-  return { ...row, base: null, amount: "", unit: "serving" };
+  return { ...row, base: null, amount: "", unit: "serving", formGrams: null };
+}
+
+// Fresh blueberries to frozen, or to dried: the row becomes the other form's
+// catalog entry, holding the same amount of fruit (see FoodForm.per100). The
+// amount stays in the unit it was in where the new form has that unit — grams
+// stay grams, cups stay cups — and goes to grams from servings, since one
+// serving of dried fruit is a different amount of fruit than one of fresh.
+//
+// Works on any row named as a form, with or without a preset behind it, so a
+// food ticked off the plan into the day log switches too. A row with no weight
+// to go on lands as one serving of the new form.
+export function setForm<T extends FoodRowFields>(row: T, name: string): T {
+  const forms = foodForms(row.name);
+  const from = forms?.find((f) => normalizeFoodName(f.name) === normalizeFoodName(row.name));
+  const to = forms?.find((f) => f.name === name);
+  const preset = findFoodPreset(name);
+  if (!from || !to || !preset || from === to) return row;
+
+  const grams = row.grams ?? parseGrams(row.quantity);
+  const firstForm = row.formGrams ?? (grams == null ? null : (grams * 100) / from.per100);
+  if (firstForm == null || !preset.grams) return applyPreset(row, preset);
+
+  const was = row.base ? row.unit : (ownScale(row)?.unit ?? "serving");
+  const unit = was !== "serving" && presetUnits(preset).includes(was) ? was : "g";
+  const next = amountIn(
+    { grams: (firstForm * to.per100) / 100, ml: null, gramsPerCup: preset.gramsPerCup ?? null },
+    unit,
+  );
+  if (next == null) return applyPreset(row, preset);
+  const amount = inputAmount(next, unit);
+  const scaled = scalePreset(preset, Number(amount), unit);
+  if (!scaled) return applyPreset(row, preset);
+  return {
+    ...fill({ ...row, name: preset.name }, preset, amount, unit, scaled),
+    formGrams: firstForm,
+  };
 }
 
 // A row with no preset behind it — typed by hand, or typed over — scales from
@@ -300,7 +344,7 @@ export function setName<T extends FoodRowFields>(row: T, name: string): T {
 // from whatever is typed, so a row retyped as "a big handful" stops claiming
 // the 148 g it used to be.
 export function setQuantity<T extends FoodRowFields>(row: T, quantity: string): T {
-  return { ...row, quantity, grams: parseGrams(quantity) };
+  return { ...row, quantity, grams: parseGrams(quantity), formGrams: null };
 }
 
 export function setMacro<T extends FoodRowFields>(

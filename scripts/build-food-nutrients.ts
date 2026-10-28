@@ -276,7 +276,19 @@ function main() {
       parseGrams(food.serving) ??
       (ml != null ? (ml / ML_PER_CUP) * (cup ?? ML_PER_CUP) : null);
 
-    const kcal100 = n.get(ENERGY_KCAL);
+    // A food dried from the matched one: everything moves onto its moisture
+    // by dry matter. See `water` in food-nutrients-map.ts.
+    const usdaWater = n.get(WATER);
+    if (match.water != null && usdaWater == null) {
+      throw new Error(`${food.name}: fdc_id ${match.fdc} has no water figure to dry it from.`);
+    }
+    const dried =
+      match.water != null && usdaWater != null
+        ? (100 - match.water) / (100 - usdaWater)
+        : 1;
+
+    const kcalMeasured = n.get(ENERGY_KCAL);
+    const kcal100 = kcalMeasured == null ? undefined : kcalMeasured * dried;
     if (grams != null && kcal100 != null && food.calories > 20) {
       const usdaKcal = (kcal100 * grams) / 100;
       const off = (food.calories - usdaKcal) / usdaKcal;
@@ -304,7 +316,6 @@ function main() {
     const jp = match.japan ? japan.get(match.japan) : undefined;
     if (match.japan && !jp) throw new Error(`${food.name}: Japanese food number ${match.japan} is not in this release.`);
     if (jp) withJapan++;
-    const usdaWater = n.get(WATER);
     const moisture =
       jp?.water != null && usdaWater != null && jp.water < 100
         ? (100 - usdaWater) / (100 - jp.water)
@@ -312,11 +323,11 @@ function main() {
 
     const values = NUTRIENTS.map((def) => {
       const fromJapan = def.japan && jp ? jp.values.get(def.japan) : null;
-      const v =
-        match.extra?.[def.key] ??
+      const measured =
         (def.key === "iodine" ? iodineEntry?.per100g : undefined) ??
         (fromJapan != null ? fromJapan * moisture : undefined) ??
         def.usda.map((id) => n.get(id)).find((x) => x != null);
+      const v = match.extra?.[def.key] ?? (measured == null ? undefined : measured * dried);
       return v == null ? "null" : String(sig(v));
     });
     const cupOut = cup == null ? "null" : String(sig(cup));

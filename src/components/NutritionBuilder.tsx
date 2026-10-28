@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { NutritionFormState } from "@/app/(trainer)/nutrition/actions";
 import { FoodPicker } from "@/components/FoodPicker";
-import { AmountControls, NutrientFields } from "@/components/FoodRowControls";
+import { AmountControls, FormPicker, NutrientFields } from "@/components/FoodRowControls";
 import { NutritionTotals } from "@/components/NutritionTotals";
 import { useMealDrag } from "@/components/useMealDrag";
 import {
@@ -26,7 +26,7 @@ import { cn } from "@/lib/cn";
 import type { NutrientDetail } from "@/lib/constants";
 import type { AmountUnit } from "@/lib/food-amounts";
 import { foodBlocks } from "@/lib/food-groups";
-import type { FoodPreset, StoredFood } from "@/lib/food-presets";
+import { foodForms, type FoodPreset, type StoredFood } from "@/lib/food-presets";
 import * as foodRows from "@/lib/food-rows";
 import type { FoodRowFields, MacroKey } from "@/lib/food-rows";
 import {
@@ -417,6 +417,8 @@ export function NutritionBuilder({
     update(mealId, foodId, (f) => foodRows.setUnit(f, unit));
   const setFoodName = (mealId: string, foodId: string, name: string) =>
     update(mealId, foodId, (f) => foodRows.setName(f, name));
+  const setForm = (mealId: string, foodId: string, name: string) =>
+    update(mealId, foodId, (f) => foodRows.setForm(f, name));
   const setQuantity = (mealId: string, foodId: string, quantity: string) =>
     update(mealId, foodId, (f) => foodRows.setQuantity(f, quantity));
   const setMacro = (mealId: string, foodId: string, key: MacroKey, value: string) =>
@@ -467,6 +469,7 @@ export function NutritionBuilder({
     const i = meal.foods.indexOf(food);
     const label = `Food ${i + 1}`;
     const named = food.name.trim() || label.toLowerCase();
+    const forms = foodForms(food.name);
     // White inside a group's tinted box, so each food still reads as its own
     // card; grey loose, as it always was.
     const hover = food.groupId ? "hover:bg-paper" : "hover:bg-card";
@@ -485,7 +488,7 @@ export function NutritionBuilder({
             part that has to stay readable. It runs beside the name and amount
             only — the macro boxes below take the full width back, or inside a
             group a phone clips "150". */}
-        <div className="row-span-2 flex flex-col items-center">
+        <div className={cn("flex flex-col items-center", forms ? "row-span-3" : "row-span-2")}>
           <Grip
             label={named}
             className={cn("h-9 w-7 sm:h-8", hover)}
@@ -523,6 +526,17 @@ export function NutritionBuilder({
             </svg>
           </button>
         </div>
+        {/* Fresh, frozen or dried, under the name it changes. A line of its
+            own, and only for a food that comes more than one way: the line
+            below the macros is full on a phone already. */}
+        {forms ? (
+          <FormPicker
+            row={food}
+            label={named}
+            onPick={(name) => setForm(meal.id, food.id, name)}
+            className={cn("mt-1 justify-self-start", hover)}
+          />
+        ) : null}
         <div className="mt-2 flex items-center gap-2">
           <AmountControls
             row={food}

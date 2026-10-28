@@ -29,6 +29,12 @@
 //
 // `extra` is per 100 g, in each nutrient's unit, for a value no database
 // carries but chemistry fixes.
+//
+// `water` is for a food no database measured that is a measured one with the
+// water taken out — freeze-dried fruit, or fruit dried at home. It's grams of
+// water per 100 g of the dried food, and every value, iodine and Japan's
+// included, is moved onto it by dry matter, the same adjustment the Japanese
+// values get. `extra` is already per 100 g of the dried food and isn't moved.
 
 import type { NutrientKey } from "@/lib/nutrients";
 
@@ -38,6 +44,7 @@ export type UsdaMatch = {
   iodine?: number | null;
   japan?: string;
   extra?: Partial<Record<NutrientKey, number>>;
+  water?: number;
   note?: string;
 };
 
@@ -127,6 +134,7 @@ export const USDA_MATCHES: Record<string, UsdaMatch | null> = {
   "Apple": { fdc: 171688, japan: "07176" },
   "Orange": { fdc: 169097, japan: "07041" },
   "Blueberries": { fdc: 171711, japan: "07124" },
+  "Blueberries, Frozen": { fdc: 173950, iodine: 196, japan: "07124", note: "unsweetened, the cup weighed unthawed; raw blueberries stand in for iodine" },
   "Strawberries": { fdc: 167762, japan: "07012" },
   "Raspberries": { fdc: 167755 },
   "Grapes": { fdc: 174683, japan: "07178" },
@@ -143,6 +151,16 @@ export const USDA_MATCHES: Record<string, UsdaMatch | null> = {
   "Medjool Dates": { fdc: 168191 },
   "Raisins": { fdc: 168165, japan: "07117" },
   "Dried Apricots": { fdc: 173941 },
+  // USDA measured only the sweetened kind. The other two are raw blueberries
+  // with the water taken out: unsweetened at the 21.9% water Japan measured in
+  // its dried blueberries (07172), whose energy and fibre per gram of dry
+  // matter are within a few percent of raw, so little or no sugar went in;
+  // freeze-dried at 3%, the usual finished moisture. Hot-air drying leaves only a trace of vitamin C — that
+  // is what Japan found — so the unsweetened kind has none. Freeze-drying
+  // keeps most of it, and isn't docked.
+  "Blueberries, Dried, Unsweetened": { fdc: 171711, iodine: 196, japan: "07124", water: 21.9, cup: 160, extra: { vitaminC: 0 }, note: "the cup is USDA's for sweetened dried blueberries, 40 g a quarter cup" },
+  "Blueberries, Dried, Sweetened": { fdc: 168158, japan: "07172", note: "Japan's unsweetened dried blueberries stand in for chromium, molybdenum and biotin" },
+  "Blueberries, Freeze-Dried": { fdc: 171711, iodine: 196, japan: "07124", water: 3, cup: null },
 
   // Vegetables
   "Broccoli": { fdc: 170379, iodine: 72, japan: "06263" },

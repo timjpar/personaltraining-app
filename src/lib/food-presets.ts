@@ -162,6 +162,7 @@ const CATALOG: FoodPresetCategory[] = [
       { name: "Apple", serving: "1 medium (182 g)", calories: 95, protein: 0, carbs: 25, fat: 0 },
       { name: "Orange", serving: "1 medium (131 g)", calories: 62, protein: 1, carbs: 15, fat: 0 },
       { name: "Blueberries", serving: "1 cup (148 g)", calories: 84, protein: 1, carbs: 21, fat: 0 },
+      { name: "Blueberries, Frozen", serving: "1 cup (155 g)", calories: 79, protein: 1, carbs: 19, fat: 1 },
       { name: "Strawberries", serving: "1 cup (152 g)", calories: 49, protein: 1, carbs: 12, fat: 0 },
       { name: "Raspberries", serving: "1 cup (123 g)", calories: 64, protein: 1, carbs: 15, fat: 1 },
       { name: "Grapes", serving: "1 cup (151 g)", calories: 104, protein: 1, carbs: 27, fat: 0 },
@@ -178,6 +179,9 @@ const CATALOG: FoodPresetCategory[] = [
       { name: "Medjool Dates", serving: "2 dates (48 g)", calories: 133, protein: 1, carbs: 36, fat: 0 },
       { name: "Raisins", serving: "40 g", calories: 120, protein: 1, carbs: 32, fat: 0 },
       { name: "Dried Apricots", serving: "40 g", calories: 96, protein: 1, carbs: 25, fat: 0 },
+      { name: "Blueberries, Dried, Unsweetened", serving: "¼ cup (40 g)", calories: 113, protein: 1, carbs: 29, fat: 1 },
+      { name: "Blueberries, Dried, Sweetened", serving: "¼ cup (40 g)", calories: 127, protein: 1, carbs: 32, fat: 1 },
+      { name: "Blueberries, Freeze-Dried", serving: "28 g", calories: 98, protein: 1, carbs: 25, fat: 1 },
     ],
   },
   {
@@ -383,6 +387,44 @@ const BY_SLUG: Map<string, FoodPreset> = new Map(
 
 export function findFoodPreset(name: string): FoodPreset | null {
   return BY_SLUG.get(normalizeFoodName(name)) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Forms of one food: fresh, frozen, dried.
+// ---------------------------------------------------------------------------
+
+// A food bought in more than one form, which a plan or a log can switch
+// between without picking it again. `per100` is how many grams of that form
+// stand in for 100 g of the first: the same amount of fruit, not the same
+// weight, so 100 g of fresh blueberries becomes 20 g dried rather than 100 g
+// of something five times as dense.
+//
+// Frozen is the fresh berry frozen, so it's one for one; USDA's two samples
+// differ by a few calories, but freezing doesn't change what a berry weighs.
+// The unsweetened and freeze-dried kinds are fresh with the water taken out
+// (see food-nutrients-map.ts), so theirs is the ratio of dry matter. Sugar was
+// added to the sweetened kind, so its weight isn't all fruit, and it's matched
+// on calories instead.
+export type FoodForm = { name: string; label: string; per100: number };
+
+const FORMS: FoodForm[][] = [
+  [
+    { name: "Blueberries", label: "Fresh", per100: 100 },
+    { name: "Blueberries, Frozen", label: "Frozen", per100: 100 },
+    { name: "Blueberries, Dried, Unsweetened", label: "Dried", per100: 20 },
+    { name: "Blueberries, Dried, Sweetened", label: "Dried, sweetened", per100: 18 },
+    { name: "Blueberries, Freeze-Dried", label: "Freeze-dried", per100: 16 },
+  ],
+];
+
+const FORMS_BY_SLUG: Map<string, FoodForm[]> = new Map(
+  FORMS.flatMap((forms) => forms.map((f) => [normalizeFoodName(f.name), forms])),
+);
+
+// Every form of the food this name is one form of, or null for a food that
+// only comes one way.
+export function foodForms(name: string): FoodForm[] | null {
+  return FORMS_BY_SLUG.get(normalizeFoodName(name)) ?? null;
 }
 
 // Each macro rounds on its own. The Food columns are Int, and rounding the four

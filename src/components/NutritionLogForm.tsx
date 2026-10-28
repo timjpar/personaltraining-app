@@ -7,7 +7,7 @@ import { useActionState, useId } from "react";
 import type { LogState } from "@/lib/nutrition-form";
 import { FoodPicker } from "@/components/FoodPicker";
 import { FoodScanner } from "@/components/FoodScanner";
-import { AmountControls, NutrientFields } from "@/components/FoodRowControls";
+import { AmountControls, FormPicker, NutrientFields } from "@/components/FoodRowControls";
 import { NutritionTotals } from "@/components/NutritionTotals";
 import { FoodGroupHeading, GROUP_BOX } from "@/components/NutritionPlanView";
 import {
@@ -108,6 +108,7 @@ export function NutritionLogForm({
     setAmount,
     setUnit,
     setName,
+    setForm,
     setQuantity,
     setMacro,
     setNutrient,
@@ -161,6 +162,16 @@ export function NutritionLogForm({
             <RemoveIcon />
           </button>
         </div>
+
+        {/* Fresh, frozen or dried, under the name it changes — for the
+            morning the plan said fresh and the freezer said otherwise. Only
+            for a food that comes more than one way. */}
+        <FormPicker
+          row={row}
+          label={row.name.trim() || `food ${i + 1}`}
+          onPick={(name) => setForm(row.id, name)}
+          className="mt-1 hover:bg-paper"
+        />
 
         <div className="mt-2 flex items-center gap-2">
           <AmountControls
