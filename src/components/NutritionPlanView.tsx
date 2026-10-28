@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui";
 import { AmountSelect } from "@/components/AmountSelect";
+import { riceOtherWeight } from "@/lib/rice";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
 import { macroText, sumMacros } from "@/lib/nutrition-form";
@@ -112,6 +113,7 @@ export function NutritionPlanView({
                 grams={f.detail.grams}
                 gramsPerCup={f.detail.gramsPerCup}
               />
+              {riceOtherWeight(f) ? ` · ${riceOtherWeight(f)}` : null}
             </span>
           ) : null}
         </p>

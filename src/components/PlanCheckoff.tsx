@@ -13,6 +13,7 @@
 import { startTransition, useOptimistic, useState } from "react";
 import { Card } from "@/components/ui";
 import { AmountSelect } from "@/components/AmountSelect";
+import { riceOtherWeight } from "@/lib/rice";
 import { FormSelect } from "@/components/FormSelect";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
@@ -125,6 +126,7 @@ export function PlanCheckoff({
                     grams={fd.grams}
                     gramsPerCup={fd.gramsPerCup}
                   />
+                  {riceOtherWeight(f) ? ` · ${riceOtherWeight(f)}` : null}
                 </span>
               ) : null}
             </span>

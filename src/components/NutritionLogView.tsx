@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui";
 import { AmountSelect } from "@/components/AmountSelect";
+import { riceOtherWeight } from "@/lib/rice";
 import { FoodNutrients } from "@/components/NutrientPanel";
 import { NutritionTotals } from "@/components/NutritionTotals";
 import { FoodGroupHeading, GROUP_BOX } from "@/components/NutritionPlanView";
@@ -77,6 +78,7 @@ export function NutritionLogView({
                 grams={f.detail.grams}
                 gramsPerCup={f.detail.gramsPerCup}
               />
+              {riceOtherWeight(f) ? ` · ${riceOtherWeight(f)}` : null}
             </span>
           ) : null}
         </p>
