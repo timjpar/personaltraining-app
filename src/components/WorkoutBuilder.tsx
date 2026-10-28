@@ -287,46 +287,53 @@ export function WorkoutBuilder({
           </Field>
         </div>
         {showDate ? (
-          <div className="grid grid-cols-[1fr_auto_auto] gap-3">
-            <Field label="Date" htmlFor="scheduledDate">
-              <Input
-                id="scheduledDate"
-                name="scheduledDate"
-                type="date"
-                defaultValue={initial?.scheduledDate ?? ""}
-                required
-              />
-            </Field>
-            {/* Optional — it only decides where the session sits on the
-                calendar. Sessions created from a template or a program have
-                none, and read as all-day. */}
-            <Field label="Time" htmlFor="startTime">
-              <Input
-                id="startTime"
-                name="startTime"
-                type="time"
-                defaultValue={initial?.startTime ?? ""}
-                className="metric"
-              />
-            </Field>
-            {/* Beside the time it measures from, and ignored on save when
-                that's blank — an all-day session has no block to be long. */}
-            <Field label="Length" htmlFor="duration">
-              <Select
-                id="duration"
-                name="duration"
-                defaultValue={String(
-                  toSessionLength(initial?.durationMinutes) ??
-                    DEFAULT_SESSION_LENGTH,
-                )}
-              >
-                {SESSION_LENGTHS.map((m) => (
-                  <option key={m} value={m}>
-                    {sessionLengthLabel(m)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+          // Laid out by its own width, not the screen's: from sm up it gets
+          // half the card beside Discipline, and date, time and length only
+          // fit on one line in about 28rem. Narrower than that — a phone, or
+          // a laptop window short of full width — the date takes a line of
+          // its own, rather than the row widening the card past the screen.
+          <div className="@container">
+            <div className="grid grid-cols-2 gap-3 @md:grid-cols-[1fr_auto_auto]">
+              <Field label="Date" htmlFor="scheduledDate" className="col-span-2 @md:col-span-1">
+                <Input
+                  id="scheduledDate"
+                  name="scheduledDate"
+                  type="date"
+                  defaultValue={initial?.scheduledDate ?? ""}
+                  required
+                />
+              </Field>
+              {/* Optional — it only decides where the session sits on the
+                  calendar. Sessions created from a template or a program have
+                  none, and read as all-day. */}
+              <Field label="Time" htmlFor="startTime">
+                <Input
+                  id="startTime"
+                  name="startTime"
+                  type="time"
+                  defaultValue={initial?.startTime ?? ""}
+                  className="metric"
+                />
+              </Field>
+              {/* Beside the time it measures from, and ignored on save when
+                  that's blank — an all-day session has no block to be long. */}
+              <Field label="Length" htmlFor="duration">
+                <Select
+                  id="duration"
+                  name="duration"
+                  defaultValue={String(
+                    toSessionLength(initial?.durationMinutes) ??
+                      DEFAULT_SESSION_LENGTH,
+                  )}
+                >
+                  {SESSION_LENGTHS.map((m) => (
+                    <option key={m} value={m}>
+                      {sessionLengthLabel(m)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
           </div>
         ) : null}
         {/* Sits in the cell the date row leaves empty on desktop. Defaults to
