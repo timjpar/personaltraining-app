@@ -3,6 +3,7 @@
 import {
   barbellFar,
   barbellNear,
+  barLine,
   benchUprights,
   box,
   cable,
@@ -13,6 +14,8 @@ import {
   dumbbellSide,
   flatBench,
   handle,
+  landmineBase,
+  plateEdge,
   ring,
   seat,
   strap,
@@ -22,6 +25,7 @@ import {
   add,
   at,
   base,
+  gripArm,
   grips,
   hold,
   kf,
@@ -32,6 +36,7 @@ import {
   onTrunk,
   palms,
   plant,
+  plantLeg,
   prone,
   rot,
   seated,
@@ -380,6 +385,68 @@ function overheadPress(o: { name: string; dip?: boolean; primary: Spec["primary"
   };
 }
 
+// Half-kneeling, near knee down, pressing the end of a bar whose other end
+// sits in a floor pivot ahead: the hand can only travel the circle around
+// the pivot, so the press goes up and forward along it.
+const LANDMINE_LEN = 160;
+
+// Near knee down under the hip, shin and instep flat on the floor behind it;
+// far foot planted ahead, shin upright.
+function halfKneeling(lean: number): Pose {
+  const hip = v(-10, -49);
+  const pose = base(hip, { torso: lean, pelvis: lean * 0.4, head: lean * 0.5 });
+  return {
+    ...pose,
+    legN: limb(0, -90, -180),
+    legF: plantLeg(hip, v(32, -8), 0, 1),
+    armF: limb(8, 34, 34),
+  };
+}
+
+const LANDMINE_START = add(shoulders(halfKneeling(-6)).N, v(12, -2));
+const LANDMINE_PIVOT = v(LANDMINE_START.x + Math.sqrt(LANDMINE_LEN ** 2 - (LANDMINE_START.y + 3) ** 2), -3);
+// Where the hand is with the bar at `rise` radians above the floor.
+const landmineEnd = (rise: number) => sub(LANDMINE_PIVOT, v(Math.cos(rise) * LANDMINE_LEN, Math.sin(rise) * LANDMINE_LEN));
+const LANDMINE_FROM = Math.asin(-(LANDMINE_START.y + 3) / LANDMINE_LEN);
+// The rise at which the arm, leaning into the press, is all but straight.
+const LANDMINE_TO = (() => {
+  const s = shoulders(halfKneeling(-12)).N;
+  let lo = LANDMINE_FROM;
+  let hi = Math.PI / 2;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    const g = landmineEnd(mid);
+    if (Math.hypot(g.x - s.x, g.y - s.y) < 59.5) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+})();
+
+const landminePress: Spec = {
+  name: "Landmine Press",
+  aka: ["Half-Kneeling Landmine Press", "Single-Arm Landmine Press"],
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist", F: "hand" },
+  primary: ["delts_front", "chest"],
+  secondary: ["triceps", "obliques", "glutes"],
+  still: 0.8,
+  scene: [{ draw: landmineBase(LANDMINE_PIVOT), layer: "back" }],
+  props: [
+    { id: "bar", draw: barLine(), layer: "mid" },
+    { id: "plate", draw: plateEdge(19), layer: "mid" },
+  ],
+  motion: (p) => {
+    let pose = halfKneeling(lerp(-6, -12, p));
+    const grip = landmineEnd(lerp(LANDMINE_FROM, LANDMINE_TO, p));
+    pose = { ...pose, armN: gripArm(shoulders(pose).N, grip, -1) };
+    const along = sub(grip, LANDMINE_PIVOT);
+    const unit = v(along.x / LANDMINE_LEN, along.y / LANDMINE_LEN);
+    const bar = line(LANDMINE_PIVOT, add(grip, v(unit.x * 3, unit.y * 3)));
+    return { pose, props: { bar, plate: turned(sub(grip, v(unit.x * 21, unit.y * 21)), bar.angle ?? 0) } };
+  },
+};
+
 // Seated, square-on: thighs point at the viewer.
 function seatedSquare(): Pose {
   const pose = base(v(0, -60));
@@ -511,6 +578,57 @@ const rearDeltFly: Spec = {
   },
 };
 
+// An upright machine handle, gripped round its middle.
+const uprightHandle = () => ({
+  svg: `<rect class="steel" x="-1.6" y="-9" width="3.2" height="18" rx="1.4"/>`,
+  box: [-1.6, -9, 1.6, 9] as [number, number, number, number],
+});
+
+// Seated facing the pad, seen from behind: the handles start out in front at
+// shoulder height, where the arms point away from the viewer, and the arms
+// sweep back level until they line up with the shoulders. The machine's arms
+// hang from a pivot above the pad, so they swing out with the hands.
+const REVERSE_DECK_PIVOT = v(0, -168);
+const reversePecDeck: Spec = {
+  name: "Reverse Pec Deck",
+  aka: ["Reverse Pec Deck Fly", "Rear Delt Machine Fly"],
+  view: "back",
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist" },
+  primary: ["delts_rear", "upper_back"],
+  secondary: ["traps"],
+  still: 1,
+  scene: [
+    { draw: column(-6, REVERSE_DECK_PIVOT.y - 6), layer: "back" },
+    { draw: { svg: `<rect class="pad" x="-15" y="-118" width="30" height="56" rx="5"/>`, box: [-15, -118, 15, -62] }, layer: "back" },
+    { draw: seat(-24, 24, -50), layer: "back" },
+  ],
+  props: [
+    { id: "lN", draw: barLine(), layer: "back" },
+    { id: "lF", draw: barLine(), layer: "back" },
+    { id: "hN", draw: uprightHandle(), layer: "mid" },
+    { id: "hF", draw: uprightHandle(), layer: "mid" },
+  ],
+  motion: (p) => {
+    // Elbows a touch soft and leading, so the forearm trails the upper arm.
+    const k = lerp(0.2, 1, p);
+    const arm = { ...limb(90, 95, 95), ku: k, kl: k };
+    const pose: Pose = { ...seatedSquare(), armN: arm, armF: mirror(arm) };
+    const g = grips(pose, "back");
+    const top = (q: typeof g.N) => add(q, v(0, -8));
+    return {
+      pose,
+      props: {
+        lN: line(REVERSE_DECK_PIVOT, top(g.N)),
+        lF: line(REVERSE_DECK_PIVOT, top(g.F)),
+        hN: at(g.N),
+        hF: at(g.F),
+      },
+    };
+  },
+};
+
 const FACE_PULLEY = v(84, -152);
 const facePull: Spec = {
   name: "Face Pull",
@@ -580,12 +698,14 @@ export const PUSH: Spec[] = [
   dip({ name: "Ring Dip", rings: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   overheadPress({ name: "Overhead Press", primary: ["delts_front", "delts_side"], secondary: ["triceps", "traps", "abs"] }),
   overheadPress({ name: "Push Press", dip: true, primary: ["delts_front", "delts_side", "triceps"], secondary: ["quads", "glutes"] }),
+  landminePress,
   shoulderPressMachine,
   dumbbellShoulderPress,
   arnoldPress,
   lateralRaise,
   cableLateralRaise,
   rearDeltFly,
+  reversePecDeck,
   facePull,
   handstand({ name: "Handstand Hold", primary: ["delts_front", "triceps"], secondary: ["traps", "abs", "forearms"] }),
   handstand({ name: "Handstand Push-Up", push: true, primary: ["delts_front", "triceps"], secondary: ["traps", "chest"] }),
