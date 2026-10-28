@@ -245,6 +245,51 @@ export function setForm<T extends FoodRowFields>(row: T, name: string): T {
   };
 }
 
+// setForm for a food as it's saved, for the plan in the day log, whose
+// switcher rewrites the plan's own row rather than a row in a form. There's
+// no row state there to carry formGrams from one switch to the next, so the
+// caller hands back the one the last switch returned. It's only used while it
+// still describes this food, to within rounding: a stale one, or one that
+// never belonged to it, changes nothing. Null when there's nothing to switch.
+//
+// The same pure function on both sides, so the plan can show the switch
+// before the server has saved it and the server saves exactly that.
+export function switchSavedForm(
+  food: StoredFood,
+  name: string,
+  formGrams: number | null = null,
+): { food: StoredFood & { nutrients: Nutrients | null }; formGrams: number | null } | null {
+  const row = rehydrateFoodFields(food);
+  const from = foodForms(row.name)?.find(
+    (f) => normalizeFoodName(f.name) === normalizeFoodName(row.name),
+  );
+  if (!from) return null;
+
+  const grams = row.grams ?? parseGrams(row.quantity);
+  const fits =
+    formGrams != null &&
+    grams != null &&
+    Math.abs((formGrams * from.per100) / 100 - grams) <= Math.max(1, grams * 0.03);
+  const next = setForm({ ...row, formGrams: fits ? formGrams : null }, name);
+  if (normalizeFoodName(next.name) === normalizeFoodName(row.name)) return null;
+
+  const int = (s: string) => (s.trim() === "" ? null : Math.round(Number(s)));
+  return {
+    food: {
+      name: next.name,
+      quantity: next.quantity.trim() || null,
+      calories: int(next.calories),
+      protein: int(next.protein),
+      carbs: int(next.carbs),
+      fat: int(next.fat),
+      grams: next.grams,
+      gramsPerCup: next.gramsPerCup,
+      nutrients: parseNutrients(next.nutrients),
+    },
+    formGrams: next.formGrams,
+  };
+}
+
 // A row with no preset behind it — typed by hand, or typed over — scales from
 // itself: what it says now is what it's worth, and its quantity says how much
 // that is. "150 g" is 150 g, so grams and ounces work; "2 × ½ lemon" is two of
