@@ -5,6 +5,7 @@
 // Both halves of the loop live here: the coach's plan (parseNutritionForm) and
 // the athlete's day log (parseNutritionLogForm). sumMacros serves both.
 import { toFoodSource, type FoodSource } from "@/lib/constants";
+import { roundGrams } from "@/lib/food-amounts";
 import { groupLabel } from "@/lib/food-groups";
 import { parseNutrients, type Nutrients } from "@/lib/nutrients";
 
@@ -55,15 +56,13 @@ function intOrNull(value: unknown): number | null {
 }
 
 // A weight or a density from the builder: positive, finite, and capped, the
-// same gate intOrNull is for the macros — with one decimal kept, because 0.5 g
-// of saffron is a real amount and 0 g of anything isn't.
+// same gate intOrNull is for the macros — with two decimals kept, because ⅛
+// tsp of salt is 0.75 g and 0 g of anything isn't an amount.
 function measureOrNull(value: unknown, max: number): number | null {
   const s = String(value ?? "").trim();
   if (!s) return null;
   const n = Number(s);
-  return Number.isFinite(n) && n > 0 && n <= max
-    ? Math.round(n * 10) / 10
-    : null;
+  return Number.isFinite(n) && n > 0 && n <= max ? roundGrams(n) : null;
 }
 
 // The three fields every food row carries beyond its macros, parsed the same

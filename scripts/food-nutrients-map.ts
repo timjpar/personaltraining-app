@@ -94,7 +94,7 @@ export const USDA_MATCHES: Record<string, UsdaMatch | null> = {
   "Skimmed Milk": { fdc: 171269, japan: "13006" },
   "Soy Milk, Unsweetened": { fdc: 175215, japan: "04052" },
   "Almond Milk, Unsweetened": { fdc: 174832, cup: 240, note: "USDA weighs a cup at 262 g, which is heavier than the milk is" },
-  "Cheddar Cheese": { fdc: 173414, japan: "13037" },
+  "Cheddar Cheese": { fdc: 173414, cup: 113, japan: "13037", note: "the cup is shredded, the way cheese is measured; USDA lists diced first" },
   "Mozzarella": { fdc: 170845, iodine: 191 },
   "Feta": { fdc: 173420 },
   "Halloumi": null,

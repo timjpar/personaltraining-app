@@ -20,6 +20,7 @@ import {
   parseGrams,
   parseMl,
   parseUnitAmountLabel,
+  roundGrams,
   unitAmountLabel,
   type AmountUnit,
 } from "@/lib/food-amounts";
@@ -209,7 +210,7 @@ const CATALOG: FoodPresetCategory[] = [
       { name: "Broccoli, Frozen", serving: "1 cup (156 g)", calories: 41, protein: 4, carbs: 7, fat: 0 },
       { name: "Spinach", serving: "1 cup (30 g)", calories: 7, protein: 1, carbs: 1, fat: 0 },
       { name: "Spinach, Frozen", serving: "1 cup (156 g)", calories: 45, protein: 6, carbs: 7, fat: 1 },
-      { name: "Kale", serving: "1 cup (67 g)", calories: 33, protein: 3, carbs: 6, fat: 1 },
+      { name: "Kale", serving: "1 cup (21 g)", calories: 7, protein: 1, carbs: 1, fat: 0 },
       { name: "Kale, Frozen", serving: "1 cup (130 g)", calories: 36, protein: 3, carbs: 6, fat: 1 },
       { name: "Cauliflower", serving: "1 cup (107 g)", calories: 27, protein: 2, carbs: 5, fat: 0 },
       { name: "Cauliflower, Frozen", serving: "1 cup (132 g)", calories: 32, protein: 3, carbs: 6, fat: 0 },
@@ -235,7 +236,7 @@ const CATALOG: FoodPresetCategory[] = [
       { name: "Butternut Squash, Frozen", serving: "1 cup (140 g)", calories: 80, protein: 2, carbs: 20, fat: 0 },
       { name: "Peas", serving: "1 cup (145 g)", calories: 117, protein: 8, carbs: 21, fat: 1 },
       { name: "Peas, Frozen", serving: "1 cup (134 g)", calories: 103, protein: 7, carbs: 18, fat: 1 },
-      { name: "Sweetcorn", serving: "1 cup (164 g)", calories: 143, protein: 5, carbs: 31, fat: 2 },
+      { name: "Sweetcorn", serving: "1 cup (145 g)", calories: 125, protein: 5, carbs: 27, fat: 2 },
       { name: "Sweetcorn, Frozen", serving: "1 cup (136 g)", calories: 120, protein: 4, carbs: 28, fat: 1 },
     ],
   },
@@ -593,9 +594,7 @@ export function scalePreset(
 ): ScaledFood | null {
   const servings = servingsIn(preset, amount, unit);
   if (servings == null) return null;
-  const grams = preset.grams
-    ? Math.round(preset.grams * servings * 10) / 10
-    : null;
+  const grams = preset.grams ? roundGrams(preset.grams * servings) : null;
   return {
     quantity:
       unit === "serving"
@@ -731,7 +730,7 @@ export function recentFoods(rows: StoredFood[], limit = 25): FoodPreset[] {
       protein: Math.round((r.protein ?? 0) / per),
       carbs: Math.round((r.carbs ?? 0) / per),
       fat: Math.round((r.fat ?? 0) / per),
-      grams: detail.grams == null ? null : Math.round((detail.grams / per) * 10) / 10,
+      grams: detail.grams == null ? null : roundGrams(detail.grams / per),
       gramsPerCup: detail.gramsPerCup,
       nutrients: scaleNutrients(detail.nutrients, 1 / per),
     });
