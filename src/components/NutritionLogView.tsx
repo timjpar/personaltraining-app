@@ -117,9 +117,13 @@ export function NutritionLogView({
                 <h3 className="font-display text-base font-semibold text-ink">
                   {meal || "Other"}
                 </h3>
-                <span className="metric text-xs text-ink-soft">
-                  {mealTotals.calories} kcal
-                </span>
+                {/* Not for a meal of one food, whose total is that food's
+                    own line again. */}
+                {mealFoods.length > 1 ? (
+                  <span className="metric text-xs text-ink-soft">
+                    {mealTotals.calories} kcal
+                  </span>
+                ) : null}
               </div>
               {/* The plan's groups, kept when they were ticked off it —
                   boxed exactly as the plan beside this draws them. */}
@@ -130,11 +134,6 @@ export function NutritionLogView({
                       <div className={GROUP_BOX}>
                         <FoodGroupHeading
                           name={block.group}
-                          macros={
-                            block.foods.length > 1
-                              ? macroText(sumMacros([block]))
-                              : undefined
-                          }
                         />
                         <ul className="mt-1 divide-y divide-line">
                           {block.foods.map(foodItem)}
