@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getPickerCatalog } from "@/lib/exercise-catalog";
-import { Container, PageHeading } from "@/components/ui";
+import { Container } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { updateWorkout } from "@/app/(trainer)/workout-actions";
 import { toDateInput } from "@/lib/format";
@@ -38,19 +38,19 @@ export default async function EditWorkoutPage({
       </Link>
 
       <div className="mt-3">
-        <PageHeading eyebrow="Edit session" title={workout.title}>
-          {/* The coach can assign a session to themselves, and this row is
-              reached the same way any other is — via /workouts/<id>, which
-              bounces a self session on to /me/workouts/<id>. Only the sentence
-              changes; the builder doesn't care whose session it is. */}
-          {workout.clientId === trainer.id
-            ? "Programming for yourself."
-            : `Programming for ${workout.client.name}.`}
-        </PageHeading>
-      </div>
-
-      <div className="mt-7">
         <WorkoutBuilder
+          heading={{
+            eyebrow: "Edit session",
+            title: workout.title,
+            // The coach can assign a session to themselves, and this row is
+            // reached the same way any other is — via /workouts/<id>, which
+            // bounces a self session on to /me/workouts/<id>. Only the sentence
+            // changes; the builder doesn't care whose session it is.
+            intro:
+              workout.clientId === trainer.id
+                ? "Programming for yourself."
+                : `Programming for ${workout.client.name}.`,
+          }}
           action={updateWorkout.bind(null, workout.id)}
           submitLabel="Save changes"
           cancelHref={`/workouts/${workout.id}`}
