@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -15,6 +14,7 @@ import { cn } from "@/lib/cn";
 import {
   CAMERA_UNAVAILABLE,
   createDetector,
+  DECODER_UNAVAILABLE,
   detectFrom,
   PHOTO_CAMERA_UNAVAILABLE,
   supportsBarcodeScanning,
@@ -33,6 +33,11 @@ import { FOOD_SOURCE, type FoodSource } from "@/lib/constants";
 const MAX_EDGE = 1024;
 const JPEG_QUALITY = 0.7;
 
+// Having a camera doesn't change mid-session, so there is nothing to subscribe
+// to — useSyncExternalStore is here for its server snapshot, which keeps the
+// button out of the hydrating render instead of mismatching it.
+const noSubscription = () => () => {};
+
 export function FoodScanner({
   onFoods,
   photoEnabled,
@@ -49,7 +54,6 @@ export function FoodScanner({
   // for the athlete to press the shutter. A single nullable mode rather than
   // two booleans, because "both open at once" isn't a state that exists.
   const [camera, setCamera] = useState<"barcode" | "photo" | null>(null);
-  const [canScan, setCanScan] = useState(false);
   const [manual, setManual] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -64,18 +68,14 @@ export function FoodScanner({
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const libraryRef = useRef<HTMLInputElement | null>(null);
 
-  // The capability check is async, so the button can't be gated inline. Gating
-  // on the resolved value means it simply doesn't render where it can't work,
-  // rather than appearing and then failing.
-  useEffect(() => {
-    let alive = true;
-    supportsBarcodeScanning().then((ok) => {
-      if (alive) setCanScan(ok);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // Any camera will do: a browser without a detector of its own gets the WASM
+  // one (see barcode.ts), so the button is missing only where there's no
+  // camera to point.
+  const canScan = useSyncExternalStore(
+    noSubscription,
+    supportsBarcodeScanning,
+    () => false,
+  );
 
   // Whether "Take a photo" opens a camera here or hands off to the phone's —
   // not whether it appears. Not an effect, because this is a value the browser
@@ -118,14 +118,9 @@ export function FoodScanner({
       // permission prompt resolves and start() has somewhere to put the stream.
       setCamera(mode);
 
-      // Built before the camera opens, so a browser that could never decode a
-      // barcode says so instead of asking for permission first and then failing.
-      const detector = mode === "barcode" ? createDetector() : null;
-      if (mode === "barcode" && !detector) {
-        setMessage(CAMERA_UNAVAILABLE);
-        setCamera(null);
-        return;
-      }
+      // Started alongside the camera rather than before it: on an iPhone this
+      // is the WASM download, and the permission prompt is time it can use.
+      const detecting = mode === "barcode" ? createDetector() : null;
 
       if (!(await start("environment"))) {
         // One failure, two ways out: the barcode path can point at the number
@@ -139,7 +134,16 @@ export function FoodScanner({
 
       // Photo mode is done here: the stream is on screen and the next move is the
       // athlete's. Everything below is the barcode loop.
-      if (!detector) return;
+      if (!detecting) return;
+      const detector = await detecting;
+      // Closed while the decoder was still loading.
+      if (cancelledRef.current) return;
+      if (!detector) {
+        stop();
+        setCamera(null);
+        setMessage(DECODER_UNAVAILABLE);
+        return;
+      }
       const video = videoRef.current;
       if (!video) return;
 
@@ -149,8 +153,15 @@ export function FoodScanner({
         if (cancelledRef.current) return;
         try {
           const code = await detectFrom(detector, video);
-          if (code) {
-            cancelledRef.current = true;
+          if (code && !cancelledRef.current) {
+            // The camera closes on a read, not on a successful lookup. It used
+            // to stay open after a miss, showing a live preview over a loop
+            // that had already stopped — a scanner that looked like it was
+            // still trying. The number goes into the field below instead, so a
+            // miss can be corrected and looked up again without re-scanning.
+            stop();
+            setCamera(null);
+            setManual(code);
             submitBarcode(code);
             return;
           }
@@ -162,7 +173,7 @@ export function FoodScanner({
       };
       requestAnimationFrame(tick);
     },
-    [cancelledRef, start, submitBarcode, videoRef],
+    [cancelledRef, start, stop, submitBarcode, videoRef],
   );
 
   // Shared by the file picker and the shutter. By the time a photo reaches
@@ -342,6 +353,12 @@ export function FoodScanner({
               camera === "photo" ? "h-64 object-contain" : "h-48 object-cover",
             )}
           />
+          {camera === "barcode" ? (
+            <p className="border-t border-line bg-card px-3 py-2 text-xs text-ink-soft">
+              Hold the barcode flat and close enough to fill the middle — it
+              reads by itself.
+            </p>
+          ) : null}
           {camera === "photo" ? (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-card px-3 py-2">
               <span className="text-xs text-ink-soft">
