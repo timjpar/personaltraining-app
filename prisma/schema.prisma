@@ -897,10 +897,22 @@ model NutritionPlan {
   clientId String?
   client   User?   @relation("ClientNutrition", fields: [clientId], references: [id], onDelete: Cascade)
 
+  // The library plan this snapshot was assigned from, while it still exists.
+  // An athlete's snapshot only remembers it. The coach's own copy (clientId ===
+  // trainerId) follows it: saving the library plan rewrites that copy, and a
+  // form switched on the copy is made on the library plan too — see
+  // updateNutritionTemplate and switchPlanFoodForm. A coach plans for
+  // themselves in the library and eats from the copy, and the two drifting
+  // apart is never what they meant.
+  sourceId String?
+  source   NutritionPlan?  @relation("PlanCopies", fields: [sourceId], references: [id], onDelete: SetNull)
+  copies   NutritionPlan[] @relation("PlanCopies")
+
   meals Meal[]
 
   @@index([trainerId])
   @@index([clientId])
+  @@index([sourceId])
 }
 
 model Meal {
