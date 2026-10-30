@@ -16,6 +16,7 @@ import {
   handle,
   landmineBase,
   plateEdge,
+  plateStack,
   ring,
   seat,
   strap,
@@ -29,6 +30,7 @@ import {
   grips,
   hold,
   kf,
+  LEN,
   lerp,
   limb,
   line,
@@ -213,32 +215,53 @@ const pecDeck: Spec = {
 
 // --- Push-ups and dips -------------------------------------------------------------
 
+// How high the plates under a deficit push-up's hands stand.
+const DEFICIT = 10;
+
 function pushUpSpec(o: {
   name: string;
   aka?: string[];
   incline?: boolean;
   diamond?: boolean;
+  // Hands raised on plates, feet on the floor. The bottom is the floor
+  // push-up's, so the chest sinks past the hands by the plates' height.
+  deficit?: boolean;
   primary: Spec["primary"];
   secondary?: Spec["secondary"];
 }): Spec {
-  const surface = o.incline ? -44 : 0;
-  const [high, low] = o.incline ? [40, 28] : [21, 7];
+  const surface = o.incline ? -44 : o.deficit ? -DEFICIT : 0;
+  const low = o.incline ? 28 : 7;
+  const toe = v(o.incline ? -96 : -62, 0);
+  // Hands stay where they were planted: under the shoulders at the top. The
+  // top is solved for the tilt that just straightens the arms there, since a
+  // steeper one leaves the palms hovering over the floor.
+  const ahead = o.diamond ? 7 : 1;
+  const reach = LEN.upperArm + LEN.forearm - 0.4;
+  let high = low;
+  let hi = 60;
+  for (let i = 0; i < 30; i++) {
+    const mid = (high + hi) / 2;
+    const s = shoulders(prone(toe, mid)).N;
+    if (Math.hypot(ahead, s.y - (surface - LEN.palm)) > reach) hi = mid;
+    else high = mid;
+  }
+  const palm = v(shoulders(prone(toe, high)).N.x + ahead, surface);
   return {
     name: o.name,
     aka: o.aka,
     mode: "alternate",
-    seconds: 2.6,
+    seconds: o.deficit ? 3 : 2.6,
     hands: { N: "palm" },
     primary: o.primary,
     secondary: o.secondary,
     still: 0.85,
-    scene: o.incline ? [{ draw: box(-6, 50, surface, "pad"), layer: "back" }] : [],
+    scene: o.incline
+      ? [{ draw: box(-6, 50, surface, "pad"), layer: "back" }]
+      : o.deficit
+        ? [{ draw: plateStack(palm.x, surface), layer: "back" }]
+        : [],
     motion: (p) => {
-      const toe = v(o.incline ? -96 : -62, 0);
       let pose = prone(toe, lerp(high, low, p));
-      // Hands stay where they were planted: under the shoulders at the top.
-      const top = shoulders(prone(toe, high)).N;
-      const palm = v(top.x + (o.diamond ? 7 : 1), surface);
       pose = palms(pose, "side", palm, palm, 90, -1);
       return { pose };
     },
@@ -693,6 +716,7 @@ export const PUSH: Spec[] = [
   pushUpSpec({ name: "Push-Up", aka: ["Push Up"], primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   pushUpSpec({ name: "Incline Push-Up", incline: true, primary: ["chest", "triceps"], secondary: ["delts_front"] }),
   pushUpSpec({ name: "Diamond Push-Up", diamond: true, primary: ["triceps", "chest"], secondary: ["delts_front"] }),
+  pushUpSpec({ name: "Deficit Push-Up", deficit: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   scapularPushUp,
   dip({ name: "Dip", primary: ["chest", "triceps"], secondary: ["delts_front"] }),
   dip({ name: "Ring Dip", rings: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
