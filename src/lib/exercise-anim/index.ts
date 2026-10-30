@@ -68,6 +68,7 @@ export const ANIMATIONS: Record<string, { primary: string[]; secondary: string[]
   "dead-hang": {"primary":["forearms"],"secondary":["lats","upper_back","traps"]},
   "deadlift": {"primary":["glutes","hamstrings","lower_back"],"secondary":["quads","traps","forearms","lats"]},
   "deficit-deadlift": {"primary":["glutes","hamstrings","lower_back"],"secondary":["quads","traps","forearms"]},
+  "deficit-push-up": {"primary":["chest","triceps"],"secondary":["delts_front","abs"]},
   "diamond-push-up": {"primary":["triceps","chest"],"secondary":["delts_front"]},
   "dip": {"primary":["chest","triceps"],"secondary":["delts_front"]},
   "doorway-pec-stretch": {"primary":["chest","delts_front"],"secondary":[]},

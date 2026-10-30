@@ -13,7 +13,7 @@ export type ExerciseAnimationInfo = {
 // Served by src/app/exercise-animations/[file]/route.ts. The version is part of
 // the URL so a redrawn animation isn't held back by a cached old one; bump it
 // whenever the drawings change.
-export const ANIMATION_VERSION = 3;
+export const ANIMATION_VERSION = 4;
 
 export function animationFor(name: string): ExerciseAnimationInfo | null {
   const asked = animationSlug(name);

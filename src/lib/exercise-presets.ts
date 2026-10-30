@@ -122,6 +122,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Push-Up",
       "Incline Push-Up",
       "Diamond Push-Up",
+      "Deficit Push-Up",
       "Dip",
       "Ring Row",
       "Inverted Row",

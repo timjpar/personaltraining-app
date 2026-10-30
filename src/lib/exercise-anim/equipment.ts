@@ -189,6 +189,17 @@ export function plateEdge(r = 14): Drawing {
   return { svg: `<rect class="iron" x="-3" y="${-r}" width="6" height="${2 * r}" rx="1.8"/>`, box: [-3, -r, 3, r] };
 }
 
+// Plates lying flat on the floor, stacked to `top` and centred on `x`, seen
+// edge-on: what the hands rest on for a deficit push-up.
+export function plateStack(x: number, top: number, count = 2, r = 16): Drawing {
+  const t = -top / count;
+  const svg = Array.from({ length: count }, (_, i) => {
+    const w = r - i * 1.5;
+    return `<rect class="iron" x="${n(x - w)}" y="${n(-t * (i + 1))}" width="${n(2 * w)}" height="${n(t)}" rx="1.5"/>`;
+  }).join("");
+  return { svg, box: [x - r, top, x + r, 0] };
+}
+
 // The landmine's floor base, with the sleeve the bar pivots in at `pivot`.
 export function landmineBase(pivot: V): Drawing {
   return {
