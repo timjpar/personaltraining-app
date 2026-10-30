@@ -12,6 +12,7 @@ import {
   normalizeExerciseName,
   disciplineForName,
 } from "@/lib/exercise-presets";
+import { exerciseMatcher } from "@/lib/exercise-search";
 import {
   DISCIPLINES,
   DISCIPLINE_ORDER,
@@ -85,7 +86,7 @@ export function ExerciseCatalog({ custom }: { custom: CustomMovement[] }) {
     ];
   }, [custom]);
 
-  const key = normalizeExerciseName(query);
+  const matches = useMemo(() => exerciseMatcher(query), [query]);
 
   // Counts respect the search but not the chosen chip, so they answer "what
   // else matches?" rather than restating the section you're already looking at.
@@ -93,13 +94,13 @@ export function ExerciseCatalog({ custom }: { custom: CustomMovement[] }) {
     const tally: Record<string, number> = { ALL: 0 };
     for (const section of allSections) {
       for (const row of section.rows) {
-        if (key && !normalizeExerciseName(row.name).includes(key)) continue;
+        if (matches && matches(row.name) === null) continue;
         tally.ALL += 1;
         tally[row.discipline] = (tally[row.discipline] ?? 0) + 1;
       }
     }
     return tally;
-  }, [allSections, key]);
+  }, [allSections, matches]);
 
   const sections = useMemo(
     () =>
@@ -109,11 +110,11 @@ export function ExerciseCatalog({ custom }: { custom: CustomMovement[] }) {
           rows: section.rows.filter(
             (row) =>
               (filter === "ALL" || row.discipline === filter) &&
-              (!key || normalizeExerciseName(row.name).includes(key)),
+              (!matches || matches(row.name) !== null),
           ),
         }))
         .filter((section) => section.rows.length > 0),
-    [allSections, filter, key],
+    [allSections, filter, matches],
   );
 
   // The finger-strength warning is climbing's, so it appears when climbing work
