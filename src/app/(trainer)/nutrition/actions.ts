@@ -80,23 +80,38 @@ export async function updateNutritionTemplate(
   const { data, error } = parseNutritionForm(formData);
   if (error || !data) return { error: error ?? "Something went wrong." };
 
-  // Replace the meals wholesale (foods cascade with their meal).
+  // The coach's own copies of this plan get the same save (see
+  // NutritionPlan.sourceId). An athlete's copy stays the snapshot it was when
+  // it was handed over.
+  const ownCopies = await prisma.nutritionPlan.findMany({
+    where: { sourceId: planId, trainerId: trainer.id, clientId: trainer.id },
+    select: { id: true },
+  });
+  const planIds = [planId, ...ownCopies.map((c) => c.id)];
+
+  // Replace the meals wholesale (foods cascade with their meal), in the plan
+  // and its copies at once, so a copy can never be left half a save behind.
   await prisma.$transaction([
-    prisma.meal.deleteMany({ where: { planId } }),
-    prisma.nutritionPlan.update({
-      where: { id: planId },
-      data: {
-        title: data.title,
-        notes: data.notes,
-        targetCalories: data.targetCalories,
-        targetProtein: data.targetProtein,
-        targetCarbs: data.targetCarbs,
-        targetFat: data.targetFat,
-        meals: { create: mealCreateData(data.meals) },
-      },
-    }),
+    prisma.meal.deleteMany({ where: { planId: { in: planIds } } }),
+    ...planIds.map((id) =>
+      prisma.nutritionPlan.update({
+        where: { id },
+        data: {
+          title: data.title,
+          notes: data.notes,
+          targetCalories: data.targetCalories,
+          targetProtein: data.targetProtein,
+          targetCarbs: data.targetCarbs,
+          targetFat: data.targetFat,
+          meals: { create: mealCreateData(data.meals) },
+        },
+      }),
+    ),
   ]);
 
+  if (ownCopies.length > 0) {
+    revalidateAssignedPlans(trainer.id, [{ id: trainer.id, name: trainer.name }]);
+  }
   revalidatePath("/nutrition");
   revalidatePath(`/nutrition/${planId}`);
   redirect(`/nutrition/${planId}`);
@@ -121,7 +136,8 @@ export async function deleteNutritionTemplate(planId: string) {
 // their most recently assigned one, and that rule is what makes the coach's
 // case work with no extra machinery: their own copy is a NutritionPlan whose
 // clientId happens to equal its trainerId, and /me/nutrition reads it back with
-// the same "newest assignedAt wins" query an athlete's day view uses.
+// the same "newest assignedAt wins" query an athlete's day view uses. Every copy
+// remembers its library plan; only the coach's own one follows it from then on.
 export async function assignNutritionPlan(
   templateId: string,
   _prev: AssignState,
@@ -177,6 +193,7 @@ export async function assignNutritionPlan(
           targetFat: template.targetFat,
           trainerId: trainer.id,
           clientId: t.id,
+          sourceId: template.id,
           assignedAt: now,
           meals: { create: meals },
         },
