@@ -7,8 +7,13 @@
 // Memoized, and handed only what's about it, so a drag's pointer moves
 // re-render the board's overlay and not seven columns of inputs.
 import Link from "next/link";
-import { memo, useState, type PointerEvent } from "react";
+import { memo, useMemo, useState, type PointerEvent } from "react";
 import { useShowAnimations } from "@/components/AnimationToggle";
+import {
+  BoardStatsBreakdown,
+  BoardStatsSummary,
+  useBoardBreakdown,
+} from "@/components/BoardWorkoutStats";
 import { Grip } from "@/components/Drag";
 import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { ExercisePicker } from "@/components/ExercisePicker";
@@ -37,6 +42,7 @@ import type { PickerCatalog } from "@/lib/exercise-catalog";
 import { SECTION_PRESET_CATEGORY } from "@/lib/exercise-presets";
 import { formatDate, parseDateInput } from "@/lib/format";
 import { WORKOUT_KIND_LABELS, workoutKind } from "@/lib/library-view";
+import { formatMinutes, workoutStats } from "@/lib/workout-stats";
 
 type Edit = (fn: (store: BoardStore) => BoardStore) => void;
 type GripFor = (subject: BoardSubject) => { onPointerDown: (e: PointerEvent) => void };
@@ -412,6 +418,15 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
   const movable = !w.locked || layout === "columns";
   const label = w.title.trim() || "Untitled workout";
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [breakdown, setBreakdown] = useBoardBreakdown();
+  const stats = useMemo(
+    () =>
+      workoutStats(
+        SECTION_ORDER.flatMap((section) => w.rows[section].map((row) => ({ ...row, section }))),
+        w.discipline,
+      ),
+    [w.rows, w.discipline],
+  );
 
   // Numbering runs 01..N across the sections, matching the global `order` a
   // save writes, as the builder numbers them.
@@ -564,7 +579,8 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
       ) : null}
 
       {/* What a column is compared by: how many exercises, how many working
-          sets, and a bar of those sets against the biggest workout in view. */}
+          sets, a bar of those sets against the biggest workout in view, and
+          what those sets work. */}
       <div className="px-3.5 pb-2.5 pt-2">
         <p className="metric flex flex-wrap items-baseline gap-x-3 text-xs text-ink-soft">
           <span>
@@ -575,6 +591,11 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
               <span className="text-sm text-ink">{sets}</span> set{sets === 1 ? "" : "s"}
             </span>
           ) : null}
+          {stats.minutes > 0 ? (
+            <span title="A rough length, from sets, reps, tempo and rest">
+              {formatMinutes(stats.minutes)}
+            </span>
+          ) : null}
           {w.locked ? <span className="eyebrow text-jade-strong">Logged</span> : null}
         </p>
         <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-line" aria-hidden>
@@ -583,7 +604,9 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
             style={{ width: maxSets > 0 ? `${Math.round((sets / maxSets) * 100)}%` : "0%" }}
           />
         </div>
+        <BoardStatsSummary stats={stats} open={breakdown} onToggle={() => setBreakdown(!breakdown)} />
       </div>
+      {breakdown ? <BoardStatsBreakdown stats={stats} /> : null}
 
       {error ? (
         <p role="alert" className="mx-2.5 mb-2 rounded-[var(--radius-sm)] border border-flag/25 bg-flag/5 px-2.5 py-2 text-xs text-flag">
