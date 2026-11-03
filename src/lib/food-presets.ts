@@ -335,6 +335,8 @@ const CATALOG: FoodPresetCategory[] = [
       { name: "Balsamic Vinegar", serving: "1 tbsp (16 g)", calories: 14, protein: 0, carbs: 3, fat: 0 },
       { name: "Honey", serving: "1 tbsp (21 g)", calories: 64, protein: 0, carbs: 17, fat: 0 },
       { name: "Maple Syrup", serving: "1 tbsp (20 g)", calories: 52, protein: 0, carbs: 13, fat: 0 },
+      { name: "Ground Turmeric", serving: "1 tsp (3 g)", calories: 9, protein: 0, carbs: 2, fat: 0 },
+      { name: "Ground Ginger", serving: "1 tsp (1.8 g)", calories: 6, protein: 0, carbs: 1, fat: 0 },
     ],
   },
   {

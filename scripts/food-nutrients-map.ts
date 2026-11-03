@@ -294,6 +294,10 @@ export const USDA_MATCHES: Record<string, UsdaMatch | null> = {
   "Balsamic Vinegar": { fdc: 172241, japan: "17091" },
   "Honey": { fdc: 169640, japan: "03022" },
   "Maple Syrup": { fdc: 169661, japan: "03023" },
+  // Japan's tables have no turmeric on its own, only inside curry powder, so
+  // its chromium, molybdenum and biotin stay unknown rather than borrowed.
+  "Ground Turmeric": { fdc: 172231 },
+  "Ground Ginger": { fdc: 170926, japan: "17068" },
   // Both salts are SR Legacy's table salt for sodium. Chloride is that sodium
   // scaled by atomic mass (35.45 / 22.99), since salt is sodium chloride.
   "Iodized Salt": { fdc: 173468, iodine: 19, japan: "17012", extra: { chloride: 59760 } },
