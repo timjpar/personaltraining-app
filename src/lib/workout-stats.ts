@@ -252,11 +252,26 @@ export function formatMinutes(m: number): string {
   return rest ? `~${h} h ${rest} min` : `~${h} h`;
 }
 
+// Adds an exercise's sets to a muscle's list, merging a repeat of the same
+// movement into the line it already has.
+function credit(list: MuscleSource[], name: string, sets: number) {
+  const key = normalizeExerciseName(name);
+  const same = list.find((s) => normalizeExerciseName(s.name) === key);
+  if (same) same.sets += sets;
+  else list.push({ name, sets });
+}
+
 function listNames(names: string[]): string {
   const shown = names.slice(0, 3);
   const more = names.length - shown.length;
   const head = shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)}` : shown[0];
   return more > 0 ? `${shown.join(", ")} and ${more} more` : head;
+}
+
+function patternsInOrder(patterns: Map<PatternKey, PatternCount>, strength: boolean): PatternCount[] {
+  return PATTERN_ORDER.filter((k) => patterns.has(k) || (strength && BASIC_PATTERNS.has(k))).map(
+    (k) => patterns.get(k) ?? { key: k, label: PATTERN_LABELS[k], sets: 0, exercises: 0 },
+  );
 }
 
 export function workoutStats(exercises: StatsExercise[], discipline: string): WorkoutStats {
@@ -280,12 +295,7 @@ export function workoutStats(exercises: StatsExercise[], discipline: string): Wo
     }
     return entry;
   };
-  const credit = (list: MuscleSource[], name: string, sets: number) => {
-    const key = normalizeExerciseName(name);
-    const same = list.find((s) => normalizeExerciseName(s.name) === key);
-    if (same) same.sets += sets;
-    else list.push({ name, sets });
-  };
+
 
   for (const ex of exercises) {
     const name = ex.name.trim();
@@ -345,9 +355,7 @@ export function workoutStats(exercises: StatsExercise[], discipline: string): Wo
   );
 
   const strength = kind === DISCIPLINES.STRENGTH;
-  const patternList = PATTERN_ORDER.filter(
-    (k) => patterns.has(k) || (strength && BASIC_PATTERNS.has(k)),
-  ).map((k) => patterns.get(k) ?? { key: k, label: PATTERN_LABELS[k], sets: 0, exercises: 0 });
+  const patternList = patternsInOrder(patterns, strength);
 
   const notes: StatNote[] = [];
   const over = muscleList.filter((m) => m.sets > SESSION_SET_CEILING);
@@ -393,5 +401,111 @@ export function workoutStats(exercises: StatsExercise[], discipline: string): Wo
     })),
     minutes: seconds > 0 ? roundMinutes(seconds) : 0,
     notes,
+  };
+}
+
+// Every muscle the drawings know, by body part, so a week's totals can show the
+// ones nothing reaches as well as the ones that are covered.
+export const MUSCLE_REGIONS: { label: string; muscles: string[] }[] = [
+  { label: "Chest & shoulders", muscles: ["chest", "delts_front", "delts_side", "delts_rear"] },
+  { label: "Back", muscles: ["lats", "upper_back", "traps", "lower_back", "neck"] },
+  { label: "Arms", muscles: ["biceps", "triceps", "forearms"] },
+  { label: "Core", muscles: ["abs", "obliques", "hip_flexors"] },
+  {
+    label: "Legs",
+    muscles: ["quads", "glutes", "hamstrings", "adductors", "abductors", "calves", "tibialis"],
+  },
+];
+
+export type WeekWorkout = {
+  key: string;
+  // Short, for "Mon 17 · Fri 9".
+  label: string;
+  discipline: string;
+  exercises: StatsExercise[];
+};
+
+export type WeekMuscle = MuscleVolume & {
+  // Direct sets from each workout that has any, in the order given.
+  byWorkout: { key: string; label: string; sets: number }[];
+};
+
+export type WeekStats = {
+  workouts: number;
+  // Every set on the cards, as their headers add them up.
+  sets: number;
+  minutes: number;
+  regions: { label: string; muscles: WeekMuscle[] }[];
+  // Muscles nothing works or assists.
+  untargeted: string[];
+  // Muscles only ever assisting.
+  assistingOnly: string[];
+  // What the stretches and mobility work go after, most often first.
+  stretched: string[];
+  patterns: PatternCount[];
+};
+
+// The workouts on the board added together: each muscle's sets across all of
+// them, the exercises behind those sets, and which workout they come from.
+export function weekStats(workouts: WeekWorkout[]): WeekStats {
+  const muscles = new Map<string, WeekMuscle>();
+  for (const region of MUSCLE_REGIONS) {
+    for (const m of region.muscles) {
+      muscles.set(m, {
+        muscle: m,
+        label: muscleLabel(m),
+        sets: 0,
+        assistSets: 0,
+        works: [],
+        assists: [],
+        byWorkout: [],
+      });
+    }
+  }
+  const patterns = new Map<PatternKey, PatternCount>();
+  const stretched = new Map<string, number>();
+  let sets = 0;
+  let minutes = 0;
+  let strength = false;
+
+  for (const w of workouts) {
+    const stats = workoutStats(w.exercises, w.discipline);
+    for (const ex of w.exercises) sets += setCount(ex.sets);
+    minutes += stats.minutes;
+    strength ||= toDiscipline(w.discipline) === DISCIPLINES.STRENGTH;
+    for (const m of stats.muscles) {
+      const total = muscles.get(m.muscle);
+      if (!total) continue;
+      total.sets += m.sets;
+      total.assistSets += m.assistSets;
+      for (const src of m.works) credit(total.works, src.name, src.sets);
+      for (const src of m.assists) credit(total.assists, src.name, src.sets);
+      if (m.sets > 0) total.byWorkout.push({ key: w.key, label: w.label, sets: m.sets });
+    }
+    for (const p of stats.patterns) {
+      if (!p.exercises) continue;
+      const total = patterns.get(p.key) ?? { ...p, sets: 0, exercises: 0 };
+      total.sets += p.sets;
+      total.exercises += p.exercises;
+      patterns.set(p.key, total);
+    }
+    stats.stretched.forEach((label, i) =>
+      stretched.set(label, (stretched.get(label) ?? 0) + stats.stretched.length - i),
+    );
+  }
+
+  const all = [...muscles.values()];
+  return {
+    workouts: workouts.length,
+    sets,
+    minutes,
+    regions: MUSCLE_REGIONS.map((r) => ({
+      label: r.label,
+      muscles: r.muscles.map((m) => muscles.get(m)!),
+    })),
+    untargeted: all.filter((m) => !m.works.length && !m.assists.length).map((m) => m.label),
+    assistingOnly: all.filter((m) => !m.works.length && m.assists.length).map((m) => m.label),
+    stretched: [...stretched.entries()].sort((a, b) => b[1] - a[1]).map(([label]) => label),
+    patterns: patternsInOrder(patterns, strength),
   };
 }
