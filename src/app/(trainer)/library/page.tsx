@@ -29,6 +29,9 @@ export default async function LibraryPage() {
         title="Workouts"
         action={
           <div className="flex flex-wrap items-center gap-2">
+            <ButtonLink href="/library/compare" variant="outline">
+              Side by side
+            </ButtonLink>
             <ButtonLink href="/exercises" variant="outline">
               My exercises
             </ButtonLink>

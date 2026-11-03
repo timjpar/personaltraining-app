@@ -60,6 +60,13 @@ export default async function TemplatePage({
               >
                 Edit
               </ButtonLink>
+              <ButtonLink
+                href={`/library/compare?w=t:${template.id}`}
+                variant="outline"
+                size="sm"
+              >
+                Compare
+              </ButtonLink>
               <DeleteWorkoutForm
                 action={deleteTemplate.bind(null, template.id)}
                 confirmMessage="Delete this saved workout? It will also be removed from any programs. This can't be undone."
