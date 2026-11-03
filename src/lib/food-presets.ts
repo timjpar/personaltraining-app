@@ -336,7 +336,9 @@ const CATALOG: FoodPresetCategory[] = [
       { name: "Honey", serving: "1 tbsp (21 g)", calories: 64, protein: 0, carbs: 17, fat: 0 },
       { name: "Maple Syrup", serving: "1 tbsp (20 g)", calories: 52, protein: 0, carbs: 13, fat: 0 },
       { name: "Ground Turmeric", serving: "1 tsp (3 g)", calories: 9, protein: 0, carbs: 2, fat: 0 },
+      { name: "Dried Turmeric Root", serving: "3 g", calories: 9, protein: 0, carbs: 2, fat: 0 },
       { name: "Ground Ginger", serving: "1 tsp (1.8 g)", calories: 6, protein: 0, carbs: 1, fat: 0 },
+      { name: "Dried Ginger Root", serving: "3 g", calories: 10, protein: 0, carbs: 2, fat: 0 },
     ],
   },
   {
@@ -493,6 +495,15 @@ const FORMS: FoodForm[][] = [
   freshAndFrozen("Kale"),
   freshAndFrozen("Butternut Squash"),
   freshAndFrozen("Carrot", "Carrots, Frozen"),
+  // Ground is the dried root milled, so it's one for one by weight.
+  [
+    { name: "Dried Turmeric Root", label: "Dried", per100: 100 },
+    { name: "Ground Turmeric", label: "Ground", per100: 100 },
+  ],
+  [
+    { name: "Dried Ginger Root", label: "Dried", per100: 100 },
+    { name: "Ground Ginger", label: "Ground", per100: 100 },
+  ],
 ];
 
 const FORMS_BY_SLUG: Map<string, FoodForm[]> = new Map(
