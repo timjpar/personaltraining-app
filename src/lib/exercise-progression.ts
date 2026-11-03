@@ -52,7 +52,7 @@ export function parseAmount(raw: string | null | undefined): Amount | null {
 // A bare count is the common case; the rest are the ways people write one out.
 // Anything else — "30s" on a plank, "400m" on a carry — is not a rep and must
 // not be incremented.
-const REP_UNITS = new Set(["", "rep", "reps", "r", "x"]);
+export const REP_UNITS = new Set(["", "rep", "reps", "r", "x"]);
 
 const KG_UNITS = new Set(["kg", "kgs", "kilo", "kilos"]);
 const LB_UNITS = new Set(["lb", "lbs", "pound", "pounds"]);

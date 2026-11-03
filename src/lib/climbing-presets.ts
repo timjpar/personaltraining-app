@@ -66,6 +66,10 @@ export const CLIMBING_GROUPS: ClimbingGroup[] = [
         note: "Pulley or foot on a chair to remove 20–40%. 3 × 8s per side.",
       },
       {
+        name: "One-Arm Hang",
+        note: "One arm, shoulder engaged, a jug before an edge. 3–5 × 5–10s per side. Years of hangboarding first.",
+      },
+      {
         name: "Wrist Roller",
         note: "3 × up-and-down. Forearm work that balances all the closing.",
       },
@@ -113,6 +117,10 @@ export const CLIMBING_GROUPS: ClimbingGroup[] = [
         note: "1-2-3-4 without matching. Contact strength. Advanced athletes only.",
       },
       {
+        name: "Foot-On Campusing",
+        note: "Feet on the kicker, hand to hand up the rungs. 4–6 laps. The way onto the campus board, not around it.",
+      },
+      {
         name: "Scapular Pull-Up",
         note: "3 × 10. Hang, then pull the shoulders down without bending the arms. Do these first.",
       },
@@ -134,6 +142,18 @@ export const CLIMBING_GROUPS: ClimbingGroup[] = [
       {
         name: "Front Lever Raise",
         note: "3 × 5 from hang to tuck lever and back down slowly.",
+      },
+      {
+        name: "Advanced Tuck Front Lever",
+        note: "Tuck with a flat back and the hips opened to 90°. 3 × 8–12s.",
+      },
+      {
+        name: "Straddle Front Lever",
+        note: "Legs straight and wide, body horizontal. 3 × 5–10s.",
+      },
+      {
+        name: "Front Lever",
+        note: "Legs together, body straight and horizontal, arms locked. 3 × 3–10s.",
       },
       {
         name: "Hanging Leg Raise",
