@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import {
   saveNotificationPrefs,
   type NotifyState,
 } from "@/app/(trainer)/dashboard/actions";
 import { Card, Field, Select, FormError, buttonClass } from "@/components/ui";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import { formatTime } from "@/lib/calendar";
 
 // Email settings, on the activity page rather than a settings screen — the
@@ -38,6 +39,10 @@ export function NotificationsCard({
   // the moment the box is unchecked rather than after a save. null digestHour
   // is off — the one place the column's encoding is read as a boolean.
   const [digestOn, setDigestOn] = useState(digestHour != null);
+  // Short enough that its one save is never out of sight, but on the page's
+  // undo history and Ctrl+S all the same.
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
 
   // Shown rather than hidden when there's no mail credential, the same way
   // GoogleCalendarCard reports an unconfigured server: a missing card makes a
@@ -65,7 +70,7 @@ export function NotificationsCard({
         Choose what reaches your inbox, and whether it waits for the evening.
       </p>
 
-      <form action={action} className="mt-4 flex flex-col gap-4">
+      <form ref={formRef} action={action} className="mt-4 flex flex-col gap-4">
         <FormError>{state.error}</FormError>
 
         {/* Checked and controlled, unlike the two below it, because the hour
@@ -152,6 +157,7 @@ export function NotificationsCard({
         <div className="flex items-center gap-3">
           <button
             type="submit"
+            data-save
             disabled={pending}
             className={buttonClass("primary")}
           >

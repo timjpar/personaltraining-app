@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Container, PageHeading } from "@/components/ui";
+import { Container } from "@/components/ui";
 import { ProgramBuilder } from "@/components/ProgramBuilder";
 import { createProgram } from "../actions";
 
@@ -21,14 +21,13 @@ export default async function NewProgramPage() {
       </Link>
 
       <div className="mt-3">
-        <PageHeading eyebrow="New program" title="Build a program">
-          Set the length, then drop a saved workout onto each training day. Empty
-          days are rest.
-        </PageHeading>
-      </div>
-
-      <div className="mt-7">
         <ProgramBuilder
+          heading={{
+            eyebrow: "New program",
+            title: "Build a program",
+            intro:
+              "Set the length, then drop a saved workout onto each training day. Empty days are rest.",
+          }}
           action={createProgram}
           submitLabel="Save program"
           cancelHref="/programs"

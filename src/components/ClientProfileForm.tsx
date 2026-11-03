@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
+import { FormHeading } from "@/components/EditorActions";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import {
   Button,
   Card,
@@ -103,6 +105,8 @@ export function ClientProfileForm({
   self?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
   const mass = massUnit(units);
   const length = lengthUnit(units);
   const imperial = units === UNITS.IMPERIAL;
@@ -110,9 +114,17 @@ export function ClientProfileForm({
   const they = self ? "you" : "they";
   const their = self ? "your" : "their";
 
+  // Five cards long, so the save is at the top as well as the bottom.
+  const saveButton = (size?: "sm") => (
+    <Button type="submit" data-save size={size} disabled={pending}>
+      {pending ? "Saving…" : "Save profile"}
+    </Button>
+  );
+
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-5">
       <input type="hidden" name="units" value={units} />
+      <FormHeading>{saveButton("sm")}</FormHeading>
 
       <FormError>{state.error}</FormError>
       {state.ok ? (
@@ -559,11 +571,7 @@ export function ClientProfileForm({
         </Field>
       </Section>
 
-      <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save profile"}
-        </Button>
-      </div>
+      <div>{saveButton()}</div>
     </form>
   );
 }

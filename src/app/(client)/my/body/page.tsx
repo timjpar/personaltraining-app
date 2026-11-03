@@ -121,14 +121,11 @@ export default async function MyBodyPage({
       </Card>
 
       <Card className="mt-6 p-4 sm:p-5">
-        <h2 className="mb-1 font-display text-base font-semibold text-ink">
-          {editing ? `Editing ${formatDate(editing.date)}` : "Log a weigh-in"}
-        </h2>
-        <p className="mb-4 text-sm text-ink-soft">
-          Weight on its own is plenty. The tape is there if your coach has asked
-          for it.
-        </p>
         <MeasurementForm
+          heading={{
+            title: editing ? `Editing ${formatDate(editing.date)}` : "Log a weigh-in",
+            intro: "Weight on its own is plenty. The tape is there if your coach has asked for it.",
+          }}
           key={editing?.id ?? "new"}
           action={saveWeighIn}
           units={units}

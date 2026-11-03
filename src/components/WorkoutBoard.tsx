@@ -23,6 +23,9 @@ import {
   saveBoard,
 } from "@/app/(trainer)/library/compare/actions";
 import { AnimationToggle } from "@/components/AnimationToggle";
+import { UndoButtons } from "@/components/UndoButtons";
+import { useFieldHistory } from "@/components/useFieldHistory";
+import { useUndoHistory } from "@/components/useUndoHistory";
 import { BoardWeekTotals, WeekTotalsToggle, useShowWeekTotals } from "@/components/BoardWeekTotals";
 import { BoardWorkoutCard, type MoveTarget } from "@/components/BoardWorkoutCard";
 import { DragOverlay } from "@/components/Drag";
@@ -54,6 +57,17 @@ const LAYOUTS: { value: Layout; label: string }[] = [
   { value: "columns", label: "Columns" },
   { value: "week", label: "Week" },
 ];
+
+// Undo puts back the user's edits and nothing else: workouts loaded since the
+// snapshot stay, the saved copies stay, and each workout keeps the version the
+// library last gave it, so saving after an undo isn't refused as stale.
+function restore(snapshot: Board, current: Board): Board {
+  const store = { ...current.store };
+  for (const [key, w] of Object.entries(snapshot.store)) {
+    store[key] = { ...w, version: current.store[key]?.version ?? w.version };
+  }
+  return { store, base: current.base };
+}
 
 function isChanged(b: Board, key: string): boolean {
   const w = b.store[key];
@@ -106,10 +120,19 @@ export function WorkoutBoard({
   people: { id: string; name: string }[];
   catalog: PickerCatalog;
 }) {
-  const [board, setBoard] = useState<Board>(() => {
-    const store = Object.fromEntries(workouts.map((w) => [w.key, w]));
-    return { store, base: store };
-  });
+  // Every edit to the store is a step Ctrl+Z can take back (useUndoHistory);
+  // what loads and what a save sends back come in through `replace`, which
+  // isn't one. Which workouts are on screen, and how, isn't undone either.
+  const history = useUndoHistory<Board>(
+    () => {
+      const store = Object.fromEntries(workouts.map((w) => [w.key, w]));
+      return { store, base: store };
+    },
+    { restore },
+  );
+  const board = history.state;
+  const setBoard = history.set;
+  const replaceBoard = history.replace;
   const [layout, setLayout] = useState<Layout>(initialLayout);
   const [columns, setColumns] = useState<string[]>(initialColumns);
   const [week, setWeek] = useState<BoardWeek | null>(initialWeek);
@@ -122,6 +145,7 @@ export function WorkoutBoard({
   const [showTotals] = useShowWeekTotals();
   const [saving, startSave] = useTransition();
   const [loading, startLoad] = useTransition();
+  const rootRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDialogElement>(null);
 
@@ -131,7 +155,7 @@ export function WorkoutBoard({
         const store = fn(b.store);
         return store === b.store ? b : { ...b, store };
       }),
-    [],
+    [setBoard],
   );
 
   const toggleRow = useCallback(
@@ -369,7 +393,7 @@ export function WorkoutBoard({
           setNotice({ tone: "error", text: "That person isn't on your roster any more." });
           return;
         }
-        setBoard((b) => join(b, res.workouts));
+        replaceBoard((b) => join(b, res.workouts));
         setWeek(res.week);
       } catch {
         setNotice({ tone: "error", text: "That week didn't load. Check your connection and try again." });
@@ -401,7 +425,7 @@ export function WorkoutBoard({
           setNotice({ tone: "error", text: "That workout isn't there any more." });
           return;
         }
-        setBoard((b) => join(b, [w]));
+        replaceBoard((b) => join(b, [w]));
         add();
       } catch {
         setNotice({ tone: "error", text: "That workout didn't load. Check your connection and try again." });
@@ -411,12 +435,12 @@ export function WorkoutBoard({
 
   const save = () => {
     const entries = changed.map(toSaveEntry);
-    if (entries.length === 0) return;
+    if (entries.length === 0 || saving) return;
     startSave(async () => {
       try {
         const res = await saveBoard(entries);
         if (res.ok) {
-          setBoard((b) => {
+          replaceBoard((b) => {
             const store = { ...b.store };
             const base = { ...b.base };
             for (const w of res.workouts) {
@@ -445,6 +469,10 @@ export function WorkoutBoard({
     });
   };
 
+  // Ctrl+S saves the board, the same as its button.
+  useFieldHistory(rootRef, { save });
+
+  // Undoable like any other edit, so a discard by mistake is one Ctrl+Z away.
   const discard = () => {
     const n = changed.length;
     if (!window.confirm(`Discard your changes to ${n} workout${n === 1 ? "" : "s"}?`)) return;
@@ -476,7 +504,7 @@ export function WorkoutBoard({
   const changedNames = changed.map((w) => w.title.trim() || "Untitled workout");
 
   return (
-    <div className="pb-32">
+    <div ref={rootRef} className="pb-32">
       <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2.5">
         <div
           role="group"
@@ -742,6 +770,7 @@ export function WorkoutBoard({
                     {changedNames.join(" · ")}
                   </span>
                 </p>
+                <UndoButtons />
                 <button
                   type="button"
                   onClick={discard}

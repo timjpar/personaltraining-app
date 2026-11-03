@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, type ReactNode } from "react";
 import {
   updateCustomExercise,
   deleteCustomExercise,
   type ExerciseFormState,
 } from "@/app/(trainer)/exercises/actions";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import { Badge, Input, Select, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
@@ -40,12 +41,11 @@ export function CustomExerciseRow({
   if (editing) {
     return (
       <li className="px-4 py-3 sm:px-5">
-        <form
+        <EditForm
           action={async (formData) => {
             formAction(formData);
             setEditing(false);
           }}
-          className="flex flex-wrap items-center gap-2"
         >
           <Input
             name="name"
@@ -68,6 +68,7 @@ export function CustomExerciseRow({
           </Select>
           <button
             type="submit"
+            data-save
             disabled={pending}
             className={buttonClass("primary", "sm")}
           >
@@ -80,7 +81,7 @@ export function CustomExerciseRow({
           >
             Cancel
           </button>
-        </form>
+        </EditForm>
         <div className="mt-2">
           <FormError>{state.error}</FormError>
         </div>
@@ -109,5 +110,23 @@ export function CustomExerciseRow({
         confirmMessage="Remove this from your exercise list? Workouts you've already written keep it."
       />
     </li>
+  );
+}
+
+// Its own component so the form is on the page's undo history, with Ctrl+S,
+// only while it's open.
+function EditForm({
+  action,
+  children,
+}: {
+  action: (formData: FormData) => Promise<void>;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLFormElement>(null);
+  useFieldHistory(ref);
+  return (
+    <form ref={ref} action={action} className="flex flex-wrap items-center gap-2">
+      {children}
+    </form>
   );
 }

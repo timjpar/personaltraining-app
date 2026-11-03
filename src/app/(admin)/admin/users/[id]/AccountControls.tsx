@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import {
   setAdminAccess,
   updateAccount,
@@ -17,6 +17,7 @@ import {
   buttonClass,
 } from "@/components/ui";
 import { ROLES } from "@/lib/constants";
+import { useFieldHistory } from "@/components/useFieldHistory";
 
 const updateInitial: UpdateAccountState = {};
 const accessInitial: AdminAccessState = {};
@@ -59,6 +60,10 @@ export function AccountControls({
   // match. The submitted value is still whatever the select holds.
   const [pendingRole, setPendingRole] = useState(role);
   const editable = actorIsOwner || !(isOwner || isAdmin);
+  // A card whose save is always in sight, on the page's undo history and
+  // Ctrl+S all the same.
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
 
   return (
     <div className="grid gap-5 sm:grid-cols-2">
@@ -68,7 +73,7 @@ export function AccountControls({
         </h2>
 
         {editable ? (
-          <form action={saveAction} className="mt-4 flex flex-col gap-4">
+          <form ref={formRef} action={saveAction} className="mt-4 flex flex-col gap-4">
             <FormError>{saved.error}</FormError>
             {saved.ok ? (
               <p className="rounded-[var(--radius-sm)] border border-jade/20 bg-jade-wash px-3.5 py-2.5 text-sm text-jade-strong">
@@ -139,6 +144,7 @@ export function AccountControls({
 
             <button
               type="submit"
+              data-save
               disabled={saving}
               className={buttonClass("outline")}
             >

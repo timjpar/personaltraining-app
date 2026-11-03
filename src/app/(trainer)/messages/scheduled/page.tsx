@@ -101,20 +101,16 @@ export default async function ScheduledMessagesPage() {
       ) : null}
 
       <Card className="mt-6 p-5">
-        <h2 className="font-display text-base font-semibold text-ink">
-          {broadcasts.length > 0 ? "Add another" : "Write your first one"}
-        </h2>
-        <div className="mt-4">
-          <ScheduledMessageForm
-            action={saveBroadcast}
-            timeZone={zone}
-            clients={clients.map((c) => ({
-              id: c.id,
-              name: c.name,
-              avatar: avatarUrl(c),
-            }))}
-          />
-        </div>
+        <ScheduledMessageForm
+          title={broadcasts.length > 0 ? "Add another" : "Write your first one"}
+          action={saveBroadcast}
+          timeZone={zone}
+          clients={clients.map((c) => ({
+            id: c.id,
+            name: c.name,
+            avatar: avatarUrl(c),
+          }))}
+        />
       </Card>
     </Container>
   );

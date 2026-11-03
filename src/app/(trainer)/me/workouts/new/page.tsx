@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireTrainer } from "@/lib/auth";
 import { getPickerCatalog } from "@/lib/exercise-catalog";
-import { Container, PageHeading } from "@/components/ui";
+import { Container } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { createMyWorkout } from "@/app/(trainer)/me/actions";
 import { toDateInput } from "@/lib/format";
@@ -29,14 +29,17 @@ export default async function NewOwnWorkoutPage() {
       </Link>
 
       <div className="mt-3">
-        <PageHeading eyebrow="New session" title="Program for yourself">
-          Set the day, then add each movement with its prescription. It lands on
-          your own list, not on anyone&rsquo;s roster.
-        </PageHeading>
-      </div>
-
-      <div className="mt-7">
         <WorkoutBuilder
+          heading={{
+            eyebrow: "New session",
+            title: "Program for yourself",
+            intro: (
+              <>
+                Set the day, then add each movement with its prescription. It lands
+                on your own list, not on anyone&rsquo;s roster.
+              </>
+            ),
+          }}
           action={createMyWorkout}
           submitLabel="Save session"
           cancelHref="/me/workouts"

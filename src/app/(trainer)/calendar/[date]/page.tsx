@@ -199,15 +199,13 @@ export default async function CalendarDayPage({
       </div>
 
       <div className="mt-9">
-        <h2 className="mb-1 font-display text-lg font-semibold text-ink">
-          {editing ? "Edit event" : "Add to this day"}
-        </h2>
-        <p className="mb-3 text-sm text-ink-soft">
-          {editing
-            ? "Change the date to move it to another day."
-            : "Consults, check-in calls, blocked-out time — anything that isn't a programmed session."}
-        </p>
         <EventForm
+          heading={{
+            title: editing ? "Edit event" : "Add to this day",
+            intro: editing
+              ? "Change the date to move it to another day."
+              : "Consults, check-in calls, blocked-out time — anything that isn't a programmed session.",
+          }}
           // Remounts when you switch between adding and editing, so the
           // uncontrolled defaults actually take.
           key={editing?.id ?? "new"}

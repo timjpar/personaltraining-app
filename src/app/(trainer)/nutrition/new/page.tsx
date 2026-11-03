@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Container, PageHeading } from "@/components/ui";
+import { Container } from "@/components/ui";
 import { NutritionBuilder } from "@/components/NutritionBuilder";
 import { createNutritionTemplate } from "../actions";
 import { toNutrientDetail } from "@/lib/constants";
@@ -59,25 +59,24 @@ export default async function NewNutritionPage({
       </Link>
 
       <div className="mt-3">
-        <PageHeading eyebrow="New plan" title="Build a meal plan">
-          {prefilled ? (
-            <>
-              Targets are filled in from{" "}
-              {from ? `${from.name.split(/\s+/)[0]}’s` : "the suggested"} numbers
-              — change any of them. Add meals and the foods in them; calories
-              and macros total up as you type.
-            </>
-          ) : (
-            <>
-              Add meals and the foods in them. Calories and macros total up as
-              you type — you&rsquo;ll assign clients after saving.
-            </>
-          )}
-        </PageHeading>
-      </div>
-
-      <div className="mt-7">
         <NutritionBuilder
+          heading={{
+            eyebrow: "New plan",
+            title: "Build a meal plan",
+            intro: prefilled ? (
+              <>
+                Targets are filled in from{" "}
+                {from ? `${from.name.split(/\s+/)[0]}’s` : "the suggested"} numbers
+                — change any of them. Add meals and the foods in them; calories
+                and macros total up as you type.
+              </>
+            ) : (
+              <>
+                Add meals and the foods in them. Calories and macros total up as
+                you type — you&rsquo;ll assign clients after saving.
+              </>
+            ),
+          }}
           action={createNutritionTemplate}
           detail={toNutrientDetail(trainer.nutrientDetail)}
           submitLabel="Save plan"

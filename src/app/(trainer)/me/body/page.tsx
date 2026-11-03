@@ -177,23 +177,21 @@ export default async function MyOwnBodyPage({
       </div>
 
       <Card className="mt-6 p-4 sm:p-5">
-        <h2 className="mb-1 font-display text-base font-semibold text-ink">
-          {editing ? `Editing ${formatDate(editing.date)}` : "Log a weigh-in"}
-        </h2>
-        <p className="mb-4 text-sm text-ink-soft">
-          {editing ? (
-            <>
-              Saving overwrites that day.{" "}
-              <Link href="/me/body" className="text-jade-strong hover:underline">
-                Start a new one instead
-              </Link>
-              .
-            </>
-          ) : (
-            <>Weight on its own is plenty. The tape is there if you want it.</>
-          )}
-        </p>
         <MeasurementForm
+          heading={{
+            title: editing ? `Editing ${formatDate(editing.date)}` : "Log a weigh-in",
+            intro: editing ? (
+              <>
+                Saving overwrites that day.{" "}
+                <Link href="/me/body" className="text-jade-strong hover:underline">
+                  Start a new one instead
+                </Link>
+                .
+              </>
+            ) : (
+              <>Weight on its own is plenty. The tape is there if you want it.</>
+            ),
+          }}
           // Remounts when the edited day changes, so the uncontrolled inputs
           // pick up the new defaults instead of keeping the previous day's.
           key={editing?.id ?? "new"}

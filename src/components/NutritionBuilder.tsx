@@ -7,19 +7,24 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import type { NutritionFormState } from "@/app/(trainer)/nutrition/actions";
 import { DragOverlay, Grip } from "@/components/Drag";
 import { FoodPicker } from "@/components/FoodPicker";
 import { AmountControls, FormPicker, NutrientFields } from "@/components/FoodRowControls";
 import { NutritionTotals } from "@/components/NutritionTotals";
+import { EditorActions } from "@/components/EditorActions";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import { useMealDrag } from "@/components/useMealDrag";
+import { useUndoHistory } from "@/components/useUndoHistory";
 import {
   Card,
   Field,
   Input,
   Textarea,
   FormError,
+  PageHeading,
   buttonClass,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -224,6 +229,7 @@ export function NutritionBuilder({
   cancelHref,
   initial,
   detail,
+  heading,
 }: {
   action: (
     state: NutritionFormState,
@@ -234,11 +240,20 @@ export function NutritionBuilder({
   initial?: Initial;
   // The coach's micronutrient preference — see NutritionTotals.
   detail: NutrientDetail;
+  // The page's heading, drawn here so a second save can sit beside it, as
+  // WorkoutBuilder does: a plan's bottom button is a day of meals away.
+  heading: { eyebrow: string; title: string; intro?: ReactNode };
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   // Deterministic ids for the server-rendered rows so hydration matches; rows
   // added later via the client-only handlers use random ids.
-  const [meals, setMeals] = useState<MealRow[]>(() =>
+  // Every edit to the meals is a step Ctrl+Z can take back (useUndoHistory),
+  // and so is the title, notes and targets above them, which useFieldHistory
+  // reads off the DOM. A successful save leaves the page, so nothing saved is
+  // ever undone into.
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
+  const history = useUndoHistory<MealRow[]>(() =>
     initial?.meals?.length
       ? initial.meals.map(initialMeal)
       : [
@@ -250,6 +265,8 @@ export function NutritionBuilder({
           },
         ],
   );
+  const meals = history.state;
+  const setMeals = history.set;
   // The group whose name box should take focus as it appears.
   const [namingGroup, setNamingGroup] = useState<string | null>(null);
 
@@ -564,8 +581,25 @@ export function NutritionBuilder({
     );
   };
 
+  const saveButton = (size?: "sm") => (
+    <button type="submit" data-save disabled={pending} className={buttonClass("primary", size)}>
+      {pending ? "Saving…" : submitLabel}
+    </button>
+  );
+
   return (
-    <form action={formAction} className="flex flex-col gap-6">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-6">
+      {/* mb-1 tops the form's gap up to the mt-7 the pages leave under a heading. */}
+      <div className="mb-1">
+        <PageHeading
+          eyebrow={heading.eyebrow}
+          title={heading.title}
+          action={<EditorActions>{saveButton("sm")}</EditorActions>}
+        >
+          {heading.intro}
+        </PageHeading>
+      </div>
+
       <FormError>{state.error}</FormError>
 
       {/* All meals + foods travel as one JSON field. */}
@@ -803,9 +837,7 @@ export function NutritionBuilder({
       </Card>
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className={buttonClass("primary")}>
-          {pending ? "Saving…" : submitLabel}
-        </button>
+        {saveButton()}
         <Link href={cancelHref} className={buttonClass("ghost")}>
           Cancel
         </Link>

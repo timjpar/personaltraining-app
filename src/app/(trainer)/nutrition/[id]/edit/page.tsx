@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Container, PageHeading } from "@/components/ui";
+import { Container } from "@/components/ui";
 import { NutritionBuilder } from "@/components/NutritionBuilder";
 import { updateNutritionTemplate } from "../../actions";
 import { toNutrientDetail } from "@/lib/constants";
@@ -36,13 +36,12 @@ export default async function EditNutritionPage({
       </Link>
 
       <div className="mt-3">
-        <PageHeading eyebrow="Edit plan" title={plan.title}>
-          Changes here don&rsquo;t touch plans you&rsquo;ve already assigned.
-        </PageHeading>
-      </div>
-
-      <div className="mt-7">
         <NutritionBuilder
+          heading={{
+            eyebrow: "Edit plan",
+            title: plan.title,
+            intro: <>Changes here don&rsquo;t touch plans you&rsquo;ve already assigned.</>,
+          }}
           action={updateNutritionTemplate.bind(null, plan.id)}
           submitLabel="Save changes"
           cancelHref={`/nutrition/${plan.id}`}
