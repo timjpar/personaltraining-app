@@ -18,9 +18,9 @@ import {
   createContext,
   useContext,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
+import { useUndoHistory } from "@/components/useUndoHistory";
 import { FOOD_SOURCE, type FoodSource } from "@/lib/constants";
 import type { AmountUnit } from "@/lib/food-amounts";
 import { foodBlocks, groupLabel } from "@/lib/food-groups";
@@ -211,7 +211,9 @@ export function LogRowsProvider({
   // matters while you're editing the row you just added, and reattaching it on
   // load would let a later nudge of the amount overwrite numbers the athlete
   // typed. Reopening a saved day gives you the numbers, not the formula.
-  const [rows, setRows] = useState<Row[]>(() =>
+  //
+  // Every edit is a step Ctrl+Z can take back, the plan's ticks included.
+  const history = useUndoHistory<Row[]>(() =>
     initial?.entries.length
       ? withGroupIds(
           initial.entries.map((e, i) => ({
@@ -225,6 +227,8 @@ export function LogRowsProvider({
         )
       : [blankRow("e0", "Breakfast")],
   );
+  const rows = history.state;
+  const setRows = history.set;
 
   const addRow = () =>
     setRows((rs) => [

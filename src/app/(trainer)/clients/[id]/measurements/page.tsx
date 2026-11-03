@@ -167,26 +167,24 @@ export default async function ClientMeasurementsPage({
       </div>
 
       <Card className="mt-6 p-4 sm:p-5">
-        <h2 className="mb-1 font-display text-base font-semibold text-ink">
-          {editing ? `Editing ${formatDate(editing.date)}` : "Record a weigh-in"}
-        </h2>
-        <p className="mb-4 text-sm text-ink-soft">
-          {editing ? (
-            <>
-              Saving overwrites that day.{" "}
-              <Link
-                href={`/clients/${client.id}/measurements`}
-                className="text-jade-strong hover:underline"
-              >
-                Start a new one instead
-              </Link>
-              .
-            </>
-          ) : (
-            <>Weight alone is enough — the tape is for measuring appointments.</>
-          )}
-        </p>
         <MeasurementForm
+          heading={{
+            title: editing ? `Editing ${formatDate(editing.date)}` : "Record a weigh-in",
+            intro: editing ? (
+              <>
+                Saving overwrites that day.{" "}
+                <Link
+                  href={`/clients/${client.id}/measurements`}
+                  className="text-jade-strong hover:underline"
+                >
+                  Start a new one instead
+                </Link>
+                .
+              </>
+            ) : (
+              <>Weight alone is enough — the tape is for measuring appointments.</>
+            ),
+          }}
           // Remounts when the edited day changes, so the uncontrolled inputs
           // pick up the new defaults instead of keeping the previous day's.
           key={editing?.id ?? "new"}

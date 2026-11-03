@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, type ReactNode } from "react";
+import { FormHeading } from "@/components/EditorActions";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import {
   Button,
   Card,
@@ -45,19 +47,40 @@ export function MeasurementForm({
   values,
   compact = false,
   submitLabel = "Save",
+  heading,
 }: {
   action: (prev: BodyState, formData: FormData) => Promise<BodyState>;
   units: Units;
   values: MeasurementValues;
   compact?: boolean;
   submitLabel?: string;
+  // The full form's heading, drawn here so a second save can sit beside it:
+  // on a phone the tape sites put the bottom button a screen away. The
+  // compact form is one row with its button in it, and has none.
+  heading?: { title: string; intro?: ReactNode };
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
   const mass = massUnit(units);
   const length = lengthUnit(units);
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
+
+  const saveButton = (size?: "sm") => (
+    <Button type="submit" data-save size={size} disabled={pending} className={compact ? "sm:w-auto" : undefined}>
+      {pending ? "Saving…" : submitLabel}
+    </Button>
+  );
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-3">
+      {heading && !compact ? (
+        <div className="mb-1">
+          <FormHeading title={heading.title} intro={heading.intro} size="base">
+            {saveButton("sm")}
+          </FormHeading>
+        </div>
+      ) : null}
+
       {/* Tells the parser how to read the numbers above — the conversion to
           metric happens server-side, in one place. */}
       <input type="hidden" name="units" value={units} />
@@ -99,9 +122,7 @@ export function MeasurementForm({
         </Field>
 
         {compact ? (
-          <Button type="submit" disabled={pending} className="sm:w-auto">
-            {pending ? "Saving…" : submitLabel}
-          </Button>
+          saveButton()
         ) : (
           <Field label="Body fat (%)" htmlFor="m-bodyfat">
             <Input
@@ -150,11 +171,7 @@ export function MeasurementForm({
             />
           </Field>
 
-          <div>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : submitLabel}
-            </Button>
-          </div>
+          <div>{saveButton()}</div>
         </>
       )}
     </form>

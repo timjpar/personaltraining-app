@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { FormHeading } from "@/components/EditorActions";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import {
   Avatar,
   Card,
@@ -41,6 +43,7 @@ export function ScheduledMessageForm({
   clients,
   timeZone,
   existing,
+  title,
 }: {
   action: (state: BroadcastState, formData: FormData) => Promise<BroadcastState>;
   clients: StarterClient[];
@@ -49,10 +52,21 @@ export function ScheduledMessageForm({
   // reason.
   timeZone: string;
   existing?: ScheduledMessage;
+  // The card's heading, drawn here so a second save can sit beside it. The
+  // edit page's title is the page's own, just above.
+  title?: string;
 }) {
   const [state, formAction, pending] = useActionState<BroadcastState, FormData>(
     action,
     {},
+  );
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
+
+  const saveButton = (size?: "sm") => (
+    <button type="submit" data-save disabled={pending} className={buttonClass("primary", size)}>
+      {pending ? "Saving…" : existing ? "Save changes" : "Schedule it"}
+    </button>
   );
 
   // The one piece of controlled state: the picker below has to appear the
@@ -62,7 +76,11 @@ export function ScheduledMessageForm({
   );
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-5">
+      <FormHeading title={title} size="base">
+        {saveButton("sm")}
+      </FormHeading>
+
       <FormError>{state.error}</FormError>
       {state.ok ? (
         <p className="rounded-[var(--radius-sm)] border border-jade/25 bg-jade-wash px-3.5 py-2.5 text-sm text-jade-strong">
@@ -242,15 +260,7 @@ export function ScheduledMessageForm({
         </span>
       </label>
 
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={pending}
-          className={buttonClass("primary")}
-        >
-          {pending ? "Saving…" : existing ? "Save changes" : "Schedule it"}
-        </button>
-      </div>
+      <div className="flex justify-end">{saveButton()}</div>
     </form>
   );
 }

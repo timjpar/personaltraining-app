@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef } from "react";
 import type { CompleteState } from "@/app/(client)/my/actions";
 import {
   PrescriptionCard,
@@ -14,6 +14,8 @@ import type { SetHint } from "@/lib/exercise-progression";
 import { MAX_SETS, parseSetCount } from "@/lib/exercise-sets";
 import type { ProgressionView } from "@/lib/progression-view";
 import { ProgressionPanel } from "@/components/ProgressionPanel";
+import { useFieldHistory } from "@/components/useFieldHistory";
+import { useUndoHistory } from "@/components/useUndoHistory";
 import { groupBySection, usesSections } from "@/lib/workout-form";
 
 type LogExercise = {
@@ -76,9 +78,9 @@ function SetRows({
   // last time, falling back to one. Never zero: an exercise you can't log a
   // single set of isn't loggable.
   const programmed = parseSetCount(sets);
-  const [rows, setRows] = useState(
-    () => programmed ?? Math.min(hints?.length || 1, MAX_SETS),
-  );
+  const history = useUndoHistory(() => programmed ?? Math.min(hints?.length || 1, MAX_SETS));
+  const rows = history.state;
+  const setRows = history.set;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -141,7 +143,8 @@ function SetRows({
 }
 
 function RpePicker() {
-  const [value, setValue] = useState<number | null>(null);
+  const { state: value, set } = useUndoHistory<number | null>(null);
+  const setValue = (n: number) => set(() => n);
   return (
     <div>
       <input type="hidden" name="rpe" value={value ?? ""} />
@@ -257,7 +260,12 @@ export function WorkoutLogForm({
   // Everything starts done — the common case is "I did what was written" and
   // you uncheck what you actually skipped. So this is not a progress bar
   // filling up; it is a running answer to "what am I about to send my coach".
-  const [done, setDone] = useState<Record<string, boolean>>(() =>
+  // A set added, a box unticked, a rating picked, a number typed: each is a
+  // step Ctrl+Z can take back. There's no Ctrl+S here — finishing a session
+  // sends it to the coach, which a stray key shouldn't do.
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
+  const { state: done, set: setDone } = useUndoHistory<Record<string, boolean>>(() =>
     Object.fromEntries(exercises.map((e) => [e.id, true])),
   );
 
@@ -274,7 +282,7 @@ export function WorkoutLogForm({
   const anyHints = exercises.some((e) => e.hints?.length);
 
   return (
-    <form action={formAction} className="flex flex-col gap-6">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-6">
       <FormError>{state.error}</FormError>
 
       {/* ---- The chalk line ---------------------------------------------------

@@ -3,8 +3,9 @@
 // One day's food log as a form. The rows it edits live in LogRowsProvider
 // (nutrition-log-state.tsx) rather than here, because the plan rendered beside
 // this form writes to them too — see the note at the top of that file.
-import { useActionState, useId } from "react";
+import { useActionState, useId, useRef } from "react";
 import { macroText, type LogState } from "@/lib/nutrition-form";
+import { FormHeading } from "@/components/EditorActions";
 import { FoodPicker } from "@/components/FoodPicker";
 import { FoodScanner } from "@/components/FoodScanner";
 import { AmountControls, FormPicker, NutrientFields } from "@/components/FoodRowControls";
@@ -23,6 +24,7 @@ import type { NutrientDetail } from "@/lib/constants";
 import type { FoodPreset } from "@/lib/food-presets";
 import { foodBlocks } from "@/lib/food-groups";
 import { rowTotals } from "@/lib/food-rows";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import {
   useLogRows,
   type MacroKey,
@@ -74,6 +76,7 @@ export function NutritionLogForm({
   photoEnabled,
   detail,
   self = false,
+  heading,
 }: {
   action: (state: LogState, formData: FormData) => Promise<LogState>;
   targets?: {
@@ -91,9 +94,16 @@ export function NutritionLogForm({
   // Set when a coach is logging their own day — see the notes field below,
   // which is the only thing it changes.
   self?: boolean;
+  // The day's heading, drawn here so a second save can sit beside it: a day
+  // of foods puts the bottom button well down the page.
+  heading: { title: string; intro?: string };
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const mealListId = useId();
+  // The rows are a useUndoHistory in LogRowsProvider; the notes box is read
+  // off the DOM.
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
 
   const {
     rows,
@@ -219,8 +229,18 @@ export function NutritionLogForm({
     );
   };
 
+  const saveButton = (size?: "sm") => (
+    <button type="submit" data-save disabled={pending} className={buttonClass("primary", size)}>
+      {pending ? "Saving…" : "Save log"}
+    </button>
+  );
+
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-5">
+      <FormHeading title={heading.title} intro={heading.intro}>
+        {saveButton("sm")}
+      </FormHeading>
+
       <FormError>{state.error}</FormError>
 
       {/* Every row travels as one JSON field, as the plan builder does. */}
@@ -346,9 +366,7 @@ export function NutritionLogForm({
       </Field>
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className={buttonClass("primary")}>
-          {pending ? "Saving…" : "Save log"}
-        </button>
+        {saveButton()}
         {state.ok ? (
           <span className="text-sm text-jade-strong">{state.ok}</span>
         ) : null}

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useTransition, type KeyboardEvent } from "react";
+import { useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { Badge, Input, Textarea, Select, buttonClass } from "@/components/ui";
+import { EditorActions } from "@/components/EditorActions";
 import { ExerciseAnimation } from "@/components/ExerciseAnimation";
+import { useFieldHistory } from "@/components/useFieldHistory";
+import { useUndoHistory } from "@/components/useUndoHistory";
 import { cn } from "@/lib/cn";
 import {
   chooseProgressionPath,
@@ -204,11 +207,24 @@ function PathEditor({
   editing: boolean;
   onDone: () => void;
 }) {
-  const [goal, setGoal] = useState(editing ? start.goal : "");
-  const [blurb, setBlurb] = useState(editing ? start.blurb : "");
-  const [steps, setSteps] = useState<Draft[]>(() => draftOf(start));
+  // The whole draft is one useUndoHistory, so Ctrl+Z takes back a step
+  // removed or moved as well as what's typed.
+  const history = useUndoHistory(() => ({
+    goal: editing ? start.goal : "",
+    blurb: editing ? start.blurb : "",
+    steps: draftOf(start),
+  }));
+  const { goal, blurb, steps } = history.state;
+  const setGoal = (goal: string) => history.set((d) => ({ ...d, goal }));
+  const setBlurb = (blurb: string) => history.set((d) => ({ ...d, blurb }));
+  const setSteps = (fn: (all: Draft[]) => Draft[]) =>
+    history.set((d) => {
+      const next = fn(d.steps);
+      return next === d.steps ? d : { ...d, steps: next };
+    });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const update = (i: number, patch: Partial<Draft>) =>
     setSteps((all) => all.map((s, j) => (j === i ? { ...s, ...patch } : s)));
@@ -224,7 +240,8 @@ function PathEditor({
   const key = (s: string) => s.trim().toLowerCase();
   const includesThis = steps.some((s) => key(s.name) === key(view.exerciseName));
 
-  const save = () =>
+  const save = () => {
+    if (pending) return;
     startTransition(async () => {
       setError(null);
       const result = await saveProgressionPath(
@@ -240,17 +257,36 @@ function PathEditor({
       if (result.error) setError(result.error);
       else onDone();
     });
+  };
+  useFieldHistory(rootRef, { save });
+
+  // A long path puts the bottom button out of sight, so it's beside the
+  // heading too.
+  const saveButton = (
+    <button
+      type="button"
+      onClick={save}
+      disabled={pending}
+      className={buttonClass("primary", "sm")}
+    >
+      {pending ? "Saving…" : "Save path"}
+    </button>
+  );
 
   const lastName = steps.filter((s) => s.name.trim()).at(-1)?.name ?? "";
 
   return (
     <div
+      ref={rootRef}
       onKeyDown={swallowEnter}
       className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-line bg-paper p-3 sm:p-4"
     >
-      <p className="eyebrow text-ink-soft">
-        {editing ? "Edit this path" : "Write a custom path"}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="eyebrow text-ink-soft">
+          {editing ? "Edit this path" : "Write a custom path"}
+        </p>
+        <EditorActions>{saveButton}</EditorActions>
+      </div>
       <label className="block">
         <span className="text-xs text-ink-soft">Goal</span>
         <Input
@@ -401,14 +437,7 @@ function PathEditor({
       {error ? <p className="text-sm text-flag">{error}</p> : null}
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={save}
-          disabled={pending}
-          className={buttonClass("primary", "sm")}
-        >
-          {pending ? "Saving…" : "Save path"}
-        </button>
+        {saveButton}
         <button type="button" onClick={onDone} className={buttonClass("ghost", "sm")}>
           Cancel
         </button>

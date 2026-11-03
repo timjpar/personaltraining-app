@@ -169,34 +169,34 @@ export async function MyNutritionDay({
         }
       >
       <section>
-        <h2 className="font-display text-lg font-semibold text-ink">
-          {isFuture ? "Not yet" : "What you ate"}
-        </h2>
-        <p className="mt-1 text-sm text-ink-soft">
-          {formatDate(day)}
-          {dayKey === todayKey ? " · today" : ""}
-        </p>
-
         {isFuture ? (
-          <Card className="mt-4 p-5">
-            <p className="text-sm text-ink-soft">
-              This day hasn&rsquo;t happened yet, so there&rsquo;s nothing to log
-              against it. Come back on the day to record what you actually ate.
-            </p>
-          </Card>
+          <>
+            <h2 className="font-display text-lg font-semibold text-ink">Not yet</h2>
+            <p className="mt-1 text-sm text-ink-soft">{formatDate(day)}</p>
+            <Card className="mt-4 p-5">
+              <p className="text-sm text-ink-soft">
+                This day hasn&rsquo;t happened yet, so there&rsquo;s nothing to log
+                against it. Come back on the day to record what you actually ate.
+              </p>
+            </Card>
+          </>
         ) : (
-          <div className="mt-4">
-            <NutritionLogForm
-              detail={detail}
-              action={saveMyNutritionLog.bind(null, dayKey)}
-              targets={targets}
-              recent={recentFoods(recentRows)}
-              self
-              // Read here rather than in the component: a client component
-              // can't see process.env, and this is the server boundary.
-              photoEnabled={geminiConfig() !== null}
-            />
-          </div>
+          <NutritionLogForm
+            // The heading is drawn by the form, so a second save can sit
+            // beside it.
+            heading={{
+              title: "What you ate",
+              intro: `${formatDate(day)}${dayKey === todayKey ? " · today" : ""}`,
+            }}
+            detail={detail}
+            action={saveMyNutritionLog.bind(null, dayKey)}
+            targets={targets}
+            recent={recentFoods(recentRows)}
+            self
+            // Read here rather than in the component: a client component
+            // can't see process.env, and this is the server boundary.
+            photoEnabled={geminiConfig() !== null}
+          />
         )}
 
         {/* Where the targets above the totals came from, and how to change

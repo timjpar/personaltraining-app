@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, type ReactNode } from "react";
 import type { ProgramFormState } from "@/app/(trainer)/programs/actions";
+import { EditorActions, FormHeading } from "@/components/EditorActions";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import {
   Card,
   Field,
@@ -10,6 +12,7 @@ import {
   Textarea,
   Select,
   FormError,
+  PageHeading,
   buttonClass,
 } from "@/components/ui";
 import { PROGRAM_DAYS, dayLabel } from "@/lib/constants";
@@ -29,15 +32,22 @@ export function ProgramBuilder({
   cancelHref,
   templates,
   initial,
+  heading,
 }: {
   action: (state: ProgramFormState, formData: FormData) => Promise<ProgramFormState>;
   submitLabel: string;
   cancelHref: string;
   templates: TemplateOption[];
   initial?: Initial;
+  // The page's heading, drawn inside the form so a second save can sit beside
+  // it. Without one — the edit page's heading carries a delete form, which
+  // can't go inside this one — the second save gets a line of its own.
+  heading?: { eyebrow: string; title: string; intro?: ReactNode };
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [weeks, setWeeks] = useState(initial?.weeks ?? 4);
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
 
   // week-day -> templateId, for prefilling the grid on edit.
   const slotMap = new Map<string, string>();
@@ -58,8 +68,28 @@ export function ProgramBuilder({
     );
   }
 
+  const saveButton = (size?: "sm") => (
+    <button type="submit" data-save disabled={pending} className={buttonClass("primary", size)}>
+      {pending ? "Saving…" : submitLabel}
+    </button>
+  );
   return (
-    <form action={formAction} className="flex flex-col gap-6">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-6">
+      {heading ? (
+        // mb-1 tops the form's gap up to the mt-7 the pages leave under a heading.
+        <div className="mb-1">
+          <PageHeading
+            eyebrow={heading.eyebrow}
+            title={heading.title}
+            action={<EditorActions>{saveButton("sm")}</EditorActions>}
+          >
+            {heading.intro}
+          </PageHeading>
+        </div>
+      ) : (
+        <FormHeading>{saveButton("sm")}</FormHeading>
+      )}
+
       <FormError>{state.error}</FormError>
 
       <Card className="grid gap-4 p-5 sm:grid-cols-2">
@@ -129,9 +159,7 @@ export function ProgramBuilder({
       </div>
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className={buttonClass("primary")}>
-          {pending ? "Saving…" : submitLabel}
-        </button>
+        {saveButton()}
         <Link href={cancelHref} className={buttonClass("ghost")}>
           Cancel
         </Link>

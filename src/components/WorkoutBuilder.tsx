@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState, type ReactNode } from "react";
+import { useActionState, useRef, type ReactNode } from "react";
 import type { WorkoutFormState } from "@/app/(trainer)/workout-actions";
 import { AnimationToggle, useShowAnimations } from "@/components/AnimationToggle";
 import { DragOverlay, Grip } from "@/components/Drag";
@@ -18,7 +18,10 @@ import {
   PageHeading,
   buttonClass,
 } from "@/components/ui";
+import { EditorActions } from "@/components/EditorActions";
 import { useExerciseDrag } from "@/components/useExerciseDrag";
+import { useFieldHistory } from "@/components/useFieldHistory";
+import { useUndoHistory } from "@/components/useUndoHistory";
 import { cn } from "@/lib/cn";
 import {
   SECTION_ORDER,
@@ -161,14 +164,29 @@ export function WorkoutBuilder({
   // picker's own import — they're the same for everyone.
   catalog: PickerCatalog;
   // The page's heading, drawn here rather than by the page so a second save
-  // can sit beside it. An edit is often one change near the top of a workout
-  // whose bottom button is screens away, and being inside the form lets the
-  // top button submit it and show the same "Saving…" as the bottom one.
-  heading?: { eyebrow: string; title: string; intro?: ReactNode };
+  // can sit beside it. A change is often near the top of a workout whose
+  // bottom button is screens away, and being inside the form lets the top
+  // button submit it and show the same "Saving…" as the bottom one.
+  heading: { eyebrow: string; title: string; intro?: ReactNode };
 }) {
   const [state, formAction, pending] = useActionState(action, {});
-  const [rows, setRows] = useState<Rows>(() => seedRows(initial));
   const formRef = useRef<HTMLFormElement>(null);
+  // Every add, remove, move and picked movement is a step Ctrl+Z can take back
+  // (useUndoHistory), and so is each box typed in, which useFieldHistory reads
+  // off the DOM. A snapshot copies in what's typed in the boxes, which live in
+  // the DOM rather than in `rows`, so a removed row that undo brings back still
+  // has its sets and reps. A successful save leaves the page, so nothing saved
+  // is ever undone into.
+  const history = useUndoHistory<Rows>(() => seedRows(initial), {
+    capture: (r) => {
+      const out = { ...r };
+      for (const s of SECTION_ORDER) out[s] = r[s].map((row) => ({ ...row, ...typed(row.id) }));
+      return out;
+    },
+  });
+  const rows = history.state;
+  const setRows = history.set;
+  useFieldHistory(formRef);
   const [showAnims] = useShowAnimations();
 
   const total = SECTION_ORDER.reduce((n, s) => n + rows[s].length, 0);
@@ -260,21 +278,23 @@ export function WorkoutBuilder({
     );
 
   const saveButton = (size?: "sm") => (
-    <button type="submit" disabled={pending} className={buttonClass("primary", size)}>
+    <button type="submit" data-save disabled={pending} className={buttonClass("primary", size)}>
       {pending ? "Saving…" : submitLabel}
     </button>
   );
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-6">
-      {heading ? (
-        // mb-1 tops the form's gap up to the mt-7 the pages leave under a heading.
-        <div className="mb-1">
-          <PageHeading eyebrow={heading.eyebrow} title={heading.title} action={saveButton("sm")}>
-            {heading.intro}
-          </PageHeading>
-        </div>
-      ) : null}
+      {/* mb-1 tops the form's gap up to the mt-7 the pages leave under a heading. */}
+      <div className="mb-1">
+        <PageHeading
+          eyebrow={heading.eyebrow}
+          title={heading.title}
+          action={<EditorActions>{saveButton("sm")}</EditorActions>}
+        >
+          {heading.intro}
+        </PageHeading>
+      </div>
 
       <FormError>{state.error}</FormError>
 

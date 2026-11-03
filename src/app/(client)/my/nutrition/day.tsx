@@ -134,25 +134,27 @@ export async function NutritionDay({
       <LogRowsProvider initial={initialLog}>
       <div className="grid gap-7 lg:grid-cols-[1.4fr_1fr] lg:items-start">
         <section>
-          <h2 className="font-display text-lg font-semibold text-ink">
-            {isFuture ? "Not yet" : "What you ate"}
-          </h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            {formatDate(day)}
-            {dayKey === todayKey ? " · today" : ""}
-          </p>
           {isFuture ? (
-            <Card className="mt-4 p-5">
-              <p className="text-sm text-ink-soft">
-                This day hasn&rsquo;t happened yet, so there&rsquo;s nothing to
-                log against it. Your plan for it is right here whenever you want
-                to look ahead — come back on the day to record what you actually
-                ate.
-              </p>
-            </Card>
+            <>
+              <h2 className="font-display text-lg font-semibold text-ink">Not yet</h2>
+              <p className="mt-1 text-sm text-ink-soft">{formatDate(day)}</p>
+              <Card className="mt-4 p-5">
+                <p className="text-sm text-ink-soft">
+                  This day hasn&rsquo;t happened yet, so there&rsquo;s nothing to
+                  log against it. Your plan for it is right here whenever you want
+                  to look ahead — come back on the day to record what you actually
+                  ate.
+                </p>
+              </Card>
+            </>
           ) : (
-          <div className="mt-4">
             <NutritionLogForm
+              // The heading is drawn by the form, so a second save can sit
+              // beside it.
+              heading={{
+                title: "What you ate",
+                intro: `${formatDate(day)}${dayKey === todayKey ? " · today" : ""}`,
+              }}
               detail={detail}
               action={saveNutritionLog.bind(null, dayKey)}
               targets={hasTargets ? targets : null}
@@ -161,7 +163,6 @@ export async function NutritionDay({
               // can't see process.env, and this is the server boundary.
               photoEnabled={geminiConfig() !== null}
             />
-          </div>
           )}
         </section>
 

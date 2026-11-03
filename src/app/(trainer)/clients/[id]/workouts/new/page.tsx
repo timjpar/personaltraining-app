@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getPickerCatalog } from "@/lib/exercise-catalog";
-import { Container, PageHeading } from "@/components/ui";
+import { Container } from "@/components/ui";
 import { WorkoutBuilder } from "@/components/WorkoutBuilder";
 import { createWorkout } from "@/app/(trainer)/workout-actions";
 import { toDateInput } from "@/lib/format";
@@ -35,13 +35,12 @@ export default async function NewWorkoutPage({
       </Link>
 
       <div className="mt-3">
-        <PageHeading eyebrow="New session" title={`Program for ${client.name}`}>
-          Set the day, then add each movement with its prescription.
-        </PageHeading>
-      </div>
-
-      <div className="mt-7">
         <WorkoutBuilder
+          heading={{
+            eyebrow: "New session",
+            title: `Program for ${client.name}`,
+            intro: "Set the day, then add each movement with its prescription.",
+          }}
           action={createWorkout.bind(null, client.id)}
           submitLabel="Assign workout"
           cancelHref={`/clients/${client.id}`}

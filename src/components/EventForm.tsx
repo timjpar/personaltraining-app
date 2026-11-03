@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import type { EventFormState } from "@/app/(trainer)/calendar/actions";
+import { FormHeading } from "@/components/EditorActions";
+import { useFieldHistory } from "@/components/useFieldHistory";
 import {
   Card,
   Field,
@@ -22,6 +24,7 @@ export function EventForm({
   cancelHref,
   clients,
   initial,
+  heading,
 }: {
   action: (state: EventFormState, formData: FormData) => Promise<EventFormState>;
   submitLabel: string;
@@ -36,11 +39,25 @@ export function EventForm({
     kind?: EventKind;
     clientId?: string | null;
   };
+  // The section's heading, drawn here so a second save can sit beside it.
+  heading: { title: string; intro?: string };
 }) {
   const [state, formAction, pending] = useActionState(action, {});
+  const formRef = useRef<HTMLFormElement>(null);
+  useFieldHistory(formRef);
+
+  const saveButton = (size?: "sm") => (
+    <button type="submit" data-save disabled={pending} className={buttonClass("primary", size)}>
+      {pending ? "Saving…" : submitLabel}
+    </button>
+  );
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+      <FormHeading title={heading.title} intro={heading.intro}>
+        {saveButton("sm")}
+      </FormHeading>
+
       <FormError>{state.error}</FormError>
 
       <Card className="grid gap-3.5 p-5 sm:grid-cols-2">
@@ -130,9 +147,7 @@ export function EventForm({
       </Card>
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className={buttonClass("primary")}>
-          {pending ? "Saving…" : submitLabel}
-        </button>
+        {saveButton()}
         <Link href={cancelHref} className={buttonClass("ghost")}>
           Cancel
         </Link>
