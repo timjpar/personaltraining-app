@@ -6,6 +6,7 @@ import type { WorkoutFormState } from "@/app/(trainer)/workout-actions";
 import { AnimationToggle, useShowAnimations } from "@/components/AnimationToggle";
 import { DragOverlay, Grip } from "@/components/Drag";
 import { ExerciseAnimation } from "@/components/ExerciseAnimation";
+import { ProgressionGuide } from "@/components/ProgressionGuide";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import {
   Card,
@@ -653,6 +654,9 @@ export function WorkoutBuilder({
                             />
                           ) : null}
                         </div>
+                        {/* Where this movement leads, and how to get there.
+                            Follows the name as it's typed. */}
+                        {named ? <ProgressionGuide name={named} className="mt-4" /> : null}
                       </Card>
                     );
                   })}

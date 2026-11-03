@@ -511,6 +511,41 @@ const boxJump: Spec = (() => {
   };
 })();
 
+// Step off a box, land into a short squat, and spring straight back up: the
+// landing is the rep, so the ground contact stays brief.
+const DEPTH_BOX = { x0: -112, x1: -64, top: -50 };
+const depthJump: Spec = (() => {
+  const onBox = standAt(-90, DEPTH_BOX.top - 94.4, -2, 0, DEPTH_BOX.top - 8);
+  const stepOff = airborne(-54, -126, -6, 18, 20);
+  const land = standAt(0, -70, -42, -44);
+  const fly = airborne(2, -150, -4, 30, 172);
+  const settle = standAt(0, -88, -12, 4);
+  const stand0 = standAt(0, -94.4, -2, 0);
+  return {
+    name: "Depth Jump",
+    mode: "loop",
+    seconds: 3.2,
+    samples: 32,
+    hands: { N: "hand" },
+    primary: ["quads", "glutes", "calves"],
+    secondary: ["hamstrings", "delts_front"],
+    still: 0.36,
+    scene: [{ draw: box(DEPTH_BOX.x0, DEPTH_BOX.x1, DEPTH_BOX.top), layer: "back" }],
+    motion: (p) => ({
+      pose: seq(p, [
+        [0, onBox],
+        [0.14, onBox],
+        [0.28, stepOff],
+        [0.38, land],
+        [0.52, fly],
+        [0.66, settle],
+        [0.78, stand0],
+        [1, onBox],
+      ]),
+    }),
+  };
+})();
+
 const broadJump: Spec = (() => {
   const s0 = standAt(-44, -94.4, -2, 0);
   const dip = standAt(-50, -72, -44, -46);
@@ -614,6 +649,7 @@ export const CARDIO: Spec[] = [
   aSkip,
   burpee,
   boxJump,
+  depthJump,
   broadJump,
   ballSlam,
   chestPass,

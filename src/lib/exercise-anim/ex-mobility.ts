@@ -844,6 +844,110 @@ const frogStretch: Spec = {
   },
 };
 
+// Kneeling on the back knee with the front leg straight out, heel down and
+// toes up, folding over it from the hips with the back long.
+const halfSplit: Spec = {
+  name: "Half Split",
+  mode: "alternate",
+  seconds: 3.6,
+  hands: { N: "palm" },
+  primary: ["hamstrings"],
+  secondary: ["calves", "lower_back"],
+  still: 1,
+  motion: (p) => {
+    const hip = v(lerp(-22, -28, p), -50);
+    const torso = lerp(-8, -62, p);
+    let pose = base(hip, { torso, pelvis: lerp(-4, -40, p), head: torso + 14 });
+    const legLen = LEN.thigh + LEN.shin - 1;
+    const heel = v(hip.x + Math.sqrt(legLen ** 2 - (hip.y + 8) ** 2), -8);
+    pose = {
+      ...pose,
+      legF: { ...plantLeg(hip, v(-30, -6), -180, -1), lower: -90, end: -180 },
+      legN: plantLeg(hip, heel, 80, 1),
+    };
+    // Hands down beside the front leg, as low as the fold lets them reach.
+    const s = shoulders(pose).N;
+    const reach = LEN.upperArm + LEN.forearm + LEN.palm;
+    const floor = Math.min(0, s.y + reach);
+    pose = palms(pose, "side", v(s.x + 6, floor), v(s.x + 6, floor), 90, -1);
+    return { pose };
+  },
+};
+
+// Sliding from a low lunge into the split: front leg straight ahead, back
+// leg straight behind, hips square and settling to the floor.
+const frontSplit: Spec = {
+  name: "Front Split",
+  mode: "alternate",
+  seconds: 4,
+  hands: { N: "palm" },
+  primary: ["hamstrings", "hip_flexors"],
+  secondary: ["adductors", "glutes", "quads"],
+  still: 1,
+  scene: [{ draw: box(-30, -18, -14), layer: "front" }],
+  motion: (p) => {
+    const hip = v(0, lerp(-58, -16, p));
+    let pose = base(hip, { torso: lerp(-10, 0, p), pelvis: lerp(-6, 4, p), head: 0 });
+    const front = lerp(48, 90, p);
+    const back = lerp(-44, -90, p);
+    pose = { ...pose, legN: limb(front, front, front + 70), legF: limb(back, back, back - 90) };
+    // Fingertips on blocks either side, steadying.
+    const s = shoulders(pose).N;
+    const block = v(s.x - 4, -14);
+    pose = palms(pose, "side", block, block, 90, -1);
+    return { pose };
+  },
+};
+
+// Sitting with the legs wide and straight, toes up, folding forward from the
+// hips until the chest nears the floor. Side-on, the near leg is drawn swung
+// out towards the viewer.
+const pancake: Spec = {
+  name: "Pancake Stretch",
+  aka: ["Pancake"],
+  mode: "alternate",
+  seconds: 4,
+  hands: { N: "palm" },
+  primary: ["adductors", "hamstrings"],
+  secondary: ["lower_back", "glutes"],
+  still: 1,
+  motion: (p) => {
+    const torso = lerp(-6, -88, p);
+    const hip = v(0, -14);
+    let pose = base(hip, { torso, pelvis: lerp(-2, -58, p), head: torso + 8 });
+    const wide = { ...limb(90, 90, 172), ku: 0.62, kl: 0.62 };
+    pose = { ...pose, legN: wide, legF: { ...limb(90, 90, 172), ku: 0.8, kl: 0.8 } };
+    const s = shoulders(pose).N;
+    const reach = LEN.upperArm + LEN.forearm + LEN.palm;
+    const ahead = Math.sqrt(Math.max(0, (reach - 2) ** 2 - (0 - s.y) ** 2));
+    pose = palms(pose, "side", v(s.x + ahead, 0), v(s.x + ahead, 0), 90, -1);
+    return { pose };
+  },
+};
+
+// From the top of the head on the floor, pressing to straight arms with the
+// hips high: hands by the ears, feet flat, the whole front of the body arched.
+const BRIDGE_PALM = v(-38, 0);
+const BRIDGE_ANKLE = v(30, -8);
+const fullBridge: Spec = {
+  name: "Full Bridge",
+  aka: ["Wheel Pose", "Back Bridge"],
+  mode: "alternate",
+  seconds: 3.6,
+  hands: { N: "palm" },
+  primary: ["lower_back", "delts_front"],
+  secondary: ["glutes", "triceps", "hip_flexors", "chest"],
+  still: 1,
+  motion: (p) => {
+    const hip = v(lerp(6, 10, p), lerp(-62, -86, p));
+    const torso = lerp(150, 125, p);
+    let pose = base(hip, { torso, pelvis: lerp(110, 96, p), head: torso + 30 });
+    pose = plant(pose, "side", BRIDGE_ANKLE, BRIDGE_ANKLE);
+    pose = palms(pose, "side", BRIDGE_PALM, BRIDGE_PALM, 90, 1);
+    return { pose };
+  },
+};
+
 export const MOBILITY: Spec[] = [
   bandPullApart,
   bandFacePull,
@@ -869,6 +973,10 @@ export const MOBILITY: Spec[] = [
   pigeon,
   hamstringStretch,
   seatedForwardFold,
+  pancake,
+  halfSplit,
+  frontSplit,
+  fullBridge,
   jeffersonCurl,
   calfStretch,
   supineTwist,

@@ -6,6 +6,7 @@ import {
   box,
   cable,
   cableTower,
+  column,
   dumbbellEnd,
   dumbbellGoblet,
   flatBench,
@@ -601,44 +602,78 @@ const cablePullThrough: Spec = {
   },
 };
 
-const nordicCurl: Spec = {
-  name: "Nordic Hamstring Curl",
-  mode: "alternate",
-  seconds: 3.6,
-  hands: { N: "palm" },
-  primary: ["hamstrings"],
-  secondary: ["glutes", "calves"],
-  still: 0.7,
-  scene: [{ draw: { svg: `<circle class="pad" cx="-44" cy="-13" r="4.5"/>`, box: [-49, -18, -39, -8] }, layer: "front" }],
-  motion: (p) => {
-    const lean = lerp(0, 68, p);
-    const knee = v(0, -6);
-    const hip = sub(knee, rot(v(0, 44), -lean));
-    let pose = base(hip, { torso: -lean, pelvis: -lean, head: -lean + 10 });
-    pose = { ...pose, legN: limb(-lean, -90, -180), legF: limb(-lean, -90, -180) };
-    const arm = -lean + lerp(20, 70, p);
-    pose = { ...pose, armN: limb(arm, arm + 40, arm + 70), armF: limb(arm, arm + 40, arm + 70) };
-    return { pose };
-  },
-};
+// Kneeling, ankles pinned, lowering forward from the knees with the hips
+// kept straight. `band` runs from an anchor behind to the chest, taking some
+// of the weight on the way down.
+const NORDIC_ANCHOR = v(-96, -150);
+function nordic(o: { name: string; aka?: string[]; band?: boolean }): Spec {
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: 3.6,
+    hands: { N: "palm" },
+    primary: ["hamstrings"],
+    secondary: ["glutes", "calves"],
+    still: 0.7,
+    scene: [
+      { draw: { svg: `<circle class="pad" cx="-44" cy="-13" r="4.5"/>`, box: [-49, -18, -39, -8] }, layer: "front" },
+      ...(o.band ? [{ draw: { svg: `<rect class="frame" x="${NORDIC_ANCHOR.x - 3}" y="${NORDIC_ANCHOR.y - 20}" width="6" height="${-NORDIC_ANCHOR.y + 20}"/>`, box: [NORDIC_ANCHOR.x - 3, NORDIC_ANCHOR.y - 20, NORDIC_ANCHOR.x + 3, 0] as [number, number, number, number] }, layer: "back" as const }] : []),
+    ],
+    props: o.band ? [{ id: "band", draw: { svg: `<path class="band" d="M0 0H1" style="vector-effect:non-scaling-stroke"/>`, box: [0, -1, 1, 1] }, layer: "front" }] : [],
+    motion: (p) => {
+      const lean = lerp(0, 68, p);
+      const knee = v(0, -6);
+      const hip = sub(knee, rot(v(0, 44), -lean));
+      let pose = base(hip, { torso: -lean, pelvis: -lean, head: -lean + 10 });
+      pose = { ...pose, legN: limb(-lean, -90, -180), legF: limb(-lean, -90, -180) };
+      const arm = -lean + lerp(20, 70, p);
+      pose = { ...pose, armN: limb(arm, arm + 40, arm + 70), armF: limb(arm, arm + 40, arm + 70) };
+      const props: Record<string, PropState> = {};
+      if (o.band) props.band = line(NORDIC_ANCHOR, onTrunk(pose, v(6, -30)));
+      return { pose, props };
+    },
+  };
+}
 
-const pistolSquat: Spec = {
-  name: "Pistol Squat",
-  mode: "alternate",
-  seconds: 3.4,
-  hands: { N: "hand" },
-  primary: ["quads", "glutes"],
-  secondary: ["adductors", "hip_flexors", "abs"],
-  still: 0.85,
-  motion: (p) => {
-    const torso = lerp(-4, -36, p);
+// One leg, the other held out in front. `box` sits down onto a box behind
+// and stands back up; `assisted` holds a post in front, the hands sliding
+// down it, so the arms can help.
+function pistol(o: { name: string; box?: boolean; assisted?: boolean }): Spec {
+  const depth = o.box ? -58 : -42;
+  const at1 = (p: number) => {
+    const torso = lerp(-4, o.assisted ? -22 : -36, p);
     const probe = (pose: Pose) => onTrunk(pose, v(4, -20));
-    let pose = stand(lerp(-94.4, -42, p), { torso, pelvis: torso * 0.85, head: torso * 0.4 }, { probe, over: lerp(4, -2, p) });
-    const lift = lerp(10, 82, p);
-    pose = { ...pose, legF: limb(lift, lift, 10), armN: limb(lerp(20, 88, p)), armF: limb(lerp(16, 84, p)) };
-    return { pose };
-  },
-};
+    return stand(lerp(-94.4, depth, p), { torso, pelvis: torso * 0.85, head: torso * 0.4 }, { probe, over: lerp(4, o.assisted ? 0 : -2, p) });
+  };
+  const bottom = at1(1).hip;
+  const post = v(54, -150);
+  return {
+    name: o.name,
+    mode: "alternate",
+    seconds: 3.4,
+    hands: { N: o.assisted ? "fist" : "hand" },
+    primary: ["quads", "glutes"],
+    secondary: ["adductors", "hip_flexors", "abs"],
+    still: 0.85,
+    scene: [
+      ...(o.box ? [{ draw: box(bottom.x - 26, bottom.x + 12, bottom.y + 14), layer: "back" as const }] : []),
+      ...(o.assisted ? [{ draw: column(post.x, post.y, 6), layer: "back" as const }] : []),
+    ],
+    motion: (p) => {
+      let pose = at1(p);
+      const lift = lerp(10, o.box ? 70 : 82, p);
+      pose = { ...pose, legF: limb(lift, lift, 10) };
+      if (o.assisted) {
+        const s = shoulders(pose).N;
+        pose = hold(pose, "side", v(post.x + 1, s.y + 14), undefined, -1);
+      } else {
+        pose = { ...pose, armN: limb(lerp(20, 88, p)), armF: limb(lerp(16, 84, p)) };
+      }
+      return { pose };
+    },
+  };
+}
 
 const stepUp: Spec = {
   name: "Step-Up",
@@ -727,7 +762,9 @@ export const LEGS: Spec[] = [
   squat({ name: "Goblet Squat", load: "goblet-db", primary: ["quads", "glutes"], secondary: ["adductors", "abs"] }),
   squat({ name: "Kettlebell Goblet Squat", load: "goblet-kb", primary: ["quads", "glutes"], secondary: ["adductors", "abs"] }),
   squat({ name: "Hack Squat", load: "hack", primary: ["quads"], secondary: ["glutes", "adductors"] }),
-  pistolSquat,
+  pistol({ name: "Pistol Squat" }),
+  pistol({ name: "Box Pistol Squat", box: true }),
+  pistol({ name: "Assisted Pistol Squat", assisted: true }),
   legPress,
   lunge({ name: "Reverse Lunge", kind: "reverse", load: "dumbbells", primary: ["quads", "glutes"], secondary: ["adductors", "hamstrings"] }),
   lunge({ name: "Walking Lunge", kind: "forward", load: "dumbbells", primary: ["quads", "glutes"], secondary: ["adductors", "hamstrings", "calves"] }),
@@ -761,7 +798,8 @@ export const LEGS: Spec[] = [
   seatedLegCurl,
   backExtension,
   cablePullThrough,
-  nordicCurl,
+  nordic({ name: "Nordic Hamstring Curl" }),
+  nordic({ name: "Band-Assisted Nordic Curl", aka: ["Band Assisted Nordic Curl"], band: true }),
   calfRaise,
   seatedCalfRaise,
 ];

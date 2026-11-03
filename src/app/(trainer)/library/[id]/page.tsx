@@ -17,6 +17,8 @@ import { toDateInput } from "@/lib/format";
 import { groupBySection, usesSections } from "@/lib/workout-form";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
+import { pathsThrough } from "@/lib/progressions";
+import { ProgressionGuide } from "@/components/ProgressionGuide";
 
 export default async function TemplatePage({
   params,
@@ -108,6 +110,16 @@ export default async function TemplatePage({
                       const own = media.get(normalizeExerciseName(ex.name));
                       return own ? { own: true, url: own.url } : undefined;
                     })()}
+                    footer={
+                      // Checked here rather than left to the guide, which
+                      // would hand the card an empty footer to pad.
+                      pathsThrough(ex.name).length ? (
+                        <ProgressionGuide
+                          name={ex.name}
+                          discipline={toDiscipline(template.discipline)}
+                        />
+                      ) : null
+                    }
                   />
                 </li>
               ))}

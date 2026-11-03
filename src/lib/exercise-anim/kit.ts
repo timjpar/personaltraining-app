@@ -370,3 +370,25 @@ export function gait(p: number, g: Gait, trunk: { torso?: number; head?: number 
   const armF = limb(swing, swing + g.elbow, swing + g.elbow);
   return { ...pose, armN, armF };
 }
+
+// --- Variations on a whole movement ------------------------------------------
+
+// The eccentric-only version of a rep: up quickly (a jump or a step does the
+// work), a moment at the top, then a slow count back down. `spec` is an
+// "alternate" movement whose phase 1 is the top.
+export function negative(spec: Spec, name: string, aka?: string[]): Spec {
+  return {
+    ...spec,
+    name,
+    aka,
+    mode: "loop",
+    seconds: spec.seconds * 2,
+    samples: 40,
+    still: 0.2,
+    motion: (p) => {
+      const ease = (t: number) => (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t)))) / 2;
+      const phase = p < 0.12 ? ease(p / 0.12) : p < 0.22 ? 1 : 1 - (p - 0.22) / 0.78;
+      return spec.motion(phase);
+    },
+  };
+}
