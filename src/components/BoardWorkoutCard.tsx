@@ -8,7 +8,9 @@
 // re-render the board's overlay and not seven columns of inputs.
 import Link from "next/link";
 import { memo, useState, type PointerEvent } from "react";
+import { useShowAnimations } from "@/components/AnimationToggle";
 import { Grip } from "@/components/Drag";
+import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { Input, Select, Textarea, buttonClass } from "@/components/ui";
 import type { BoardSubject } from "@/components/useBoardDrag";
@@ -112,6 +114,7 @@ const ExerciseRow = memo(function ExerciseRow({
   onToggleRow: (id: string, open?: boolean) => void;
   onRefocus: (id: string, dir: Dir) => void;
 }) {
+  const [showAnims] = useShowAnimations();
   const name = row.name.trim();
   const line = prescription(row);
   const number = String(n).padStart(2, "0");
@@ -162,6 +165,11 @@ const ExerciseRow = memo(function ExerciseRow({
         <span className="metric w-5 shrink-0 text-[0.6875rem] text-ink-soft/70" aria-hidden>
           {number}
         </span>
+        {/* A small demo to tell movements apart at a glance across columns;
+            tapping it opens the larger view, not the row's fields. */}
+        {showAnims && name ? (
+          <ExerciseAnimation name={name} className="my-1 h-11 w-11" />
+        ) : null}
         {locked ? (
           summary
         ) : (

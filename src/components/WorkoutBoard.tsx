@@ -22,6 +22,7 @@ import {
   loadBoardWorkouts,
   saveBoard,
 } from "@/app/(trainer)/library/compare/actions";
+import { AnimationToggle } from "@/components/AnimationToggle";
 import { BoardWorkoutCard, type MoveTarget } from "@/components/BoardWorkoutCard";
 import { DragOverlay } from "@/components/Drag";
 import { Button, EmptyState, Input, Select, buttonClass } from "@/components/ui";
@@ -565,6 +566,8 @@ export function WorkoutBoard({
         ) : null}
 
         {loading ? <span className="eyebrow text-ink-soft">Loading…</span> : null}
+
+        <AnimationToggle className="ml-auto" />
       </div>
 
       <div inert={saving} className={cn("transition-opacity", saving && "opacity-60")}>
