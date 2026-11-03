@@ -50,7 +50,16 @@ export function DragOverlay({
 }) {
   return (
     <>
-      {line ? (
+      {line && line.height != null ? (
+        // Upright, in the gap between two columns, with its dot at the top.
+        <div
+          aria-hidden
+          className="pointer-events-none fixed z-50 w-0.5 rounded-full bg-jade"
+          style={{ top: line.top, left: line.left - 1, height: line.height }}
+        >
+          <span className="absolute -left-[3px] -top-1 h-2 w-2 rounded-full border-2 border-jade bg-card" />
+        </div>
+      ) : line ? (
         <div
           aria-hidden
           className="pointer-events-none fixed z-50 h-0.5 rounded-full bg-jade"

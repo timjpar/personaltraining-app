@@ -118,6 +118,29 @@ export function workoutDay(title: string): number | null {
   return match ? DAY_KEYS.indexOf(match[1].slice(0, 3).toLowerCase()) : null;
 }
 
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/**
+ * The title moved to another day (0 Sunday … 6 Saturday), or taken off every
+ * day for null. The day is the title's prefix, so the board moves a library
+ * workout by rewriting it. It keeps whatever separator and spelling the coach
+ * used: "Monday - Legs" becomes "Tuesday - Legs", "MON · Legs" becomes
+ * "TUE · Legs". A title with no day gets the "Mon · " style.
+ */
+export function withWorkoutDay(title: string, day: number | null): string {
+  const trimmed = title.trim();
+  const match = DAY_PREFIX.exec(trimmed);
+  const rest = match ? trimmed.slice(match[0].length) : trimmed;
+  if (day == null) return rest;
+  if (!match) return `${DAY_SHORT[day]} · ${rest}`;
+
+  const said = match[1];
+  let word: string = said.length > 3 ? DAY_LABELS[day] : DAY_SHORT[day];
+  if (said === said.toUpperCase()) word = word.toUpperCase();
+  else if (said === said.toLowerCase()) word = word.toLowerCase();
+  return word + match[0].slice(said.length) + rest;
+}
+
 function labelKind(title: string): WorkoutKind | null {
   const rest = title.trim().replace(DAY_PREFIX, "");
   const match = /^([a-z]+)\s*:/i.exec(rest);
