@@ -27,6 +27,8 @@ import {
   hold,
   ik2,
   joints,
+  kf,
+  negative,
   LEN,
   lerp,
   limb,
@@ -276,20 +278,32 @@ function pullUpBack(o: {
 
 // Side-on pull-up for the grips that pull in the plane: chin-up and neutral.
 const SIDE_BAR = v(6, -236);
-function pullUpSide(o: { name: string; aka?: string[]; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+function pullUpSide(o: {
+  name: string;
+  aka?: string[];
+  // Pulled past the chin until the chest meets the bar, leaning back.
+  chest?: boolean;
+  // Pulled fast enough that the body keeps rising after the arms finish.
+  explosive?: boolean;
+  primary: Spec["primary"];
+  secondary?: Spec["secondary"];
+}): Spec {
+  const high = o.chest || o.explosive;
   return {
     name: o.name,
     aka: o.aka,
     mode: "alternate",
-    seconds: 3,
+    seconds: o.explosive ? 1.8 : 3,
     hands: { N: "fist" },
     primary: o.primary,
     secondary: o.secondary,
     still: 0.75,
     scene: [{ draw: pullUpBar(SIDE_BAR), layer: "back" }],
-    motion: (p) => {
-      const torso = lerp(2, 14, p);
-      const shoulder = add(SIDE_BAR, v(lerp(-2, -12, p), lerp(61.4, 12, p)));
+    motion: (q) => {
+      // Explosive: most of the height in the first half of the pull.
+      const p = o.explosive ? Math.sin((q * Math.PI) / 2) : q;
+      const torso = lerp(2, high ? 26 : 14, p);
+      const shoulder = add(SIDE_BAR, v(lerp(-2, high ? -18 : -12, p), lerp(61.4, high ? 1 : 12, p)));
       const lumbar = sub(shoulder, rot(v(0, -41), torso));
       const hip = sub(lumbar, rot(v(0, -11), torso));
       let pose = base(hip, { torso, pelvis: torso, head: torso - 10 });
@@ -299,6 +313,41 @@ function pullUpSide(o: { name: string; aka?: string[]; primary: Spec["primary"];
     },
   };
 }
+
+// Side-on: pull high with the chest to the bar, roll the shoulders over it,
+// and press to straight arms on top. The elbows flip from behind the bar to
+// above it in the transition, as they do on a real one.
+const muscleUp: Spec = {
+  name: "Muscle-Up",
+  aka: ["Bar Muscle-Up"],
+  mode: "alternate",
+  seconds: 3.4,
+  hands: { N: "fist" },
+  primary: ["lats", "chest", "triceps"],
+  secondary: ["biceps", "upper_back", "abs", "delts_front"],
+  still: 1,
+  // In front and without the post: once the body is over the bar, the bar at
+  // the hips is the whole point, and a post would run up through the trunk.
+  scene: [{ draw: { svg: `<circle class="steel" cx="${SIDE_BAR.x}" cy="${SIDE_BAR.y}" r="2.8"/>`, box: [SIDE_BAR.x - 3, SIDE_BAR.y - 3, SIDE_BAR.x + 3, SIDE_BAR.y + 3] }, layer: "front" }],
+  motion: (p) => {
+    const keys = (a: number, b: number, c: number, d: number, e: number): [number, number][] => [
+      [0, a],
+      [0.4, b],
+      [0.55, c],
+      [0.72, d],
+      [1, e],
+    ];
+    const torso = kf(p, keys(2, 24, -30, -24, -8));
+    const shoulder = add(SIDE_BAR, v(kf(p, keys(-2, -16, 2, 2, -1)), kf(p, keys(61.4, 4, -12, -32, -54))));
+    const lumbar = sub(shoulder, rot(v(0, -41), torso));
+    const hip = sub(lumbar, rot(v(0, -11), torso));
+    let pose = base(hip, { torso, pelvis: torso, head: torso - 6 });
+    const knee = kf(p, keys(-2, -24, -30, -10, 0));
+    pose = { ...pose, legN: limb(kf(p, keys(4, 22, 30, 14, 10)), knee, knee + 20), legF: limb(kf(p, keys(0, 16, 24, 10, 6)), knee - 6, knee + 14) };
+    pose = hold(pose, "side", SIDE_BAR, undefined, p < 0.5 ? 1 : -1);
+    return { pose };
+  },
+};
 
 const latPulldown: Spec = {
   name: "Lat Pulldown",
@@ -592,6 +641,11 @@ export const PULL: Spec[] = [
   pullUpBack({ name: "Pull-Up", aka: ["Pull Up"], primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
   pullUpBack({ name: "Weighted Pull-Up", plate: true, primary: ["lats", "upper_back"], secondary: ["biceps", "forearms", "abs"] }),
   pullUpSide({ name: "Chin-Up", aka: ["Chin Up"], primary: ["lats", "biceps"], secondary: ["upper_back", "forearms"] }),
+  pullUpSide({ name: "Chest-to-Bar Pull-Up", aka: ["Chest to Bar Pull-Up"], chest: true, primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
+  pullUpSide({ name: "Explosive Pull-Up", explosive: true, primary: ["lats", "upper_back", "biceps"], secondary: ["delts_rear", "forearms", "abs"] }),
+  negative(pullUpBack({ name: "Pull-Up", primary: ["lats", "upper_back"], secondary: ["biceps", "forearms"] }), "Negative Pull-Up", ["Pull-Up Negative"]),
+  muscleUp,
+  negative(muscleUp, "Negative Muscle-Up", ["Muscle-Up Negative"]),
   pullUpSide({ name: "Neutral-Grip Pull-Up", primary: ["lats", "biceps"], secondary: ["upper_back", "forearms"] }),
   latPulldown,
   neutralPulldown,

@@ -112,6 +112,8 @@ type Climb = {
   feetOff?: boolean;
   rope?: boolean;
   board?: "wall" | "campus" | "circuit";
+  // Campus board only: feet on the kicker below the rungs.
+  kicker?: boolean;
   primary?: Spec["primary"];
   secondary?: Spec["secondary"];
 };
@@ -147,6 +149,8 @@ function climb(o: Climb): Spec {
       })()
     : holdPattern(o.feetOff ? lanes.filter((_, i) => i % 2 === 0) : lanes, period, flow, extras);
   const props: Prop[] = [{ id: "holds", draw: pattern, layer: "back" }];
+  // The kicker stays put while the rungs scroll past.
+  const scene = campus && o.kicker ? [{ draw: { svg: `<rect fill="#8d6539" x="-50" y="-44" width="100" height="10" rx="2"/>`, box: [-50, -44, 50, -34] as [number, number, number, number] }, layer: "back" as const }] : undefined;
   if (o.rope) {
     props.push({ id: "rope", draw: { svg: `<path d="M0 0H1" fill="none" stroke="#2b6cb0" stroke-width="1.4" style="vector-effect:non-scaling-stroke"/>`, box: [0, -1, 1, 1] }, layer: "front" });
   }
@@ -163,6 +167,7 @@ function climb(o: Climb): Spec {
     still: 0.1,
     backdrop: WALL_FILL[board],
     floor: false,
+    scene,
     props,
     motion: (p) => {
       const pos = (i: number) => lanePos(lanes[i], p, period, flow, flow === "right" ? 6 : 8);
@@ -178,7 +183,9 @@ function climb(o: Climb): Spec {
       const armF = ik2(s.F, lh, LEN.upperArm, LEN.forearm + LEN.grip, 1);
       pose = { ...pose, armN: { upper: armN.upper, lower: armN.lower, end: armN.lower }, armF: { upper: armF.upper, lower: armF.lower, end: armF.lower } };
       const j = frontJoints(pose);
-      if (o.feetOff || campus) {
+      if (campus && o.kicker) {
+        pose = { ...pose, legN: plantLeg(j.hip, v(14, -40), 0, 1), legF: plantLeg(j.hipF, v(-14, -40), 0, -1) };
+      } else if (o.feetOff || campus) {
         const dangle = Math.sin(2 * Math.PI * p + 1) * 4;
         pose = { ...pose, legN: limb(4 + dangle, -6 + dangle, 0), legF: limb(-4 + dangle, 6 + dangle, 0) };
       } else {
@@ -292,6 +299,28 @@ function hang(o: {
   };
 }
 
+// The assisted hang without the help: one arm, shoulder set, the free arm
+// loose at the side.
+const oneArmHang: Spec = {
+  name: "One-Arm Hang",
+  view: "back",
+  mode: "loop",
+  seconds: 5,
+  samples: 20,
+  hands: { N: "fist", F: "hand" },
+  primary: ["forearms"],
+  secondary: ["lats", "upper_back", "obliques"],
+  still: 0.25,
+  scene: [{ draw: hangboard(), layer: "back" }],
+  motion: (p) => {
+    const breath = (1 - Math.cos(2 * Math.PI * p)) / 2;
+    const base0 = hangPose(breath, 3);
+    const sway = Math.sin(2 * Math.PI * p) * 2;
+    const pose = { ...base0, hip: add(base0.hip, v(10 + sway, 2)), torso: -6 - sway * 0.4, pelvis: -4 };
+    return { pose: { ...pose, armF: mirror(limb(12, 16, 16)) } };
+  },
+};
+
 const oneArmAssisted: Spec = {
   name: "One-Arm Assisted Hang",
   view: "back",
@@ -389,6 +418,24 @@ const assistedOneArm: Spec = {
   motion: (p) => {
     const pose = backHang(lerp(HANG_Y, TOP_Y + 4, p), lerp(4, -2, p), v(6, ACROSS), v(-30, lerp(ACROSS + 70, ACROSS + 40, p)), lerp(-6, 4, p));
     return { pose, props: { band: line(v(-30, ACROSS), grips(pose, "back").F) } };
+  },
+};
+
+// One hand on the bar, the free arm loose at the side; the body shifts under
+// the working hand as it pulls.
+const oneArmPullUp: Spec = {
+  name: "One-Arm Pull-Up",
+  view: "back",
+  mode: "alternate",
+  seconds: 3.6,
+  hands: { N: "fist", F: "hand" },
+  primary: ["lats", "biceps"],
+  secondary: ["forearms", "upper_back", "obliques", "abs"],
+  still: 0.75,
+  scene: [{ draw: pullUpBarAcross(ACROSS), layer: "back" }],
+  motion: (p) => {
+    const pose = backHang(lerp(HANG_Y, TOP_Y + 4, p), lerp(4, -2, p), v(6, ACROSS), v(-30, ACROSS + 60), lerp(-8, 2, p));
+    return { pose: { ...pose, armF: mirror(limb(lerp(8, 12, p), lerp(12, 22, p), lerp(12, 22, p))) } };
   },
 };
 
@@ -588,6 +635,7 @@ export const CLIMB: Spec[] = [
   climb({ name: "Route Intervals", rope: true, seconds: 3.8, ...ON_WALL }),
   climb({ name: "Circuit Board Laps", board: "circuit", seconds: 3.8, ...ON_WALL }),
   climb({ name: "Campus Board Ladder", board: "campus", period: 44, seconds: 2.6, primary: ["forearms", "lats", "biceps"], secondary: ["upper_back", "abs", "delts_rear"] }),
+  climb({ name: "Foot-On Campusing", aka: ["Feet-On Campusing"], board: "campus", kicker: true, period: 44, seconds: 3, primary: ["forearms", "lats"], secondary: ["biceps", "upper_back", "calves"] }),
   climb({ name: "Campus Board Bumps", board: "campus", period: 24, seconds: 2.2, primary: ["forearms", "lats", "biceps"], secondary: ["upper_back", "abs"] }),
   limitBouldering,
   hang({ name: "Dead Hang", bar: true, primary: ["forearms"], secondary: ["lats", "upper_back", "traps"] }),
@@ -598,12 +646,14 @@ export const CLIMB: Spec[] = [
   hang({ name: "Three-Finger Drag", aka: ["Three Finger Drag"] }),
   hang({ name: "Two-Finger Pocket Hang", aka: ["Two Finger Pocket Hang"] }),
   oneArmAssisted,
+  oneArmHang,
   feetOnHangRamp,
   pinchBlockLift,
   wristRoller,
   riceBucket,
   offsetPullUp,
   assistedOneArm,
+  oneArmPullUp,
   typewriter,
   lockOff({ name: "Lock-Off Hold", aka: ["Lock Off"] }),
   lockOff({ name: "Frenchies", frenchies: true }),

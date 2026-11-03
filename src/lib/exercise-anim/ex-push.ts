@@ -226,6 +226,11 @@ function pushUpSpec(o: {
   // Hands raised on plates, feet on the floor. The bottom is the floor
   // push-up's, so the chest sinks past the hands by the plates' height.
   deficit?: boolean;
+  // One hand only, the other folded on the lower back.
+  oneArm?: boolean;
+  // The far hand planted wide and its arm kept long, so the near arm does
+  // the work. Side-on, "wide" reads as further ahead.
+  archer?: boolean;
   primary: Spec["primary"];
   secondary?: Spec["secondary"];
 }): Spec {
@@ -262,6 +267,47 @@ function pushUpSpec(o: {
         : [],
     motion: (p) => {
       let pose = prone(toe, lerp(high, low, p));
+      const far = o.archer ? add(palm, v(20, 0)) : palm;
+      pose = palms(pose, "side", palm, far, 90, -1);
+      if (o.oneArm) {
+        const body = pose.torso;
+        pose = { ...pose, armF: limb(body - 42, body - 4, body - 4) };
+      }
+      return { pose };
+    },
+  };
+}
+
+// Hips high in an inverted V, the head lowering to the floor in front of the
+// hands: the handstand push-up's line with the feet still on the ground, or on
+// a box when `elevated`.
+function pikePushUp(o: { name: string; elevated?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+  // The hips stay high and nearly still; the trunk tips from the hips so the
+  // head travels down to the floor in front of the hands. Torso angles are
+  // past horizontal, leaning forward: head down and towards the hands.
+  const hipAt = (p: number) => (o.elevated ? v(lerp(-10, -6, p), lerp(-105.6, -86, p)) : v(-10, lerp(-89, -86, p)));
+  const torsoAt = (p: number) => (o.elevated ? lerp(-165, -172, p) : lerp(-130, -160, p));
+  const shoulderAt = (p: number) => add(hipAt(p), rot(v(0, -52), torsoAt(p)));
+  // Palms where the arms are straight at the top; feet where the legs are.
+  const s0 = shoulderAt(0);
+  const palm = v(s0.x + Math.sqrt(Math.max(0, (LEN.upperArm + LEN.forearm - 0.4) ** 2 - (s0.y + LEN.palm) ** 2)), 0);
+  const feetTop = o.elevated ? -44 : 0;
+  const h0 = hipAt(0);
+  const legLen = LEN.thigh + LEN.shin - 1;
+  const ankle = v(h0.x - Math.sqrt(Math.max(0, legLen ** 2 - (feetTop - 8 - h0.y) ** 2)), feetTop - 8);
+  return {
+    name: o.name,
+    mode: "alternate",
+    seconds: 2.8,
+    hands: { N: "palm" },
+    primary: o.primary,
+    secondary: o.secondary,
+    still: 0.8,
+    scene: o.elevated ? [{ draw: box(ankle.x - 26, ankle.x + 14, feetTop), layer: "back" }] : [],
+    motion: (p) => {
+      const torso = torsoAt(p);
+      let pose = base(hipAt(p), { torso, pelvis: torso, head: torso + 10 });
+      pose = plant(pose, "side", ankle, ankle, { N: 30, F: 30 });
       pose = palms(pose, "side", palm, palm, 90, -1);
       return { pose };
     },
@@ -298,16 +344,27 @@ const scapularPushUp: Spec = {
 
 const DIP_BAR = -118;
 
-function dip(o: { name: string; rings?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+function dip(o: {
+  name: string;
+  rings?: boolean;
+  // One bar across, in front of the hips: the lean is further forward.
+  straightBar?: boolean;
+  // Held at the top on rings, steadying rather than dipping.
+  support?: boolean;
+  primary: Spec["primary"];
+  secondary?: Spec["secondary"];
+}): Spec {
+  const bar = v(4, DIP_BAR);
   return {
     name: o.name,
-    mode: "alternate",
-    seconds: 2.8,
+    mode: o.support ? "loop" : "alternate",
+    seconds: o.support ? 4 : 2.8,
+    samples: o.support ? 20 : undefined,
     hands: { N: "fist" },
     primary: o.primary,
     secondary: o.secondary,
     still: 0.85,
-    scene: o.rings ? [] : [{ draw: dipBar(-34, 34, DIP_BAR), layer: "back" }],
+    scene: o.rings ? [] : o.straightBar ? [{ draw: { svg: `<circle class="steel" cx="${bar.x}" cy="${bar.y}" r="3.2"/>`, box: [bar.x - 3.2, bar.y - 3.2, bar.x + 3.2, bar.y + 3.2] }, layer: "front" }] : [{ draw: dipBar(-34, 34, DIP_BAR), layer: "back" }],
     props: o.rings
       ? [
           { id: "sF", draw: strap(), layer: "back" },
@@ -315,11 +372,13 @@ function dip(o: { name: string; rings?: boolean; primary: Spec["primary"]; secon
           { id: "rN", draw: ring(), layer: "front" },
         ]
       : [],
-    motion: (p) => {
-      const grip = v(4, DIP_BAR);
-      const drop = lerp(0, 26, p);
-      const torso = lerp(-4, -24, p);
-      const shoulder = add(grip, v(-1 - p * 6, -54 + drop));
+    motion: (q) => {
+      const grip = bar;
+      // Holding: a small wobble at the top instead of a dip.
+      const p = o.support ? (wave(q) * 0.05) : q;
+      const drop = lerp(0, o.straightBar ? 30 : 26, p);
+      const torso = o.straightBar ? lerp(-14, -40, p) : lerp(-4, -24, p);
+      const shoulder = add(grip, v(o.straightBar ? 6 + p * 10 : -1 - p * 6, -54 + drop));
       const lumbar = sub(shoulder, rot(v(0, -41), torso));
       const hip = sub(lumbar, rot(v(0, -11), torso));
       let pose = base(hip, { torso, pelvis: torso * 0.8, head: torso * 0.6 });
@@ -676,21 +735,34 @@ const facePull: Spec = {
 
 // --- Handstands ------------------------------------------------------------------
 
-function handstand(o: { name: string; push?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+function handstand(o: {
+  name: string;
+  push?: boolean;
+  // Hands on plates, so the head sinks below them at the bottom.
+  deficit?: boolean;
+  // Away from the wall, balancing: a wider sway, caught at the fingers.
+  free?: boolean;
+  primary: Spec["primary"];
+  secondary?: Spec["secondary"];
+}): Spec {
+  const surface = o.deficit ? -2 * DEFICIT : 0;
   return {
     name: o.name,
     mode: o.push ? "alternate" : "loop",
-    seconds: o.push ? 3 : 4,
+    seconds: o.push ? (o.deficit ? 3.4 : 3) : o.free ? 3.2 : 4,
     hands: { N: "palm" },
     primary: o.primary,
     secondary: o.secondary,
     still: o.push ? 0 : 0.25,
-    scene: o.push ? [{ draw: wall(-34, -220), layer: "back" }] : [],
+    scene: [
+      ...(o.push ? [{ draw: wall(-34, -220), layer: "back" as const }] : []),
+      ...(o.deficit ? [{ draw: plateStack(-8, surface, 2), layer: "back" as const }, { draw: plateStack(8, surface, 2), layer: "back" as const }] : []),
+    ],
     motion: (p) => {
-      const sway = o.push ? 0 : (wave(p) - 0.5) * 3;
-      const drop = o.push ? lerp(0, 24, p) : 0;
-      const palm = v(0, 0);
-      const shoulder = v(palm.x - 2 + sway * 0.4, -55.6 + drop);
+      const sway = o.push ? 0 : (wave(p) - 0.5) * (o.free ? 7 : 3);
+      const drop = o.push ? lerp(0, o.deficit ? 40 : 24, p) : 0;
+      const palm = v(0, surface);
+      const shoulder = v(palm.x - 2 + sway * 0.4, surface - 55.6 + drop);
       const torso = 180 + sway - (o.push ? p * 6 : 0);
       const lumbar = sub(shoulder, rot(v(0, -41), torso));
       const hip = sub(lumbar, rot(v(0, -11), torso));
@@ -716,9 +788,16 @@ export const PUSH: Spec[] = [
   pushUpSpec({ name: "Push-Up", aka: ["Push Up"], primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   pushUpSpec({ name: "Incline Push-Up", incline: true, primary: ["chest", "triceps"], secondary: ["delts_front"] }),
   pushUpSpec({ name: "Diamond Push-Up", diamond: true, primary: ["triceps", "chest"], secondary: ["delts_front"] }),
+  pushUpSpec({ name: "Archer Push-Up", archer: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs", "obliques"] }),
+  pushUpSpec({ name: "One-Arm Incline Push-Up", incline: true, oneArm: true, primary: ["chest", "triceps"], secondary: ["delts_front", "obliques", "abs"] }),
+  pushUpSpec({ name: "One-Arm Push-Up", oneArm: true, primary: ["chest", "triceps"], secondary: ["delts_front", "obliques", "abs"] }),
+  pikePushUp({ name: "Pike Push-Up", primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs"] }),
+  pikePushUp({ name: "Elevated Pike Push-Up", elevated: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs"] }),
   pushUpSpec({ name: "Deficit Push-Up", deficit: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   scapularPushUp,
   dip({ name: "Dip", primary: ["chest", "triceps"], secondary: ["delts_front"] }),
+  dip({ name: "Straight-Bar Dip", straightBar: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
+  dip({ name: "Ring Support Hold", rings: true, support: true, primary: ["triceps", "chest"], secondary: ["delts_front", "abs", "forearms"] }),
   dip({ name: "Ring Dip", rings: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   overheadPress({ name: "Overhead Press", primary: ["delts_front", "delts_side"], secondary: ["triceps", "traps", "abs"] }),
   overheadPress({ name: "Push Press", dip: true, primary: ["delts_front", "delts_side", "triceps"], secondary: ["quads", "glutes"] }),
@@ -732,6 +811,8 @@ export const PUSH: Spec[] = [
   reversePecDeck,
   facePull,
   handstand({ name: "Handstand Hold", primary: ["delts_front", "triceps"], secondary: ["traps", "abs", "forearms"] }),
+  handstand({ name: "Freestanding Handstand", free: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs", "forearms"] }),
+  handstand({ name: "Deficit Handstand Push-Up", push: true, deficit: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "traps", "abs"] }),
   handstand({ name: "Handstand Push-Up", push: true, primary: ["delts_front", "triceps"], secondary: ["traps", "chest"] }),
 ];
 

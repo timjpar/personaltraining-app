@@ -20,6 +20,9 @@ import {
   type Discipline,
 } from "@/lib/constants";
 import { cn } from "@/lib/cn";
+import { pathsThrough } from "@/lib/progressions";
+import { Chevron } from "@/components/ProgressionPanel";
+import { ProgressionPaths } from "@/components/ProgressionGuide";
 
 // A trainer's own movements. Names only — the catalog is the same for everyone,
 // so it's imported below rather than sent down from the server with the page.
@@ -50,6 +53,92 @@ const CATALOG_SECTIONS: Section[] = EXERCISE_CATEGORIES.map((c) => ({
     discipline: c.discipline,
   })),
 }));
+
+// One movement. A movement on a progression path opens to its ladders — the
+// steps, a drawing of each, and when to move on — so its name is the toggle and
+// the YouTube search moves to the ↗ beside it. One on no path keeps the name as
+// that link, as every row was before.
+function CatalogRow({ row }: { row: Row }) {
+  const [open, setOpen] = useState(false);
+  const places = pathsThrough(row.name, { discipline: row.discipline });
+  const hasPaths = places.length > 0;
+  const search = (
+    <a
+      href={demoSearchUrl(row.name)}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Search for a demo of ${row.name}`}
+      className="ml-1 text-ink-soft transition-colors hover:text-jade-strong"
+    >
+      ↗
+    </a>
+  );
+
+  return (
+    <li className="px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        {/* The drawn animation where there is one; a trainer's own
+            movements fall back to the stick figure. */}
+        {animationFor(row.name) ? (
+          <ExerciseAnimation name={row.name} className="h-14 w-14" />
+        ) : (
+          <span className="mt-0.5 shrink-0 text-ink-soft">
+            <ExerciseFigure archetype={archetypeFor(row.name)} />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          {hasPaths ? (
+            <>
+              <span className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setOpen((o) => !o)}
+                  aria-expanded={open}
+                  className="inline-flex items-center gap-1.5 text-left text-sm font-medium text-ink transition-colors hover:text-jade-strong"
+                >
+                  {row.name}
+                  <span className="text-ink-soft">
+                    <Chevron open={open} />
+                  </span>
+                </button>
+                {search}
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="metric mt-0.5 block text-left text-xs text-amber"
+              >
+                Path to {places[0].path.goal} · step {places[0].index + 1} of{" "}
+                {places[0].path.steps.length}
+                {places.length > 1 ? ` · ${places.length} paths` : ""}
+              </button>
+            </>
+          ) : (
+            // The same fallback the client workout page uses when a trainer
+            // hasn't attached their own demo.
+            <a
+              href={demoSearchUrl(row.name)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium text-ink transition-colors hover:text-jade-strong"
+            >
+              {row.name}
+              <span aria-hidden className="ml-1 text-ink-soft">
+                ↗
+              </span>
+            </a>
+          )}
+          {row.note ? <p className="mt-0.5 text-sm text-ink-soft">{row.note}</p> : null}
+        </div>
+      </div>
+      {open ? (
+        <div className="mt-3.5 sm:pl-[68px]">
+          <ProgressionPaths name={row.name} discipline={row.discipline} />
+        </div>
+      ) : null}
+    </li>
+  );
+}
 
 type Filter = Discipline | "ALL";
 
@@ -192,38 +281,7 @@ export function ExerciseCatalog({ custom }: { custom: CustomMovement[] }) {
             <Card className="mt-3">
               <ul className="divide-y divide-line">
                 {section.rows.map((row) => (
-                  <li
-                    key={row.name}
-                    className="flex items-start gap-3 px-4 py-3.5"
-                  >
-                    {/* The drawn animation where there is one; a trainer's own
-                        movements fall back to the stick figure. */}
-                    {animationFor(row.name) ? (
-                      <ExerciseAnimation name={row.name} className="h-14 w-14" />
-                    ) : (
-                      <span className="mt-0.5 shrink-0 text-ink-soft">
-                        <ExerciseFigure archetype={archetypeFor(row.name)} />
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      {/* The same fallback the client workout page uses when a
-                          trainer hasn't attached their own demo. */}
-                      <a
-                        href={demoSearchUrl(row.name)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-medium text-ink transition-colors hover:text-jade-strong"
-                      >
-                        {row.name}
-                        <span aria-hidden className="ml-1 text-ink-soft">
-                          ↗
-                        </span>
-                      </a>
-                      {row.note ? (
-                        <p className="mt-0.5 text-sm text-ink-soft">{row.note}</p>
-                      ) : null}
-                    </div>
-                  </li>
+                  <CatalogRow key={`${section.label}-${row.name}`} row={row} />
                 ))}
               </ul>
             </Card>

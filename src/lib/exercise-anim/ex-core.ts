@@ -1,7 +1,7 @@
 // Trunk and hip work: planks, hollows, hanging raises, rollouts, crunches,
 // rotations, levers, and the banded/cabled hip moves.
 
-import { box, cable, cableTower, hyperBench, medBall, pullUpBar, pullUpBarAcross } from "./equipment";
+import { box, cable, cableTower, flatBench, hyperBench, medBall, pullUpBar, pullUpBarAcross } from "./equipment";
 import {
   add,
   allFours,
@@ -17,6 +17,7 @@ import {
   limb,
   line,
   mirror,
+  negative,
   onTrunk,
   plant,
   plantLeg,
@@ -324,6 +325,125 @@ const frontLeverRaise: Spec = {
   motion: (p) => ({ pose: leverPose(p, kf(p, [[0, 0], [0.5, 0.9], [1, 1]])) }),
 };
 
+// The rest of the lever ladder: hips opened from the tuck, legs out straddled,
+// then together.
+function lever(o: { name: string; aka?: string[]; tuck: number; straddle?: boolean }): Spec {
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 4,
+    hands: { N: "fist" },
+    primary: ["lats", "abs"],
+    secondary: ["upper_back", "delts_rear", "triceps", "forearms", "glutes"],
+    still: 0.25,
+    scene: [{ draw: pullUpBar(HANG_BAR), layer: "back" }],
+    motion: (p) => {
+      const pose = leverPose(1 - breathe(p, 0.04) - 0.02, o.tuck);
+      if (!o.straddle) return { pose };
+      // Side-on a straddle is the far leg swung out towards the viewer.
+      return { pose: { ...pose, legF: { ...pose.legF, upper: pose.legF.upper - 6, lower: pose.legF.lower - 6, ku: 0.82, kl: 0.82 } } };
+    },
+  };
+}
+
+// Supported on parallettes with straight arms, hips between the hands and the
+// legs held out in front: tucked, one leg out, both, or lifted into a V.
+const PARALLETTE = v(2, -16);
+function lSit(o: { name: string; aka?: string[]; kind: "tuck" | "one" | "full" | "v"; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+  const out = (a: number): Limb => limb(a, a, a + 26);
+  const tucked = limb(140, 8, 24);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 4,
+    hands: { N: "fist" },
+    primary: o.primary,
+    secondary: o.secondary,
+    still: 0.25,
+    scene: [
+      {
+        draw: {
+          svg: `<rect class="frame" x="${PARALLETTE.x - 14}" y="${PARALLETTE.y - 2}" width="28" height="4" rx="2"/><rect class="frame" x="${PARALLETTE.x - 12}" y="${PARALLETTE.y}" width="3" height="16"/><rect class="frame" x="${PARALLETTE.x + 9}" y="${PARALLETTE.y}" width="3" height="16"/>`,
+          box: [PARALLETTE.x - 14, PARALLETTE.y - 2, PARALLETTE.x + 14, 0],
+        },
+        layer: "front",
+      },
+    ],
+    motion: (p) => {
+      const b = breathe(p, 2);
+      const torso = (o.kind === "v" ? 16 : 4) + b * 0.5;
+      const shoulder = add(PARALLETTE, v(-3, -(LEN.upperArm + LEN.forearm + LEN.grip) + 0.6));
+      const lumbar = sub(shoulder, rot(v(0, -41), torso));
+      const hip = sub(lumbar, rot(v(0, -11), torso));
+      let pose = base(hip, { torso, pelvis: torso, head: torso - 8 });
+      const lift = (o.kind === "v" ? 136 : 92) - b;
+      const legN = o.kind === "tuck" ? tucked : out(lift);
+      const legF = o.kind === "full" || o.kind === "v" ? out(lift - 2) : tucked;
+      pose = { ...pose, legN, legF };
+      return { pose: hold(pose, "side", PARALLETTE, undefined, -1) };
+    },
+  };
+}
+
+// Lying on a bench gripping it behind the head, the body pivots on the upper
+// back as one straight piece — or with the knees folded, in the tuck. Phase 1
+// is the top, so the negative is this played as a slow lower.
+const FLAG_BENCH = -44;
+function dragonFlag(o: { name: string; tuck?: boolean }): Spec {
+  const shoulder = v(-40, FLAG_BENCH - 9);
+  const grip = v(-74, FLAG_BENCH + 1);
+  return {
+    name: o.name,
+    mode: "alternate",
+    seconds: 3.6,
+    hands: { N: "fist" },
+    primary: ["abs"],
+    secondary: ["hip_flexors", "obliques", "lats", "lower_back"],
+    still: 0.6,
+    scene: [{ draw: flatBench(-82, 30, FLAG_BENCH), layer: "back" }],
+    motion: (p) => {
+      // Degrees the body is raised above the bench, pivoting at the shoulders.
+      const rise = lerp(10, 72, p);
+      const torso = 90 + rise;
+      const lumbar = sub(shoulder, rot(v(0, -41), torso));
+      const hip = sub(lumbar, rot(v(0, -11), torso));
+      let pose = base(hip, { torso, pelvis: torso, head: 100 });
+      pose = o.tuck
+        ? { ...pose, legN: limb(torso, torso - 120, torso - 90), legF: limb(torso - 2, torso - 122, torso - 92) }
+        : { ...pose, legN: limb(torso, torso, torso + 28), legF: limb(torso - 2, torso - 2, torso + 26) };
+      return { pose: hold(pose, "side", grip, undefined, 1) };
+    },
+  };
+}
+
+// The rollout from the feet: from a pike over the wheel out to a body near
+// level with the floor, legs straight throughout.
+const standingAbWheel: Spec = {
+  name: "Standing Ab Wheel Rollout",
+  mode: "alternate",
+  seconds: 3.6,
+  hands: { N: "fist" },
+  primary: ["abs"],
+  secondary: ["lats", "obliques", "hip_flexors", "triceps", "delts_front"],
+  still: 1,
+  props: [{ id: "wheel", draw: { svg: `<circle class="iron" r="9"/><circle class="steel" r="2.4"/>`, box: [-9, -9, 9, 9] }, layer: "front" }],
+  motion: (p) => {
+    const ankle = v(-70, -8);
+    const legAngle = lerp(-14, -74, p);
+    const hip = sub(ankle, rot(v(0, LEN.thigh + LEN.shin - 1), legAngle));
+    const torso = lerp(-150, -96, p);
+    let pose = base(hip, { torso, pelvis: lerp(-120, -92, p), head: torso + 20 });
+    pose = { ...pose, legN: limb(legAngle, legAngle, legAngle - 30), legF: limb(legAngle, legAngle, legAngle - 30) };
+    const s = shoulders(pose).N;
+    const reach = LEN.upperArm + LEN.forearm + LEN.grip;
+    const a = (Math.acos(Math.max(-1, Math.min(1, (-9 - s.y) / reach))) * 180) / Math.PI;
+    pose = { ...pose, armN: limb(a), armF: limb(a) };
+    return { pose, props: { wheel: at(grips(pose).N) } };
+  },
+};
+
 const ACROSS = -238;
 const windshieldWiper: Spec = {
   name: "Windshield Wiper",
@@ -570,9 +690,20 @@ export const CORE: Spec[] = [
   hangingRaise({ name: "Hanging Leg Raise", kind: "leg", primary: ["abs", "hip_flexors"], secondary: ["obliques", "forearms"] }),
   hangingRaise({ name: "Toes-to-Bar", aka: ["Toes to Bar"], kind: "toes", primary: ["abs", "hip_flexors"], secondary: ["lats", "obliques", "forearms"] }),
   frontLeverTuck,
+  lever({ name: "Advanced Tuck Front Lever", tuck: 0.68 }),
+  lever({ name: "Straddle Front Lever", tuck: 0, straddle: true }),
+  lever({ name: "Front Lever", aka: ["Full Front Lever"], tuck: 0 }),
   frontLeverRaise,
+  lSit({ name: "Tuck L-Sit", kind: "tuck", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
+  lSit({ name: "One-Leg L-Sit", kind: "one", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
+  lSit({ name: "L-Sit", aka: ["L Sit"], kind: "full", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
+  lSit({ name: "V-Sit", aka: ["V Sit"], kind: "v", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads", "hamstrings"] }),
+  dragonFlag({ name: "Tuck Dragon Flag", tuck: true }),
+  negative(dragonFlag({ name: "Dragon Flag" }), "Dragon Flag Negative"),
+  dragonFlag({ name: "Dragon Flag" }),
   windshieldWiper,
   abWheel,
+  standingAbWheel,
   cableCrunch,
   russianTwist,
   pallofPress,

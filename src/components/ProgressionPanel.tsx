@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type KeyboardEvent } from "react";
 import { Badge, Input, Textarea, Select, buttonClass } from "@/components/ui";
+import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { cn } from "@/lib/cn";
 import {
   chooseProgressionPath,
@@ -36,7 +37,7 @@ function sourceLabel(view: ProgressionView, viewer: ProgressionViewer) {
   return "Your pick";
 }
 
-function Chevron({ open }: { open: boolean }) {
+export function Chevron({ open }: { open: boolean }) {
   return (
     <svg
       width="12"
@@ -58,11 +59,23 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 // ---- One ladder -------------------------------------------------------------
-function Ladder({ path, at }: { path: ProgressionPath; at: number }) {
+// Each step with its drawing beside it, so what the next rung looks like is in
+// view along with how to earn it. `map` is the athlete-free reading — the
+// builder, the library, the catalog — where the steps below this movement are
+// easier variants rather than rungs anyone has climbed.
+export function Ladder({
+  path,
+  at,
+  map = false,
+}: {
+  path: ProgressionPath;
+  at: number;
+  map?: boolean;
+}) {
   return (
     <ol className="relative flex flex-col">
       {path.steps.map((step, i) => {
-        const past = i < at;
+        const past = !map && i < at;
         const here = i === at;
         const next = i === at + 1;
         const last = i === path.steps.length - 1;
@@ -95,7 +108,11 @@ function Ladder({ path, at }: { path: ProgressionPath; at: number }) {
                 <span className="font-display text-sm font-semibold text-ink">
                   {step.name}
                 </span>
-                {here ? <span className="eyebrow text-jade-strong">You&rsquo;re here</span> : null}
+                {here ? (
+                  <span className="eyebrow text-jade-strong">
+                    {map ? "This movement" : <>You&rsquo;re here</>}
+                  </span>
+                ) : null}
                 {next ? <span className="eyebrow text-amber">Next</span> : null}
                 {step.weeks && !last ? (
                   <span className="metric text-xs text-ink-soft">{step.weeks}</span>
@@ -119,6 +136,10 @@ function Ladder({ path, at }: { path: ProgressionPath; at: number }) {
               ) : null}
               {last ? <p className="eyebrow mt-1.5 text-jade-strong">The goal</p> : null}
             </div>
+            <ExerciseAnimation
+              name={step.name}
+              className={cn("h-14 w-14 sm:h-16 sm:w-16", past && "opacity-60")}
+            />
           </li>
         );
       })}
