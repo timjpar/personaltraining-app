@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useActionState, useRef, useState, type ReactNode } from "react";
 import type { WorkoutFormState } from "@/app/(trainer)/workout-actions";
+import { AnimationToggle, useShowAnimations } from "@/components/AnimationToggle";
 import { DragOverlay, Grip } from "@/components/Drag";
+import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import {
   Card,
@@ -166,6 +168,7 @@ export function WorkoutBuilder({
   const [state, formAction, pending] = useActionState(action, {});
   const [rows, setRows] = useState<Rows>(() => seedRows(initial));
   const formRef = useRef<HTMLFormElement>(null);
+  const [showAnims] = useShowAnimations();
 
   const total = SECTION_ORDER.reduce((n, s) => n + rows[s].length, 0);
 
@@ -397,7 +400,10 @@ export function WorkoutBuilder({
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-ink">Exercises</h2>
-          <span className="metric text-xs text-ink-soft">{total} programmed</span>
+          <div className="flex items-center gap-3">
+            <span className="metric text-xs text-ink-soft">{total} programmed</span>
+            <AnimationToggle />
+          </div>
         </div>
 
         {SECTION_ORDER.map((s) => (
@@ -479,162 +485,174 @@ export function WorkoutBuilder({
                           </button>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-2 gap-2.5">
-                          {CORE_METRICS.map((m) => (
-                            <label key={m.key} className="flex flex-col gap-1">
-                              <span className="eyebrow text-ink-soft/70">{m.label}</span>
-                              <Input
-                                name={`ex_${row.id}_${m.key}`}
-                                defaultValue={(row[m.key] as string) ?? ""}
-                                placeholder={m.placeholder}
-                                className={cn("metric px-2.5 py-2 text-sm")}
-                              />
-                            </label>
-                          ))}
-                        </div>
+                        <div className="mt-3 flex items-start gap-3 sm:gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className="grid grid-cols-2 gap-2.5">
+                              {CORE_METRICS.map((m) => (
+                                <label key={m.key} className="flex flex-col gap-1">
+                                  <span className="eyebrow text-ink-soft/70">{m.label}</span>
+                                  <Input
+                                    name={`ex_${row.id}_${m.key}`}
+                                    defaultValue={(row[m.key] as string) ?? ""}
+                                    placeholder={m.placeholder}
+                                    className={cn("metric px-2.5 py-2 text-sm")}
+                                  />
+                                </label>
+                              ))}
+                            </div>
 
-                        {(() => {
-                          const extras = row.extras ?? [];
-                          const shown = OPTIONAL_METRICS.filter((m) => extras.includes(m.key));
-                          const available = OPTIONAL_METRICS.filter(
-                            (m) => !extras.includes(m.key),
-                          );
-                          return (
-                            <>
-                              {shown.length > 0 ? (
-                                <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                                  {shown.map((m) => (
-                                    <label key={m.key} className="flex flex-col gap-1">
-                                      <span className="flex items-center justify-between gap-1">
-                                        <span className="eyebrow text-ink-soft/70">
-                                          {m.label}
-                                        </span>
+                            {(() => {
+                              const extras = row.extras ?? [];
+                              const shown = OPTIONAL_METRICS.filter((m) => extras.includes(m.key));
+                              const available = OPTIONAL_METRICS.filter(
+                                (m) => !extras.includes(m.key),
+                              );
+                              return (
+                                <>
+                                  {shown.length > 0 ? (
+                                    <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                                      {shown.map((m) => (
+                                        <label key={m.key} className="flex flex-col gap-1">
+                                          <span className="flex items-center justify-between gap-1">
+                                            <span className="eyebrow text-ink-soft/70">
+                                              {m.label}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                toggleExtra(section, row.id, m.key, false)
+                                              }
+                                              aria-label={`Remove ${m.label} from exercise ${n}`}
+                                              className="text-ink-soft/60 transition-colors hover:text-flag"
+                                            >
+                                              <svg
+                                                width="11"
+                                                height="11"
+                                                viewBox="0 0 20 20"
+                                                fill="none"
+                                                aria-hidden
+                                              >
+                                                <path
+                                                  d="M5 5l10 10M15 5L5 15"
+                                                  stroke="currentColor"
+                                                  strokeWidth="2.2"
+                                                  strokeLinecap="round"
+                                                />
+                                              </svg>
+                                            </button>
+                                          </span>
+                                          <Input
+                                            name={`ex_${row.id}_${m.key}`}
+                                            defaultValue={(row[m.key] as string) ?? ""}
+                                            placeholder={m.placeholder}
+                                            className={cn("metric px-2.5 py-2 text-sm")}
+                                          />
+                                        </label>
+                                      ))}
+                                    </div>
+                                  ) : null}
+
+                                  {available.length > 0 || !videoOpen ? (
+                                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                                      {available.map((m) => (
+                                        <button
+                                          key={m.key}
+                                          type="button"
+                                          onClick={() => toggleExtra(section, row.id, m.key, true)}
+                                          className="eyebrow inline-flex min-h-9 items-center rounded-full border border-line px-3 text-ink-soft transition-colors hover:border-jade hover:text-ink sm:min-h-0 sm:px-2.5 sm:py-1"
+                                        >
+                                          + {m.label}
+                                        </button>
+                                      ))}
+                                      {!videoOpen ? (
                                         <button
                                           type="button"
                                           onClick={() =>
-                                            toggleExtra(section, row.id, m.key, false)
+                                            patchRow(section, row.id, { showVideo: true })
                                           }
-                                          aria-label={`Remove ${m.label} from exercise ${n}`}
-                                          className="text-ink-soft/60 transition-colors hover:text-flag"
+                                          className="eyebrow inline-flex min-h-9 items-center rounded-full border border-line px-3 text-ink-soft transition-colors hover:border-jade hover:text-ink sm:min-h-0 sm:px-2.5 sm:py-1"
                                         >
-                                          <svg
-                                            width="11"
-                                            height="11"
-                                            viewBox="0 0 20 20"
-                                            fill="none"
-                                            aria-hidden
-                                          >
-                                            <path
-                                              d="M5 5l10 10M15 5L5 15"
-                                              stroke="currentColor"
-                                              strokeWidth="2.2"
-                                              strokeLinecap="round"
-                                            />
-                                          </svg>
+                                          + Video
                                         </button>
-                                      </span>
-                                      <Input
-                                        name={`ex_${row.id}_${m.key}`}
-                                        defaultValue={(row[m.key] as string) ?? ""}
-                                        placeholder={m.placeholder}
-                                        className={cn("metric px-2.5 py-2 text-sm")}
-                                      />
-                                    </label>
-                                  ))}
-                                </div>
-                              ) : null}
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                </>
+                              );
+                            })()}
 
-                              {available.length > 0 || !videoOpen ? (
-                                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                                  {available.map((m) => (
-                                    <button
-                                      key={m.key}
-                                      type="button"
-                                      onClick={() => toggleExtra(section, row.id, m.key, true)}
-                                      className="eyebrow inline-flex min-h-9 items-center rounded-full border border-line px-3 text-ink-soft transition-colors hover:border-jade hover:text-ink sm:min-h-0 sm:px-2.5 sm:py-1"
-                                    >
-                                      + {m.label}
-                                    </button>
-                                  ))}
-                                  {!videoOpen ? (
+                            {videoOpen ? (
+                              <label className="mt-2.5 flex flex-col gap-1">
+                                <span className="flex items-center justify-between gap-1">
+                                  <span className="eyebrow text-ink-soft/70">Demo video</span>
+                                  {/* Only on a box the coach opened. When the
+                                      movement already has a demo the box is
+                                      reporting a fact, and a ✕ that reverts an edit
+                                      but won't close it reads as broken. */}
+                                  {savedDemo ? null : (
                                     <button
                                       type="button"
                                       onClick={() =>
-                                        patchRow(section, row.id, { showVideo: true })
+                                        patchRow(section, row.id, {
+                                          showVideo: false,
+                                          video: undefined,
+                                        })
                                       }
-                                      className="eyebrow inline-flex min-h-9 items-center rounded-full border border-line px-3 text-ink-soft transition-colors hover:border-jade hover:text-ink sm:min-h-0 sm:px-2.5 sm:py-1"
+                                      aria-label={`Remove the demo link from exercise ${n}`}
+                                      className="text-ink-soft/60 transition-colors hover:text-flag"
                                     >
-                                      + Video
+                                      <svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden>
+                                        <path
+                                          d="M5 5l10 10M15 5L5 15"
+                                          stroke="currentColor"
+                                          strokeWidth="2.2"
+                                          strokeLinecap="round"
+                                        />
+                                      </svg>
                                     </button>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </>
-                          );
-                        })()}
-
-                        {videoOpen ? (
-                          <label className="mt-2.5 flex flex-col gap-1">
-                            <span className="flex items-center justify-between gap-1">
-                              <span className="eyebrow text-ink-soft/70">Demo video</span>
-                              {/* Only on a box the coach opened. When the
-                                  movement already has a demo the box is
-                                  reporting a fact, and a ✕ that reverts an edit
-                                  but won't close it reads as broken. */}
-                              {savedDemo ? null : (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    patchRow(section, row.id, {
-                                      showVideo: false,
-                                      video: undefined,
-                                    })
+                                  )}
+                                </span>
+                                <Input
+                                  name={`ex_${row.id}_video`}
+                                  value={videoValue}
+                                  onChange={(e) =>
+                                    patchRow(section, row.id, { video: e.target.value })
                                   }
-                                  aria-label={`Remove the demo link from exercise ${n}`}
-                                  className="text-ink-soft/60 transition-colors hover:text-flag"
-                                >
-                                  <svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden>
-                                    <path
-                                      d="M5 5l10 10M15 5L5 15"
-                                      stroke="currentColor"
-                                      strokeWidth="2.2"
-                                      strokeLinecap="round"
-                                    />
-                                  </svg>
-                                </button>
-                              )}
-                            </span>
-                            <Input
-                              name={`ex_${row.id}_video`}
-                              value={videoValue}
-                              onChange={(e) =>
-                                patchRow(section, row.id, { video: e.target.value })
-                              }
-                              placeholder="https://youtube.com/watch?v=…"
-                              className="text-sm"
-                            />
-                            <span className="text-xs text-ink-soft">
-                              {/* The bit that isn't obvious from the box: this
-                                  is not a field on this session. */}
-                              Saves as the demo for{" "}
-                              {row.name?.trim() ? (
-                                <span className="text-ink">{row.name.trim()}</span>
-                              ) : (
-                                "this movement"
-                              )}{" "}
-                              everywhere you program it. YouTube, Instagram,
-                              Facebook and TikTok play inside Chalkline.
-                            </span>
-                          </label>
-                        ) : null}
+                                  placeholder="https://youtube.com/watch?v=…"
+                                  className="text-sm"
+                                />
+                                <span className="text-xs text-ink-soft">
+                                  {/* The bit that isn't obvious from the box: this
+                                      is not a field on this session. */}
+                                  Saves as the demo for{" "}
+                                  {row.name?.trim() ? (
+                                    <span className="text-ink">{row.name.trim()}</span>
+                                  ) : (
+                                    "this movement"
+                                  )}{" "}
+                                  everywhere you program it. YouTube, Instagram,
+                                  Facebook and TikTok play inside Chalkline.
+                                </span>
+                              </label>
+                            ) : null}
 
-                        <Input
-                          name={`ex_${row.id}_notes`}
-                          defaultValue={row.notes ?? ""}
-                          placeholder="Coaching note (optional)"
-                          className="mt-2.5 text-sm"
-                          aria-label={`Exercise ${n} note`}
-                        />
+                            <Input
+                              name={`ex_${row.id}_notes`}
+                              defaultValue={row.notes ?? ""}
+                              placeholder="Coaching note (optional)"
+                              className="mt-2.5 text-sm"
+                              aria-label={`Exercise ${n} note`}
+                            />
+                          </div>
+                          {/* The demo beside the fields, so what you're programming is in
+                              view while you program it. Nothing for a custom movement. */}
+                          {showAnims && named ? (
+                            <ExerciseAnimation
+                              name={named}
+                              className="h-[76px] w-[76px] sm:h-[132px] sm:w-[132px]"
+                            />
+                          ) : null}
+                        </div>
                       </Card>
                     );
                   })}
