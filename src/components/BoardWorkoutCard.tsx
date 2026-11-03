@@ -12,6 +12,7 @@ import { useShowAnimations } from "@/components/AnimationToggle";
 import { Grip } from "@/components/Drag";
 import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { ExercisePicker } from "@/components/ExercisePicker";
+import { ProgressionGuide } from "@/components/ProgressionGuide";
 import { Input, Select, Textarea, buttonClass } from "@/components/ui";
 import type { BoardSubject } from "@/components/useBoardDrag";
 import {
@@ -339,6 +340,9 @@ const ExerciseRow = memo(function ExerciseRow({
               Done
             </button>
           </div>
+          {/* Where this movement leads, as in the builder. Follows the name
+              as it's picked. */}
+          {name ? <ProgressionGuide name={name} /> : null}
         </div>
       ) : null}
     </div>
