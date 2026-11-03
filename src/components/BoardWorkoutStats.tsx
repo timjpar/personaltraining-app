@@ -7,12 +7,13 @@
 // Open or closed is one switch for the whole board, kept per device: the
 // breakdowns are for comparing, so opening one opens them all and they line up
 // across the columns.
+import { Fragment } from "react";
 import { Chevron } from "@/components/ProgressionPanel";
 import { cn } from "@/lib/cn";
 import { useStoredValue } from "@/lib/use-stored-set";
 import {
   SESSION_SET_CEILING,
-  formatSets,
+  type MuscleSource,
   type WorkoutStats,
   type ZoneKey,
 } from "@/lib/workout-stats";
@@ -45,7 +46,7 @@ export function BoardStatsSummary({
   open: boolean;
   onToggle: () => void;
 }) {
-  const top = stats.muscles.slice(0, SUMMARY_MUSCLES);
+  const top = stats.muscles.filter((m) => m.sets > 0).slice(0, SUMMARY_MUSCLES);
   const stretchOnly = top.length === 0;
   const names = stretchOnly ? stats.stretched.slice(0, SUMMARY_MUSCLES) : [];
   if (top.length === 0 && names.length === 0) return null;
@@ -72,7 +73,7 @@ export function BoardStatsSummary({
           top.map((m) => (
             <span key={m.muscle} className="whitespace-nowrap">
               <span className="text-ink">{m.label}</span>{" "}
-              <span className="metric">{formatSets(m.sets)}</span>
+              <span className="metric">{m.sets}</span>
             </span>
           ))
         )}
@@ -86,8 +87,8 @@ export function BoardStatsSummary({
 
 export function BoardStatsBreakdown({ stats }: { stats: WorkoutStats }) {
   const zoneTotal = stats.zones.reduce((t, z) => t + z.sets, 0);
-  const worked = stats.muscles.filter((m) => m.exercises > 0);
-  const assisting = stats.muscles.filter((m) => m.exercises === 0);
+  const worked = stats.muscles.filter((m) => m.works.length > 0);
+  const assisting = stats.muscles.filter((m) => m.works.length === 0);
 
   return (
     <div className="mx-2.5 mb-2 flex flex-col gap-4 rounded-[var(--radius-sm)] border border-line bg-paper/60 p-3">
@@ -97,44 +98,53 @@ export function BoardStatsBreakdown({ stats }: { stats: WorkoutStats }) {
             <h3 className="eyebrow flex-1 text-ink-soft">Muscles</h3>
             <span className="whitespace-nowrap text-[0.6875rem] text-ink-soft/70">exercises · sets</span>
           </div>
-          <ul className="flex flex-col gap-2">
-            {worked.map((m) => {
-              // A fixed scale, so the same muscle's bars compare across columns:
-              // full at the point where one session's sets stop paying.
-              const direct = Math.min(1, m.direct / SESSION_SET_CEILING);
-              const indirect = Math.min(1 - direct, m.indirect / 2 / SESSION_SET_CEILING);
-              return (
-                <li key={m.muscle}>
-                  <div className="flex items-baseline gap-2 text-xs">
-                    <span className="min-w-0 flex-1 truncate text-ink">{m.label}</span>
-                    <span className="metric shrink-0 text-ink-soft">
-                      {m.exercises} ·{" "}
-                      <span className={m.sets > SESSION_SET_CEILING ? "text-amber" : "text-ink"}>
-                        {formatSets(m.sets)}
-                      </span>
+          <ul className="flex flex-col gap-3">
+            {worked.map((m) => (
+              <li key={m.muscle}>
+                <div className="flex items-baseline gap-2 text-xs">
+                  <span className="min-w-0 flex-1 truncate text-ink">{m.label}</span>
+                  <span className="metric shrink-0 text-ink-soft">
+                    {m.works.length} ·{" "}
+                    <span className={m.sets > SESSION_SET_CEILING ? "text-amber" : "text-ink"}>
+                      {m.sets}
                     </span>
-                  </div>
-                  <div className="mt-1 flex h-[3px] overflow-hidden rounded-full bg-line" aria-hidden>
-                    <div className="h-full bg-jade/70" style={{ width: `${direct * 100}%` }} />
-                    <div className="h-full bg-jade/30" style={{ width: `${indirect * 100}%` }} />
-                  </div>
-                </li>
-              );
-            })}
+                  </span>
+                </div>
+                {/* A fixed scale, so the same muscle's bars compare across
+                    columns: full where one session's sets stop paying. */}
+                <div className="mt-1 h-[3px] overflow-hidden rounded-full bg-line" aria-hidden>
+                  <div
+                    className="h-full bg-jade/70"
+                    style={{ width: `${Math.min(1, m.sets / SESSION_SET_CEILING) * 100}%` }}
+                  />
+                </div>
+                <Sources sources={m.works} className="mt-1.5" />
+                {m.assists.length ? (
+                  <Sources label="Helps in" sources={m.assists} className="mt-0.5 opacity-75" />
+                ) : null}
+              </li>
+            ))}
           </ul>
-          {/* Muscles no exercise trains directly, in one line rather than a
-              row each: they're the long tail, and a list of them would bury
-              the ones the workout is for. */}
+          {/* Muscles no exercise works most, apart and without a bar: they're
+              along for the ride, and ranking them with the rest would bury the
+              ones the workout is for. */}
           {assisting.length ? (
-            <p className="mt-2.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-xs leading-relaxed text-ink-soft">
-              <span className="eyebrow">Assisting</span>
-              {assisting.map((m) => (
-                <span key={m.muscle} className="whitespace-nowrap">
-                  <span className="text-ink">{m.label}</span>{" "}
-                  <span className="metric">{formatSets(m.sets)}</span>
-                </span>
-              ))}
-            </p>
+            <>
+              <h3 className="eyebrow mb-2 mt-4 text-ink-soft">Only assisting</h3>
+              <ul className="flex flex-col gap-2.5">
+                {assisting.map((m) => (
+                  <li key={m.muscle}>
+                    <div className="flex items-baseline gap-2 text-xs">
+                      <span className="min-w-0 flex-1 truncate text-ink">{m.label}</span>
+                      <span className="metric shrink-0 text-ink-soft">
+                        {m.assists.length} · {m.assistSets}
+                      </span>
+                    </div>
+                    <Sources sources={m.assists} className="mt-0.5" />
+                  </li>
+                ))}
+              </ul>
+            </>
           ) : null}
         </section>
       ) : null}
@@ -215,9 +225,32 @@ export function BoardStatsBreakdown({ stats }: { stats: WorkoutStats }) {
       ) : null}
 
       <p className="text-[0.6875rem] leading-relaxed text-ink-soft">
-        Main block only. A set counts in full for the muscles an exercise works most and half for
-        the ones it assists.
+        Main block only. A muscle&rsquo;s sets come from the exercises that work it most; the
+        ones it only helps in are listed apart.
       </p>
     </div>
+  );
+}
+
+// The exercises behind a muscle's count: "Back Squat 4 · Leg Press 3".
+function Sources({
+  sources,
+  label,
+  className,
+}: {
+  sources: MuscleSource[];
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <p className={cn("text-[0.6875rem] leading-snug text-ink-soft", className)}>
+      {label ? <span className="mr-1 italic">{label}</span> : null}
+      {sources.map((src, i) => (
+        <Fragment key={src.name}>
+          {i ? " · " : ""}
+          {src.name} <span className="metric text-ink">{src.sets}</span>
+        </Fragment>
+      ))}
+    </p>
   );
 }

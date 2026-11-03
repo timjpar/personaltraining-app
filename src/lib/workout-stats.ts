@@ -6,18 +6,21 @@
 // counts toward nothing, and the notes name it rather than letting the totals
 // look complete.
 //
-// Sets per muscle are fractional — a whole set for each muscle an exercise
-// works most, half for each one it assists. That's how the volume research
-// counts (Pelland et al., 2024), and it keeps a squat from also reading as a
-// full set of back work. Only the main block counts: warm-ups and cool-downs
-// aren't hard sets, and neither are stretches or easy cardio wherever they sit.
+// A muscle's sets are the sets of the exercises that work it most, in whole
+// sets, as a coach counts them. The exercises it only assists in are kept
+// apart with their own count. Folding them in at half a set, as the volume
+// research does, made numbers like 8.5 that nobody programs. Each muscle keeps
+// the exercises behind its count, so the number can be checked.
+//
+// Only the main block counts. Warm-ups and cool-downs aren't hard sets, and
+// neither are stretches or easy cardio wherever they sit.
 //
 // Pure and browser-safe: a card recomputes it on every edit.
 
 import { DISCIPLINES, toDiscipline } from "@/lib/constants";
 import { animationFor, muscleLabel } from "@/lib/exercise-anim/lookup";
 import { archetypeFor, type Archetype } from "@/lib/exercise-archetypes";
-import { disciplineForName } from "@/lib/exercise-presets";
+import { disciplineForName, normalizeExerciseName } from "@/lib/exercise-presets";
 import { pathsThrough } from "@/lib/progressions";
 
 export type StatsExercise = {
@@ -29,15 +32,19 @@ export type StatsExercise = {
   section: string;
 };
 
+// One exercise's part in a muscle's count. An exercise listed twice in the
+// workout appears once, with its sets added up.
+export type MuscleSource = { name: string; sets: number };
+
 export type MuscleVolume = {
   muscle: string;
   label: string;
-  // Fractional working sets: direct + indirect / 2.
+  // Sets of the exercises that work it most.
   sets: number;
-  direct: number;
-  indirect: number;
-  // How many exercises work it as a main muscle. Zero when it's only assisting.
-  exercises: number;
+  // Sets of the exercises it only assists in.
+  assistSets: number;
+  works: MuscleSource[];
+  assists: MuscleSource[];
 };
 
 export type PatternKey =
@@ -76,8 +83,10 @@ export type WorkoutStats = {
   notes: StatNote[];
 };
 
-// Past about this many fractional sets for one muscle in one session, each
-// extra set buys less (Pelland et al., 2024). Also where a muscle's bar fills.
+// Past about this many sets for one muscle in one session, each extra set buys
+// less (Pelland et al., 2024). They count assisting sets at half, so flagging
+// on direct sets alone errs late rather than early. Also where a muscle's bar
+// fills.
 export const SESSION_SET_CEILING = 11;
 
 const PATTERN_LABELS: Record<PatternKey, string> = {
@@ -236,10 +245,6 @@ function roundMinutes(seconds: number): number {
   return Math.round(m / 5) * 5;
 }
 
-export function formatSets(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
-}
-
 export function formatMinutes(m: number): string {
   if (m < 60) return `~${m} min`;
   const h = Math.floor(m / 60);
@@ -270,10 +275,16 @@ export function workoutStats(exercises: StatsExercise[], discipline: string): Wo
   const muscle = (key: string) => {
     let entry = muscles.get(key);
     if (!entry) {
-      entry = { muscle: key, label: muscleLabel(key), sets: 0, direct: 0, indirect: 0, exercises: 0 };
+      entry = { muscle: key, label: muscleLabel(key), sets: 0, assistSets: 0, works: [], assists: [] };
       muscles.set(key, entry);
     }
     return entry;
+  };
+  const credit = (list: MuscleSource[], name: string, sets: number) => {
+    const key = normalizeExerciseName(name);
+    const same = list.find((s) => normalizeExerciseName(s.name) === key);
+    if (same) same.sets += sets;
+    else list.push({ name, sets });
   };
 
   for (const ex of exercises) {
@@ -315,16 +326,23 @@ export function workoutStats(exercises: StatsExercise[], discipline: string): Wo
     }
     for (const m of info.primary) {
       const entry = muscle(m);
-      entry.direct += sets;
-      entry.exercises += 1;
+      entry.sets += sets;
+      credit(entry.works, name, sets);
     }
-    for (const m of info.secondary) muscle(m).indirect += sets;
+    for (const m of info.secondary) {
+      const entry = muscle(m);
+      entry.assistSets += sets;
+      credit(entry.assists, name, sets);
+    }
   }
 
-  for (const entry of muscles.values()) entry.sets = entry.direct + entry.indirect / 2;
-  const muscleList = [...muscles.values()]
-    .filter((m) => m.sets > 0 || m.exercises > 0)
-    .sort((a, b) => b.sets - a.sets || b.exercises - a.exercises || a.label.localeCompare(b.label));
+  const muscleList = [...muscles.values()].sort(
+    (a, b) =>
+      b.sets - a.sets ||
+      b.works.length - a.works.length ||
+      b.assistSets - a.assistSets ||
+      a.label.localeCompare(b.label),
+  );
 
   const strength = kind === DISCIPLINES.STRENGTH;
   const patternList = PATTERN_ORDER.filter(
@@ -334,7 +352,7 @@ export function workoutStats(exercises: StatsExercise[], discipline: string): Wo
   const notes: StatNote[] = [];
   const over = muscleList.filter((m) => m.sets > SESSION_SET_CEILING);
   if (strength && over.length) {
-    const who = listNames(over.map((m) => `${m.label} (${formatSets(m.sets)})`));
+    const who = listNames(over.map((m) => `${m.label} (${m.sets})`));
     notes.push({
       tone: "flag",
       text: `${who} ${over.length === 1 ? "gets" : "get"} more than ${SESSION_SET_CEILING} sets — past that in one session, each extra set gives less back`,

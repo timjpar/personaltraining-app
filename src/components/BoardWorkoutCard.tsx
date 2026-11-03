@@ -15,7 +15,7 @@ import {
   useBoardBreakdown,
 } from "@/components/BoardWorkoutStats";
 import { Grip } from "@/components/Drag";
-import { ExerciseAnimation } from "@/components/ExerciseAnimation";
+import { ExerciseAnimation, TargetMuscles } from "@/components/ExerciseAnimation";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { ProgressionGuide } from "@/components/ProgressionGuide";
 import { Input, Select, Textarea, buttonClass } from "@/components/ui";
@@ -37,6 +37,7 @@ import {
   type Dir,
 } from "@/lib/board-order";
 import { cn } from "@/lib/cn";
+import { animationFor, muscleLabel } from "@/lib/exercise-anim/lookup";
 import { SECTION_LABELS, SECTION_ORDER, type ExerciseSection } from "@/lib/constants";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
 import { SECTION_PRESET_CATEGORY } from "@/lib/exercise-presets";
@@ -143,6 +144,8 @@ const ExerciseRow = memo(function ExerciseRow({
   const [extras, setExtras] = useState<OptionalKey[]>(() => initialExtras(row));
   const name = row.name.trim();
   const line = prescription(row);
+  // Read out with the row, since its button's label replaces what it shows.
+  const works = name ? (animationFor(name)?.primary ?? []).map(muscleLabel) : [];
   const number = String(n).padStart(2, "0");
   const patch = (p: Partial<Omit<BoardExercise, "id">>) =>
     onEdit((s) => patchExercise(s, workoutKey, row.id, p));
@@ -161,6 +164,7 @@ const ExerciseRow = memo(function ExerciseRow({
       {line ? (
         <span className="metric truncate text-xs text-ink-soft">{line}</span>
       ) : null}
+      {name ? <TargetMuscles name={name} className="mt-0.5" /> : null}
     </span>
   );
 
@@ -202,7 +206,7 @@ const ExerciseRow = memo(function ExerciseRow({
           <button
             type="button"
             aria-expanded={isOpen}
-            aria-label={`${name || `Exercise ${n}`}${line ? `, ${line}` : ""}. ${isOpen ? "Close" : "Edit"}`}
+            aria-label={`${name || `Exercise ${n}`}${line ? `, ${line}` : ""}${works.length ? `. Works ${works.join(", ")}` : ""}. ${isOpen ? "Close" : "Edit"}`}
             onClick={() => onToggleRow(row.id)}
             className="flex min-h-11 min-w-0 flex-1 items-center text-left sm:min-h-9"
           >

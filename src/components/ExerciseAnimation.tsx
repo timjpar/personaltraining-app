@@ -10,6 +10,24 @@ import { animationFor, muscleLabel } from "@/lib/exercise-anim/lookup";
 const WORKS = "#e2463b";
 const ASSISTS = "#f0a493";
 
+// The muscles an exercise works most, as a short line for a row that's too
+// small for the demo's legend: "Quads · Glutes", behind the drawings' own red.
+// Nothing for an exercise with no drawing, which has no muscle data either.
+export function TargetMuscles({ name, className }: { name: string; className?: string }) {
+  const info = animationFor(name);
+  if (!info || info.primary.length === 0) return null;
+  return (
+    <span className={cn("flex items-baseline gap-1.5 text-xs text-ink-soft", className)}>
+      <span
+        aria-hidden
+        className="inline-block h-1.5 w-1.5 shrink-0 translate-y-[-0.1em] rounded-full"
+        style={{ background: WORKS }}
+      />
+      <span className="min-w-0">{info.primary.map(muscleLabel).join(" · ")}</span>
+    </span>
+  );
+}
+
 // An exercise's animated demo: a thumbnail that opens a larger view with the
 // muscles it works. Renders nothing for an exercise with no drawing — a
 // trainer's own custom movements, mostly — so callers can drop it in
