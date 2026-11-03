@@ -42,14 +42,30 @@ type GripFor = (subject: BoardSubject) => { onPointerDown: (e: PointerEvent) => 
 
 export type MoveTarget = { key: string; title: string };
 
-const METRICS: { key: keyof BoardExercise; label: string; placeholder: string }[] = [
+type MetricKey = "sets" | "reps" | "weight" | "load" | "tempo" | "rest";
+type OptionalKey = Exclude<MetricKey, "sets" | "reps">;
+type MetricDef<K extends MetricKey> = { key: K; label: string; placeholder: string };
+
+// As in the workout builder: sets and reps on every row, the rest opt-in, so
+// an open row shows the programming it has rather than four empty boxes.
+const CORE_METRICS: MetricDef<MetricKey>[] = [
   { key: "sets", label: "Sets", placeholder: "4" },
   { key: "reps", label: "Reps", placeholder: "8-10" },
+];
+
+const OPTIONAL_METRICS: MetricDef<OptionalKey>[] = [
   { key: "weight", label: "Weight", placeholder: "100kg" },
   { key: "load", label: "Load", placeholder: "70%" },
   { key: "tempo", label: "Tempo", placeholder: "30X1" },
   { key: "rest", label: "Rest", placeholder: "90s" },
 ];
+
+// The optional metrics a row opens with: exactly those that carry a value.
+const initialExtras = (row: BoardExercise): OptionalKey[] =>
+  OPTIONAL_METRICS.filter((m) => row[m.key].trim() !== "").map((m) => m.key);
+
+const chipClass =
+  "eyebrow inline-flex min-h-9 items-center rounded-full border border-line px-3 text-ink-soft transition-colors hover:border-jade hover:text-ink sm:min-h-0 sm:px-2.5 sm:py-1";
 
 // The prescription in one line: "4 × 8-10 · 100kg · 90s rest".
 function prescription(r: BoardExercise): string {
@@ -115,6 +131,9 @@ const ExerciseRow = memo(function ExerciseRow({
   onRefocus: (id: string, dir: Dir) => void;
 }) {
   const [showAnims] = useShowAnimations();
+  // Held here, not derived from the values, so clearing a box while typing
+  // doesn't make it vanish under the cursor. Removing one clears its value.
+  const [extras, setExtras] = useState<OptionalKey[]>(() => initialExtras(row));
   const name = row.name.trim();
   const line = prescription(row);
   const number = String(n).padStart(2, "0");
@@ -196,18 +215,54 @@ const ExerciseRow = memo(function ExerciseRow({
             aria-label={`Exercise ${n} name`}
           />
           <div className="grid grid-cols-2 gap-2 @min-[20rem]:grid-cols-3">
-            {METRICS.map((m) => (
-              <label key={m.key} className="flex min-w-0 flex-col gap-1">
-                <span className="eyebrow text-ink-soft/70">{m.label}</span>
-                <Input
-                  value={row[m.key]}
-                  onChange={(e) => patch({ [m.key]: e.target.value })}
-                  placeholder={m.placeholder}
-                  className="metric px-2.5 py-2 text-sm"
-                />
-              </label>
-            ))}
+            {[...CORE_METRICS, ...OPTIONAL_METRICS.filter((m) => extras.includes(m.key))].map(
+              (m) => {
+                const optional = m.key !== "sets" && m.key !== "reps";
+                return (
+                  <label key={m.key} className="flex min-w-0 flex-col gap-1">
+                    <span className="flex items-center justify-between gap-1">
+                      <span className="eyebrow text-ink-soft/70">{m.label}</span>
+                      {optional ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExtras((x) => x.filter((k) => k !== m.key));
+                            patch({ [m.key]: "" });
+                          }}
+                          aria-label={`Remove ${m.label} from exercise ${n}`}
+                          className="grid h-6 w-6 place-items-center text-ink-soft/60 transition-colors hover:text-flag sm:h-4 sm:w-4"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden>
+                            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </span>
+                    <Input
+                      value={row[m.key]}
+                      onChange={(e) => patch({ [m.key]: e.target.value })}
+                      placeholder={m.placeholder}
+                      className="metric px-2.5 py-2 text-sm"
+                    />
+                  </label>
+                );
+              },
+            )}
           </div>
+          {extras.length < OPTIONAL_METRICS.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {OPTIONAL_METRICS.filter((m) => !extras.includes(m.key)).map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setExtras((x) => [...x, m.key])}
+                  className={chipClass}
+                >
+                  + {m.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <Input
             value={row.notes}
             onChange={(e) => patch({ notes: e.target.value })}
