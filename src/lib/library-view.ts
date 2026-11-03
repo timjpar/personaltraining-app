@@ -118,7 +118,7 @@ export function workoutDay(title: string): number | null {
   return match ? DAY_KEYS.indexOf(match[1].slice(0, 3).toLowerCase()) : null;
 }
 
-const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+export const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 /**
  * The title moved to another day (0 Sunday … 6 Saturday), or taken off every

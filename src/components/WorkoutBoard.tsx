@@ -23,6 +23,7 @@ import {
   saveBoard,
 } from "@/app/(trainer)/library/compare/actions";
 import { AnimationToggle } from "@/components/AnimationToggle";
+import { BoardWeekTotals, WeekTotalsToggle, useShowWeekTotals } from "@/components/BoardWeekTotals";
 import { BoardWorkoutCard, type MoveTarget } from "@/components/BoardWorkoutCard";
 import { DragOverlay } from "@/components/Drag";
 import { Button, EmptyState, Input, Select, buttonClass } from "@/components/ui";
@@ -118,6 +119,7 @@ export function WorkoutBoard({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<Notice | null>(null);
   const [trayOpen, setTrayOpen] = useState(false);
+  const [showTotals] = useShowWeekTotals();
   const [saving, startSave] = useTransition();
   const [loading, startLoad] = useTransition();
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -567,8 +569,13 @@ export function WorkoutBoard({
 
         {loading ? <span className="eyebrow text-ink-soft">Loading…</span> : null}
 
-        <AnimationToggle className="ml-auto" />
+        <div className="ml-auto flex flex-wrap gap-2">
+          <WeekTotalsToggle />
+          <AnimationToggle />
+        </div>
       </div>
+
+      {showTotals && visible.length ? <BoardWeekTotals workouts={visible} /> : null}
 
       <div inert={saving} className={cn("transition-opacity", saving && "opacity-60")}>
         {layout === "columns" ? (

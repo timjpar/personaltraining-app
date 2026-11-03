@@ -233,7 +233,7 @@ export function BoardStatsBreakdown({ stats }: { stats: WorkoutStats }) {
 }
 
 // The exercises behind a muscle's count: "Back Squat 4 · Leg Press 3".
-function Sources({
+export function Sources({
   sources,
   label,
   className,
