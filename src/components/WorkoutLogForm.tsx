@@ -12,6 +12,8 @@ import { Card, Textarea, FormError, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { SetHint } from "@/lib/exercise-progression";
 import { MAX_SETS, parseSetCount } from "@/lib/exercise-sets";
+import type { ProgressionView } from "@/lib/progression-view";
+import { ProgressionPanel } from "@/components/ProgressionPanel";
 import { groupBySection, usesSections } from "@/lib/workout-form";
 
 type LogExercise = {
@@ -32,6 +34,9 @@ type LogExercise = {
   // they have never logged; individual entries are empty for sets they never
   // got to, or boxes they left blank then.
   hints?: SetHint[];
+  // The path this movement is on towards a skill, judged against last time.
+  // Undefined on a movement that sits on no path.
+  progression?: ProgressionView;
 };
 
 // A result box. Typed values keep the tabular mono of a program sheet, but the
@@ -351,6 +356,12 @@ export function WorkoutLogForm({
                             setDone((d) => ({ ...d, [ex.id]: next }))
                           }
                         />
+                        {ex.progression ? (
+                          <ProgressionPanel
+                            view={ex.progression}
+                            viewer={self ? "self" : "athlete"}
+                          />
+                        ) : null}
                       </div>
                     }
                   />

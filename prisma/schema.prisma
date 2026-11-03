@@ -209,6 +209,14 @@ model User {
   // an athlete, and the ones this coach wrote.
   sessionCredits         SessionCredit[] @relation("ClientSessionCredits")
   sessionCreditsAsCoach  SessionCredit[] @relation("TrainerSessionCredits")
+
+  // Progressions: the goals and hand-written paths that belong to this person as
+  // an athlete, and the ones they set or wrote for someone (a coach for a
+  // client, or anyone for themselves). See ProgressionGoal.
+  progressionGoals        ProgressionGoal[] @relation("AthleteProgressionGoals")
+  progressionGoalsSet     ProgressionGoal[] @relation("ProgressionGoalSetter")
+  progressionPaths        ProgressionPath[] @relation("AthleteProgressionPaths")
+  progressionPathsWritten ProgressionPath[] @relation("ProgressionPathAuthor")
 }
 
 // One movement in a client's block of paid sessions: `delta` is +10 when the
@@ -872,6 +880,90 @@ model TrainerExercise {
 
   @@unique([trainerId, nameKey])
   @@index([trainerId, lastUsedAt])
+}
+
+// Which progression path an athlete is working along from one movement, when
+// it isn't the one the app picks on its own. No row is the normal state: every
+// movement on a shipped path already has an automatic goal (pathsThrough in
+// src/lib/progressions.ts), so this table only records a change of mind — a
+// different shipped path, or one somebody wrote.
+//
+// Keyed by the movement it was chosen on, by name, because that is the only
+// identity an exercise has (see the TrainerExercise comment above). A goal
+// still reaches the next rung after a swap without being moved: resolveGoal
+// prefers any path the athlete has already chosen elsewhere.
+//
+// Exactly one of builtinPath and customPathId is set. builtinPath names a path
+// in code rather than a row, so it has no foreign key; a path that is ever
+// removed from the catalog leaves a row that simply stops matching.
+model ProgressionGoal {
+  id String @id @default(cuid())
+
+  athleteId String
+  athlete   User   @relation("AthleteProgressionGoals", fields: [athleteId], references: [id], onDelete: Cascade)
+
+  exerciseKey String // normalizeExerciseName of the movement it was chosen on
+
+  builtinPath  String? // a PROGRESSION_PATHS id
+  customPathId String?
+  customPath   ProgressionPath? @relation(fields: [customPathId], references: [id], onDelete: Cascade)
+
+  // Who chose it — the athlete, or their coach. Null once that account is gone,
+  // which keeps the goal: it was chosen for the athlete, and still is.
+  setById String?
+  setBy   User?   @relation("ProgressionGoalSetter", fields: [setById], references: [id], onDelete: SetNull)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([athleteId, exerciseKey])
+}
+
+// A progression somebody wrote for one athlete: the athlete themselves, or
+// their coach. Same shape as a shipped path in src/lib/progressions.ts, with
+// the steps as rows. Visible only to that athlete and their coach.
+model ProgressionPath {
+  id String @id @default(cuid())
+
+  athleteId String
+  athlete   User   @relation("AthleteProgressionPaths", fields: [athleteId], references: [id], onDelete: Cascade)
+
+  // As on ProgressionGoal: kept when the author's account goes.
+  authorId String?
+  author   User?   @relation("ProgressionPathAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  goal  String // the skill it leads to; the editor defaults it to the last step
+  blurb String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps ProgressionStep[]
+  goals ProgressionGoal[]
+
+  @@index([athleteId])
+}
+
+// One rung. Deleted and recreated on every save, the way the workout builder
+// treats exercise rows, so `order` is always 0..N-1 and nothing refers to a
+// step's id.
+model ProgressionStep {
+  id     String          @id @default(cuid())
+  pathId String
+  path   ProgressionPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+
+  order Int
+  name  String
+  how   String?
+  when  String?
+
+  // `when` in numbers, as ProgressionTarget: sets of at least targetReps reps
+  // or targetSeconds seconds. All null is a step judged by eye.
+  targetSets    Int?
+  targetReps    Int?
+  targetSeconds Int?
+  weeks         String?
+
+  @@index([pathId])
 }
 
 // One nutrition plan model serves both roles: clientId null = a library template

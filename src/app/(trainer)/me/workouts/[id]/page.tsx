@@ -25,6 +25,8 @@ import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { demoSearchUrl } from "@/lib/exercise-archetypes";
 import { RpeMeter } from "@/components/RpeMeter";
 import { WorkoutLogForm } from "@/components/WorkoutLogForm";
+import { ProgressionPanel } from "@/components/ProgressionPanel";
+import { getProgressions } from "@/lib/progression-view";
 import { formatDate, relativeTime } from "@/lib/format";
 import { formatTime } from "@/lib/calendar";
 
@@ -84,6 +86,19 @@ export default async function MyWorkoutPage({
   ]);
 
   const units = toUnits(trainer.units);
+
+  // Where each movement sits on its path to a skill. Readiness is judged on
+  // this session's own result once it's logged, and on last time's before.
+  const progressions = await getProgressions(
+    trainer.id,
+    workout.exercises.map((ex) => ({
+      name: ex.name,
+      result: isCompleted
+        ? { sets: ex.resultSets, reps: ex.resultReps, load: ex.resultLoad }
+        : lastResults?.get(normalizeExerciseName(ex.name)),
+    })),
+    toDiscipline(workout.discipline),
+  );
 
   const demoFor = (name: string): Demo => {
     const own = media.get(normalizeExerciseName(name));
@@ -193,12 +208,26 @@ export default async function MyWorkoutPage({
                         notes={ex.notes}
                         demo={demoFor(ex.name)}
                         logged={ex.done}
-                        footer={loggedResult({
-                          label: "You logged",
-                          sets: ex.resultSets,
-                          reps: ex.resultReps,
-                          load: ex.resultLoad,
-                        })}
+                        footer={(() => {
+                          const result = loggedResult({
+                            label: "You logged",
+                            sets: ex.resultSets,
+                            reps: ex.resultReps,
+                            load: ex.resultLoad,
+                          });
+                          const view = progressions.get(normalizeExerciseName(ex.name));
+                          if (!view) return result;
+                          return (
+                            <div className="flex flex-col gap-3">
+                              {result}
+                              <ProgressionPanel
+                                view={view}
+                                viewer="self"
+                                resultLabel="Today"
+                              />
+                            </div>
+                          );
+                        })()}
                       />
                     </li>
                   ))}
@@ -216,6 +245,7 @@ export default async function MyWorkoutPage({
             exercises={workout.exercises.map((ex) => ({
               ...ex,
               demo: demoFor(ex.name),
+              progression: progressions.get(normalizeExerciseName(ex.name)),
               hints: logHints({
                 name: ex.name,
                 last: lastResults?.get(normalizeExerciseName(ex.name)),

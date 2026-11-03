@@ -21,6 +21,9 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { CoachFeedbackForm } from "@/components/CoachFeedbackForm";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
+import { getLastResults } from "@/lib/exercise-history";
+import { getProgressions } from "@/lib/progression-view";
+import { ProgressionPanel } from "@/components/ProgressionPanel";
 import { RpeMeter } from "@/components/RpeMeter";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
 import {
@@ -68,9 +71,23 @@ export default async function WorkoutReviewPage({
 
   // The coach sees their own attached demos here too — otherwise there's
   // nowhere to check that a link actually plays before a client meets it.
-  const media = await getExerciseMedia(
-    trainer.id,
-    workout.exercises.map((e) => e.name),
+  const names = workout.exercises.map((e) => e.name);
+  const [media, lastResults] = await Promise.all([
+    getExerciseMedia(trainer.id, names),
+    isCompleted ? undefined : getLastResults(workout.clientId, workout.id, names),
+  ]);
+
+  // The client's paths, which the coach can steer from here: judged on this
+  // session's result once it's logged, and on the client's last time before.
+  const progressions = await getProgressions(
+    workout.clientId,
+    workout.exercises.map((ex) => ({
+      name: ex.name,
+      result: isCompleted
+        ? { sets: ex.resultSets, reps: ex.resultReps, load: ex.resultLoad }
+        : lastResults?.get(normalizeExerciseName(ex.name)),
+    })),
+    toDiscipline(workout.discipline),
   );
 
   // Opening a completed session clears its unread flag on the feed.
@@ -185,15 +202,27 @@ export default async function WorkoutReviewPage({
                       return own ? { own: true, url: own.url } : undefined;
                     })()}
                     logged={isCompleted && ex.done}
-                    footer={
-                      isCompleted
+                    footer={(() => {
+                      const result = isCompleted
                         ? loggedResult({
                             sets: ex.resultSets,
                             reps: ex.resultReps,
                             load: ex.resultLoad,
                           })
-                        : null
-                    }
+                        : null;
+                      const view = progressions.get(normalizeExerciseName(ex.name));
+                      if (!view) return result;
+                      return (
+                        <div className="flex flex-col gap-3">
+                          {result}
+                          <ProgressionPanel
+                            view={view}
+                            viewer="coach"
+                            resultLabel={isCompleted ? "This session" : "Last time"}
+                          />
+                        </div>
+                      );
+                    })()}
                   />
                 </li>
               ))}
