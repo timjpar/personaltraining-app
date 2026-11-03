@@ -298,6 +298,11 @@ export const USDA_MATCHES: Record<string, UsdaMatch | null> = {
   // its chromium, molybdenum and biotin stay unknown rather than borrowed.
   "Ground Turmeric": { fdc: 172231 },
   "Ground Ginger": { fdc: 170926, japan: "17068" },
+  // Ground is the dried root milled, so the ground entries stand in one for one
+  // by weight for dehydrated pieces. No spoons: pieces don't pack like powder,
+  // so a teaspoon of them weighs something else.
+  "Dried Turmeric Root": { fdc: 172231, cup: null },
+  "Dried Ginger Root": { fdc: 170926, cup: null, japan: "17068" },
   // Both salts are SR Legacy's table salt for sodium. Chloride is that sodium
   // scaled by atomic mass (35.45 / 22.99), since salt is sodium chloride.
   "Iodized Salt": { fdc: 173468, iodine: 19, japan: "17012", extra: { chloride: 59760 } },
