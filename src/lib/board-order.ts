@@ -218,6 +218,23 @@ export function removeExercise(store: BoardStore, key: string, id: string): Boar
   });
 }
 
+// A copy of one exercise, every field and all, just below it. The id comes
+// from the caller, as with addExercise.
+export function duplicateExercise(
+  store: BoardStore,
+  key: string,
+  id: string,
+  copyId: string,
+): BoardStore {
+  const w = store[key];
+  if (!editable(w)) return store;
+  const at = findExercise(w, id);
+  if (!at) return store;
+  const list = [...w.rows[at.section]];
+  list.splice(at.index + 1, 0, { ...list[at.index], id: copyId });
+  return put(store, { ...w, rows: { ...w.rows, [at.section]: list } });
+}
+
 // Where a dragged exercise lands: before `index` in `section` of workout
 // `key`, counted with the dragged exercise already taken out — the same
 // convention useExerciseDrag uses within one workout.
