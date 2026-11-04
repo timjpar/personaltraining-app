@@ -22,6 +22,7 @@ import { Input, Select, Textarea, buttonClass } from "@/components/ui";
 import type { BoardSubject } from "@/components/useBoardDrag";
 import {
   addExercise,
+  duplicateExercise,
   canStepExercise,
   exerciseCount,
   moveExercise,
@@ -335,6 +336,20 @@ const ExerciseRow = memo(function ExerciseRow({
             ) : (
               <span className="flex-1" />
             )}
+            <button
+              type="button"
+              onClick={() => {
+                // The copy opens in place of this one, ready to change.
+                const id = crypto.randomUUID();
+                onEdit((s) => duplicateExercise(s, workoutKey, row.id, id));
+                onToggleRow(row.id, false);
+                onToggleRow(id, true);
+              }}
+              aria-label={`Duplicate exercise ${n}`}
+              className="eyebrow inline-flex min-h-11 items-center rounded-[var(--radius-sm)] px-2.5 text-ink-soft transition-colors hover:bg-paper hover:text-ink sm:min-h-8"
+            >
+              Duplicate
+            </button>
             <button
               type="button"
               onClick={() => onEdit((s) => removeExercise(s, workoutKey, row.id))}
