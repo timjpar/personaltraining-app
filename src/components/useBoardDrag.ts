@@ -7,7 +7,7 @@
 //   section, then a place in it — unless that card is a logged session;
 // - a whole workout, which in Columns lands between two columns and in Week
 //   lands on a day;
-// - a workout off the shelf (BoardShelf), which lands on a day.
+// - an exercise off the shelf (BoardShelf), which lands as a dragged one does.
 //
 // The pointer handling is usePointerDrag's. Unlike the single-workout drags,
 // this reads x as well as y, because the workouts sit side by side, and it
@@ -26,7 +26,8 @@ import { SECTION_ORDER, type ExerciseSection } from "@/lib/constants";
 export type BoardSubject =
   | { kind: "exercise"; key: string; id: string; label: string }
   | { kind: "workout"; key: string; label: string }
-  // A library workout off the shelf, on its way to a day of the week.
+  // An exercise off the shelf (BoardShelf), on its way into a workout. `key`
+  // is its name.
   | { kind: "shelf"; key: string; label: string };
 
 export type BoardTarget =
@@ -144,12 +145,11 @@ export function useBoardDrag(
   scroller: () => HTMLElement | null,
 ) {
   return usePointerDrag<BoardSubject, BoardTarget>(
-    (subject, y, x) =>
-      subject.kind === "exercise"
-        ? hitExercise(subject, x, y)
-        : layout === "columns" && subject.kind === "workout"
-          ? hitColumn(subject, x)
-          : hitDay(x, y),
+    (subject, y, x) => {
+      if (subject.kind === "exercise") return hitExercise(subject, x, y);
+      if (subject.kind === "shelf") return hitExercise({ id: "" }, x, y);
+      return layout === "columns" ? hitColumn(subject, x) : hitDay(x, y);
+    },
     onDrop,
     { scrollX: scroller },
   );

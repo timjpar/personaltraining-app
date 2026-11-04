@@ -3,21 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireTrainer } from "@/lib/auth";
-import { CLIENT_STAGE, ROLES, WORKOUT_STATUS } from "@/lib/constants";
+import { WORKOUT_STATUS } from "@/lib/constants";
 import { boardWeek, boardWorkouts } from "@/lib/board-load";
 import { exerciseColumns, parseBoardSave } from "@/lib/board-form";
-import {
-  MAX_COLUMNS,
-  boardKey,
-  parseBoardKey,
-  type BoardWeek,
-  type BoardWorkout,
-} from "@/lib/board-order";
+import { MAX_COLUMNS, type BoardWeek, type BoardWorkout } from "@/lib/board-order";
 import { recordExerciseNamesSafely } from "@/lib/exercise-catalog";
 import { syncAfterMutation } from "@/lib/calendar-sync";
 import { revalidateAssignedWorkouts } from "@/lib/assignees";
-import { exerciseRowsFrom, parseAssignedSlot } from "@/lib/workout-form";
-import { parseDateInput } from "@/lib/format";
 
 // Reads for the board, as actions so adding a column or stepping a week doesn't
 // reload the page and lose what's unsaved on it. They change nothing, so they
@@ -34,62 +26,6 @@ export async function loadBoardWeek(
 ): Promise<{ week: BoardWeek; workouts: BoardWorkout[] } | null> {
   const trainer = await requireTrainer();
   return boardWeek(trainer.id, String(src ?? ""), week == null ? null : String(week));
-}
-
-// A library workout from the board's shelf, dropped on a day of a person's
-// week: a new session for them on that date, as the client page's assign row
-// makes one, with no time and the usual attendance. Comes back as a board
-// workout so the week can show it without reloading.
-export async function scheduleFromShelf(
-  templateKey: string,
-  src: string,
-  date: string,
-): Promise<{ ok: true; workout: BoardWorkout } | { ok: false; error: string }> {
-  const trainer = await requireTrainer();
-
-  const parsed = parseBoardKey(String(templateKey ?? ""));
-  if (!parsed || parsed.kind !== "template") return { ok: false, error: "That isn't a library workout." };
-  const template = await prisma.workoutTemplate.findFirst({
-    where: { id: parsed.id, trainerId: trainer.id },
-    include: { exercises: { orderBy: { order: "asc" } } },
-  });
-  if (!template) return { ok: false, error: "That workout isn't in your library any more." };
-
-  const scheduledDate = parseDateInput(String(date ?? ""));
-  if (!scheduledDate) return { ok: false, error: "That day doesn't look right." };
-
-  let person = { id: trainer.id, name: trainer.name };
-  const who = String(src ?? "");
-  if (who !== "me" && who !== trainer.id) {
-    const client = await prisma.user.findFirst({
-      where: { id: who, trainerId: trainer.id, role: ROLES.CLIENT, stage: { not: CLIENT_STAGE.ARCHIVED } },
-      select: { id: true, name: true },
-    });
-    if (!client) return { ok: false, error: "That person isn't on your roster any more." };
-    person = client;
-  }
-
-  const created = await prisma.workout.create({
-    data: {
-      title: template.title,
-      notes: template.notes,
-      discipline: template.discipline,
-      scheduledDate,
-      ...parseAssignedSlot(new FormData()),
-      status: WORKOUT_STATUS.ASSIGNED,
-      clientId: person.id,
-      trainerId: trainer.id,
-      exercises: { create: exerciseRowsFrom(template.exercises) },
-    },
-    select: { id: true },
-  });
-
-  revalidateAssignedWorkouts(trainer.id, [person]);
-  syncAfterMutation(trainer.id, person.id);
-
-  const [workout] = await boardWorkouts(trainer.id, [boardKey("session", created.id)]);
-  if (!workout) return { ok: false, error: "It was scheduled, but didn't load. Reload the page to see it." };
-  return { ok: true, workout };
 }
 
 export type BoardSaveState =
