@@ -247,6 +247,14 @@ export function WorkoutBoard({
     },
     [setShelf],
   );
+  // One shelf exercise traded for another step on its path, in its place.
+  const swapShelved = useCallback(
+    (from: string, to: string) => {
+      const list = shelfNow.current.filter((k) => k.toLowerCase() !== to.toLowerCase() || k === from);
+      setShelf(list.map((k) => (k === from ? to : k)));
+    },
+    [setShelf],
+  );
   const unshelve = useCallback(
     (name: string) => setShelf(shelfNow.current.filter((k) => k !== name)),
     [setShelf],
@@ -926,6 +934,16 @@ export function WorkoutBoard({
                 onAdd={shelve}
                 onRemove={unshelve}
                 dropping={inHand?.kind === "exercise"}
+                onSwap={swapShelved}
+                workouts={week.days.flatMap((d, i) =>
+                  weekView.days[i]
+                    .filter((w) => !w.locked)
+                    .map((w) => {
+                      const title = w.title.trim() || "Untitled workout";
+                      // A library title already starts with its day.
+                      return { key: w.key, label: workoutDay(title) != null ? title : `${d.label} · ${title}` };
+                    }),
+                )}
                 saveState={shelfSave}
                 onPlace={place}
               />

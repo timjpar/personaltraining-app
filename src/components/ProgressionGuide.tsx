@@ -11,16 +11,20 @@ import { FAMILY_LABELS, pathsThrough } from "@/lib/progressions";
 // builder, a library workout, the exercise catalog. Same ladders the athlete's
 // ProgressionPanel draws, read as a map — the path the app would pick first,
 // then every other one on request. Choosing a path is the athlete's (or their
-// coach's, on the athlete's session), so nothing here writes.
+// coach's, on the athlete's session), so nothing here writes — unless the caller passes `onPick`, which offers
+// each step as a swap.
 //
 // Every control is type="button": the builder renders this inside its form.
 
 export function ProgressionPaths({
   name,
   discipline,
+  onPick,
 }: {
   name: string;
   discipline?: Discipline;
+  // Lets a step be picked in place of this movement (see Ladder).
+  onPick?: (name: string) => void;
 }) {
   const [allPaths, setAllPaths] = useState(false);
   const [peek, setPeek] = useState<string | null>(null);
@@ -47,7 +51,7 @@ export function ProgressionPaths({
         <p className="text-[0.8125rem] leading-relaxed text-ink-soft">{path.blurb}</p>
       ) : null}
 
-      <Ladder path={path} at={index} map />
+      <Ladder path={path} at={index} map onPick={onPick} />
 
       {others.length ? (
         <div className="flex flex-col gap-2">
@@ -95,7 +99,7 @@ export function ProgressionPaths({
                             {other.blurb}
                           </p>
                         ) : null}
-                        <Ladder path={other} at={at} map />
+                        <Ladder path={other} at={at} map onPick={onPick} />
                       </div>
                     ) : null}
                   </li>
@@ -114,10 +118,12 @@ export function ProgressionGuide({
   name,
   discipline,
   className,
+  onPick,
 }: {
   name: string;
   discipline?: Discipline;
   className?: string;
+  onPick?: (name: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const places = pathsThrough(name, { discipline });
@@ -162,7 +168,7 @@ export function ProgressionGuide({
       </button>
       {open ? (
         <div className="mt-3">
-          <ProgressionPaths name={name} discipline={discipline} />
+          <ProgressionPaths name={name} discipline={discipline} onPick={onPick} />
         </div>
       ) : null}
     </div>
