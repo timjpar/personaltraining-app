@@ -6,7 +6,8 @@
 //   board — the card under the pointer, or the nearest one, then its nearest
 //   section, then a place in it — unless that card is a logged session;
 // - a whole workout, which in Columns lands between two columns and in Week
-//   lands on a day.
+//   lands on a day;
+// - a workout off the shelf (BoardShelf), which lands on a day.
 //
 // The pointer handling is usePointerDrag's. Unlike the single-workout drags,
 // this reads x as well as y, because the workouts sit side by side, and it
@@ -24,7 +25,9 @@ import { SECTION_ORDER, type ExerciseSection } from "@/lib/constants";
 
 export type BoardSubject =
   | { kind: "exercise"; key: string; id: string; label: string }
-  | { kind: "workout"; key: string; label: string };
+  | { kind: "workout"; key: string; label: string }
+  // A library workout off the shelf, on its way to a day of the week.
+  | { kind: "shelf"; key: string; label: string };
 
 export type BoardTarget =
   // Before `index` in that section, counted with the dragged exercise out.
@@ -144,7 +147,7 @@ export function useBoardDrag(
     (subject, y, x) =>
       subject.kind === "exercise"
         ? hitExercise(subject, x, y)
-        : layout === "columns"
+        : layout === "columns" && subject.kind === "workout"
           ? hitColumn(subject, x)
           : hitDay(x, y),
     onDrop,
