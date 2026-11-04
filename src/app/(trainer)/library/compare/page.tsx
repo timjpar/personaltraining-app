@@ -6,6 +6,7 @@ import { assignableClients } from "@/lib/assignees";
 import { boardPicker, boardWeek, boardWorkouts } from "@/lib/board-load";
 import { MAX_COLUMNS, parseBoardKey, type BoardWorkout } from "@/lib/board-order";
 import { getPickerCatalog } from "@/lib/exercise-catalog";
+import { prisma } from "@/lib/db";
 
 type Search = Record<string, string | string[] | undefined>;
 
@@ -32,12 +33,13 @@ export default async function ComparePage({
     ),
   ].slice(0, MAX_COLUMNS);
 
-  const [columnWorkouts, requestedWeek, picker, clients, catalog] = await Promise.all([
+  const [columnWorkouts, requestedWeek, picker, clients, catalog, me] = await Promise.all([
     boardWorkouts(trainer.id, keys),
     layout === "week" ? boardWeek(trainer.id, one(sp.src) || "library", one(sp.week)) : null,
     boardPicker(trainer.id),
     assignableClients(trainer.id),
     getPickerCatalog(trainer.id),
+    prisma.user.findUnique({ where: { id: trainer.id }, select: { boardShelf: true } }),
   ]);
   // A week for someone no longer on the roster opens on the library instead.
   const week =
@@ -72,6 +74,7 @@ export default async function ComparePage({
           ...clients.map((c) => ({ id: c.id, name: c.name })),
         ]}
         catalog={catalog}
+        initialShelf={me?.boardShelf ?? []}
       />
     </div>
   );

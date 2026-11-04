@@ -7,8 +7,9 @@
 // exercise across from another workout. Either way it's an edit like any
 // other, waiting for Save and undone with Ctrl+Z.
 //
-// What's on the shelf is kept per device, like the board's other switches:
-// it's the coach's own scratch list, not part of anyone's program.
+// What's on the shelf is saved to the coach's account as it changes, so it's
+// there to come back to on any device. It's their own scratch list, not part
+// of anyone's program.
 import { useState } from "react";
 import type { PointerEvent } from "react";
 import { Grip } from "@/components/Drag";
@@ -34,6 +35,7 @@ export function BoardShelf({
   onAdd,
   onRemove,
   onPlace,
+  saveState,
 }: {
   items: ShelfItem[];
   catalog: PickerCatalog;
@@ -43,6 +45,7 @@ export function BoardShelf({
   onAdd: (name: string) => void;
   onRemove: (name: string) => void;
   onPlace: (name: string, workoutKey: string) => void;
+  saveState: "saved" | "saving" | "error";
 }) {
   const [draft, setDraft] = useState("");
   // Bumped on each add, so the picker starts empty again.
@@ -64,9 +67,21 @@ export function BoardShelf({
         <h2 className="eyebrow text-ink">Exercise library</h2>
         <span className="metric text-xs text-ink-soft/70">{items.length || ""}</span>
         <p className="w-full text-xs text-ink-soft sm:w-auto sm:flex-1">
-          Exercises to fit into the week. Drag one into a workout, or tap a suggestion to add it
-          there.
+          Exercises to fit into the week, saved to your account so they’re here when you come
+          back. Drag one into a workout, or tap a suggestion to add it there.
         </p>
+        <span
+          role="status"
+          className={cn("metric text-xs", saveState === "error" ? "text-flag" : "text-ink-soft/70")}
+        >
+          {saveState === "saving"
+            ? "Saving…"
+            : saveState === "error"
+              ? "Couldn't save the shelf. It'll try again on your next change."
+              : items.length
+                ? "Saved"
+                : ""}
+        </span>
       </div>
       <div
         className="mt-3 flex items-center gap-2 sm:max-w-md"

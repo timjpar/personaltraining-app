@@ -21,6 +21,7 @@ import {
   loadBoardWeek,
   loadBoardWorkouts,
   saveBoard,
+  saveBoardShelf,
 } from "@/app/(trainer)/library/compare/actions";
 import { BoardShelf, type ShelfItem } from "@/components/BoardShelf";
 import { AnimationToggle, ToggleChip } from "@/components/AnimationToggle";
@@ -164,6 +165,7 @@ export function WorkoutBoard({
   picker,
   people,
   catalog,
+  initialShelf,
 }: {
   initialLayout: Layout;
   initialColumns: string[];
@@ -173,6 +175,8 @@ export function WorkoutBoard({
   // Whose week can be shown: "me", then the roster.
   people: { id: string; name: string }[];
   catalog: PickerCatalog;
+  // The exercise shelf as saved on the account.
+  initialShelf: string[];
 }) {
   // Every edit to the store is a step Ctrl+Z can take back (useUndoHistory);
   // what loads and what a save sends back come in through `replace`, which
@@ -209,11 +213,38 @@ export function WorkoutBoard({
     setHiddenDays(next);
   };
   // The shelf of exercises waiting to go into the week's workouts
-  // (BoardShelf), by name, and whether it's out. Both per device.
+  // (BoardShelf), by name. Saved to the account on every change, so it's
+  // there next visit and on any device; whether it's out is per device.
   const [shelfShown, storeShelfShown] = useStoredValue("pt_board_shelf_open", onOff);
-  const [shelfRaw, storeShelf] = useStoredValue("pt_board_exercise_shelf", asText);
-  const shelf = useMemo(() => parseOrder(shelfRaw), [shelfRaw]);
-  const setShelf = (next: string[]) => storeShelf(JSON.stringify(next));
+  const [shelf, setShelfState] = useState<string[]>(initialShelf);
+  const [shelfSave, setShelfSave] = useState<"saved" | "saving" | "error">("saved");
+  const shelfSeq = useRef(0);
+  const setShelf = (next: string[]) => {
+    setShelfState(next);
+    setShelfSave("saving");
+    const seq = ++shelfSeq.current;
+    saveBoardShelf(next)
+      .then((res) => {
+        if (seq === shelfSeq.current) setShelfSave(res.ok ? "saved" : "error");
+      })
+      .catch(() => {
+        if (seq === shelfSeq.current) setShelfSave("error");
+      });
+  };
+  // A shelf kept in this browser before it was saved to the account comes
+  // along once, then the browser copy is cleared.
+  const [legacyShelf, storeLegacyShelf] = useStoredValue("pt_board_exercise_shelf", asText);
+  const legacyMoved = useRef(false);
+  useEffect(() => {
+    if (legacyMoved.current || !legacyShelf) return;
+    legacyMoved.current = true;
+    const old = parseOrder(legacyShelf);
+    storeLegacyShelf("");
+    const known = new Set(shelf.map((n) => n.toLowerCase()));
+    const extra = old.filter((n) => !known.has(n.toLowerCase()));
+    // After this render, not during it: it saves, like any other change.
+    if (extra.length) void Promise.resolve().then(() => setShelf([...shelf, ...extra]));
+  });
   const [saving, startSave] = useTransition();
   const [loading, startLoad] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -865,6 +896,7 @@ export function WorkoutBoard({
                 grip={drag.grip}
                 onAdd={(name) => setShelf([...shelf.filter((k) => k.toLowerCase() !== name.toLowerCase()), name])}
                 onRemove={(name) => setShelf(shelf.filter((k) => k !== name))}
+                saveState={shelfSave}
                 onPlace={place}
               />
             ) : null}

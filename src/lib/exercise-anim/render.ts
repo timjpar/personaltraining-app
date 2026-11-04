@@ -54,6 +54,9 @@ export type Spec = {
   still?: number;
   // Side view: shift the far limbs by this much to suggest depth.
   depth?: V;
+  // Square views: draw the legs over the trunk rather than behind it, for a
+  // body sitting with its knees up toward the viewer.
+  legsInFront?: boolean;
   // Paint the whole picture this colour (a climbing wall) instead of the
   // plain plate, and whether to draw the floor; by default the floor appears
   // whenever the movement reaches the ground.
@@ -104,7 +107,7 @@ function sidePieces(p: Pose, hands: Spec["hands"], depth: V): Piece[] {
   ];
 }
 
-function squarePieces(p: Pose, hands: Spec["hands"], back: boolean): Piece[] {
+function squarePieces(p: Pose, hands: Spec["hands"], back: boolean, legsInFront = false): Piece[] {
   const j = frontJoints(p);
   const A = back ? BACK : FRONT;
   const hand = (s: "N" | "F") => A[(s === "N" ? hands?.N : (hands?.F ?? hands?.N)) === "fist" ? "fist" : "hand"];
@@ -125,12 +128,15 @@ function squarePieces(p: Pose, hands: Spec["hands"], back: boolean): Piece[] {
     ];
   };
   const hipRoot = p.hip;
-  return [
-    ...leg(p.legF, "F"),
-    ...leg(p.legN, "N"),
+  const legs = [...leg(p.legF, "F"), ...leg(p.legN, "N")];
+  const trunk: Piece[] = [
     { key: "pelvis", at: hipRoot, angle: p.pelvis, art: A.pelvis, pair: true },
     { key: "torso", at: j.lumbar, angle: p.torso, art: A.torso, pair: true },
     { key: "head", at: j.neck, angle: p.head, art: A.head },
+  ];
+  return [
+    ...(legsInFront ? trunk : legs),
+    ...(legsInFront ? legs : trunk),
     ...arm(p.armF, "F"),
     ...arm(p.armN, "N"),
   ];
@@ -139,7 +145,7 @@ function squarePieces(p: Pose, hands: Spec["hands"], back: boolean): Piece[] {
 function pieces(spec: Spec, pose: Pose): Piece[] {
   const view = spec.view ?? "side";
   if (view === "side") return sidePieces(pose, spec.hands, spec.depth ?? v(-2.2, -1));
-  return squarePieces(pose, spec.hands, view === "back");
+  return squarePieces(pose, spec.hands, view === "back", spec.legsInFront);
 }
 
 // --- Geometry helpers --------------------------------------------------------

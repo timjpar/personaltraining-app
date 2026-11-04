@@ -11,6 +11,7 @@ import {
   dirAngle,
   frontJoints,
   grips,
+  hips,
   hold,
   kf,
   LEN,
@@ -384,6 +385,9 @@ function rollerSlide(o: { name: string; part: "quads" | "glutes" | "lats" }): Sp
   };
 }
 
+// Kneeling, sitting back on the heels with the tops of the feet flat, the
+// chest resting on the thighs, forehead down past the knees and the arms
+// reaching long along the floor. Breathing lifts the back a little.
 const childsPose: Spec = {
   name: "Child's Pose",
   aka: ["Childs Pose"],
@@ -395,12 +399,17 @@ const childsPose: Spec = {
   still: 0.5,
   motion: (p) => {
     const b = breathe(p);
-    const knee = v(18, -6);
-    const hip = v(-18, -22 - b * 2);
-    let pose = base(hip, { torso: -122 + b * 4, pelvis: -110, head: -140 });
-    pose = { ...pose, legN: { ...limb(dirTo(hip, knee), -90, -180) }, legF: { ...limb(dirTo(hip, knee), -90, -180) } };
+    // Knees on the floor, shins flat behind them, the hip joint resting just
+    // above the heels and solved to sit a thigh-length from the knee.
+    const knee = v(10, -5);
+    const ankle = v(knee.x - LEN.shin, -5);
+    const hipY = -24 - b * 1.5;
+    const hip = v(knee.x - Math.sqrt(LEN.thigh ** 2 - (knee.y - hipY) ** 2), hipY);
+    let pose = base(hip, { pelvis: -96, torso: -101 + b * 3, head: -118 + b * 2 });
+    const leg: Limb = { ...limb(dirTo(hip, knee), dirTo(knee, ankle), -175) };
+    pose = { ...pose, legN: leg, legF: { ...leg } };
     const s = shoulders(pose).N;
-    pose = palms(pose, "side", v(s.x + 48, 0), v(s.x + 48, 0), 90, 1);
+    pose = palms(pose, "side", v(s.x + 50, 0), v(s.x + 50, 0), 90, -1);
     return { pose };
   },
 };
@@ -805,24 +814,60 @@ const coldPlunge: Spec = {
   },
 };
 
+// Seated tall with the hands on the floor beside the hips: one leg in front,
+// shin across the body, the other out to the side with its shin pointing back,
+// both knees bent to 90. The knees lift together through upright and lower to
+// the other side. Square-on, so each leg is placed by where its knee and ankle
+// land on screen and foreshortened to fit.
 const ninetyNinety: Spec = {
   name: "90/90 Hip Switch",
   aka: ["90/90 Hip Stretch"],
   view: "front",
+  legsInFront: true,
   mode: "alternate",
   seconds: 3,
   hands: { N: "palm" },
   primary: ["glutes", "abductors"],
   secondary: ["adductors", "hip_flexors"],
-  still: 0,
+  still: 0.6,
   motion: (p) => {
-    const sweep = lerp(-58, 58, p);
-    const pose = base(v(0, -14), { torso: sweep * -0.08 });
-    const k = 0.6;
-    const legN = { ...limb(sweep + 4, sweep + 90 * Math.sign(sweep || 1)), ku: k, kl: 0.8 };
-    const legF = { ...limb(sweep - 4, sweep - 90 * Math.sign(sweep || 1)), ku: k, kl: 0.8 };
-    const arm = limb(24, 18, 18);
-    return { pose: { ...pose, legN, legF, armN: arm, armF: mirror(arm) } };
+    const t = p < 0.5 ? p * 2 : (p - 0.5) * 2;
+    const ease = t * t * (3 - 2 * t);
+    let pose = base(v(0, -14), { torso: lerp(-4, 4, p), head: lerp(-6, 6, p) });
+    const h = hips(pose, "front");
+    // Screen offsets from each hip, for the leg on the right of the picture.
+    // Front leg: knee just ahead of the hip, shin across. Back leg: thigh out
+    // to the side, shin running away from the viewer. Up: knees raised.
+    const front = { knee: v(6, 8), ankle: v(44, 9) };
+    const up = { knee: v(20, -26), ankle: v(26, 8) };
+    const back = { knee: v(40, 8), ankle: v(38, 10) };
+    const pick = (a: typeof front, b: typeof front) => ({
+      knee: lerpV(a.knee, b.knee, ease),
+      ankle: lerpV(a.ankle, b.ankle, ease),
+    });
+    // Right of the picture goes front → up → back; the left does the reverse,
+    // mirrored, so both knees fall the same way.
+    const right = p < 0.5 ? pick(front, up) : pick(up, back);
+    const left = p < 0.5 ? pick(back, up) : pick(up, front);
+    // How far the knees are through upright: the feet stand flat then, and
+    // lie along the shin when the leg is down.
+    const upness = p < 0.5 ? ease : 1 - ease;
+    const legAt = (hip: V, o: typeof front, side: 1 | -1): Limb => {
+      const knee = add(hip, v(o.knee.x * side, o.knee.y));
+      const ankle = add(hip, v(o.ankle.x * side, o.ankle.y));
+      const thigh = Math.hypot(knee.x - hip.x, knee.y - hip.y);
+      const shin = Math.hypot(ankle.x - knee.x, ankle.y - knee.y);
+      return {
+        ...limb(dirTo(hip, knee), dirTo(knee, ankle), lerp(dirTo(knee, ankle), 0, upness)),
+        ku: Math.min(1, thigh / LEN.thigh),
+        kl: Math.max(0.15, Math.min(1, shin / LEN.shin)),
+        // A shin running away from the viewer hides its foot behind the knee.
+        ke: Math.max(0.35, Math.min(1, shin / LEN.shin)),
+      };
+    };
+    pose = { ...pose, legN: legAt(h.N, right, 1), legF: legAt(h.F, left, -1) };
+    pose = palms(pose, "front", v(40, -2), v(-40, -2), 0, -1);
+    return { pose };
   },
 };
 
