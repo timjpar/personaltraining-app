@@ -11,6 +11,7 @@ import {
   EXERCISE_PRESETS,
   normalizeExerciseName,
 } from "@/lib/exercise-presets";
+import { exerciseMatcher } from "@/lib/exercise-search";
 
 type Group = { label: string; names: string[] };
 
@@ -49,7 +50,7 @@ export function ExercisePicker({
   const activeRef = useRef<HTMLDivElement | null>(null);
 
   const groups = useMemo<Group[]>(() => {
-    const q = normalizeExerciseName(value);
+    const rank = exerciseMatcher(value);
     const seen = new Set<string>();
     const out: Group[] = [];
 
@@ -57,22 +58,18 @@ export function ExercisePicker({
     // mine beats presets. Two Enter targets for the same string would make
     // keyboard navigation feel broken.
     const push = (label: string, names: string[]) => {
-      const picked: string[] = [];
+      const picked: { name: string; rank: number }[] = [];
       for (const n of names) {
         const key = normalizeExerciseName(n);
-        if (seen.has(key) || (q && !key.includes(q))) continue;
+        if (seen.has(key)) continue;
+        const r = rank ? rank(n) : 0;
+        if (r === null) continue;
         seen.add(key);
-        picked.push(n);
+        picked.push({ name: n, rank: r });
       }
-      if (q) {
-        // Stable sort, so this only lifts prefix matches above interior ones.
-        picked.sort(
-          (a, b) =>
-            Number(!normalizeExerciseName(a).startsWith(q)) -
-            Number(!normalizeExerciseName(b).startsWith(q)),
-        );
-      }
-      if (picked.length) out.push({ label, names: picked });
+      // Stable sort, so this only lifts closer matches above looser ones.
+      picked.sort((a, b) => a.rank - b.rank);
+      if (picked.length) out.push({ label, names: picked.map((p) => p.name) });
     };
 
     push("Recent", catalog.recent);
