@@ -36,6 +36,7 @@ export function BoardShelf({
   onRemove,
   onPlace,
   saveState,
+  dropping,
 }: {
   items: ShelfItem[];
   catalog: PickerCatalog;
@@ -46,6 +47,8 @@ export function BoardShelf({
   onRemove: (name: string) => void;
   onPlace: (name: string, workoutKey: string) => void;
   saveState: "saved" | "saving" | "error";
+  // An exercise from a workout is in hand, and can be dropped here.
+  dropping: boolean;
 }) {
   const [draft, setDraft] = useState("");
   // Bumped on each add, so the picker starts empty again.
@@ -61,14 +64,19 @@ export function BoardShelf({
   return (
     <section
       aria-label="Exercise library"
-      className="mt-5 rounded-[var(--radius-card)] border border-line bg-card/60 p-4"
+      data-board-shelf-drop
+      className={cn(
+        "mt-5 rounded-[var(--radius-card)] border border-line bg-card/60 p-4 transition-colors",
+        dropping && "border-dashed border-jade bg-jade-wash/40",
+      )}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h2 className="eyebrow text-ink">Exercise library</h2>
         <span className="metric text-xs text-ink-soft/70">{items.length || ""}</span>
         <p className="w-full text-xs text-ink-soft sm:w-auto sm:flex-1">
           Exercises to fit into the week, saved to your account so they’re here when you come
-          back. Drag one into a workout, or tap a suggestion to add it there.
+          back. Drag one into a workout, or tap a suggestion, to move it there; drag an exercise
+          out of a workout and drop it here to set it aside.
         </p>
         <span
           role="status"
@@ -114,6 +122,9 @@ export function BoardShelf({
         </button>
       </div>
 
+      {dropping ? (
+        <p className="eyebrow mt-3 text-jade-strong">Drop here to take it out and keep it for later</p>
+      ) : null}
       {items.length === 0 ? (
         <p className="mt-3 text-sm text-ink-soft">
           Nothing here yet. Add the exercises you want in this week, and each will say which

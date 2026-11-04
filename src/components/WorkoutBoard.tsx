@@ -38,6 +38,7 @@ import {
   moveColumn,
   insertExercise,
   moveExercise,
+  removeExercise,
   patchWorkout,
   serializeWorkout,
   setTotal,
@@ -50,6 +51,7 @@ import {
   type Dir,
 } from "@/lib/board-order";
 import { cn } from "@/lib/cn";
+import { SECTION_ORDER } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
 import { useStoredSet, useStoredValue } from "@/lib/use-stored-set";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
@@ -87,6 +89,8 @@ function parseOrder(raw: string): string[] {
 const NO_SUGGESTION: ReadonlySet<string> = new Set();
 // A row for an exercise off the shelf: its name and the sets the suggestions
 // counted it at, the rest for the coach to fill in.
+const findRow = (w: BoardWorkout | undefined, id: string) =>
+  w ? SECTION_ORDER.flatMap((s) => w.rows[s]).find((r) => r.id === id) : undefined;
 const shelfRow = (id: string, name: string): BoardExercise => ({
   id,
   name,
@@ -219,7 +223,9 @@ export function WorkoutBoard({
   const [shelf, setShelfState] = useState<string[]>(initialShelf);
   const [shelfSave, setShelfSave] = useState<"saved" | "saving" | "error">("saved");
   const shelfSeq = useRef(0);
-  const setShelf = (next: string[]) => {
+  const shelfNow = useRef(shelf);
+  const setShelf = useCallback((next: string[]) => {
+    shelfNow.current = next;
     setShelfState(next);
     setShelfSave("saving");
     const seq = ++shelfSeq.current;
@@ -230,7 +236,21 @@ export function WorkoutBoard({
       .catch(() => {
         if (seq === shelfSeq.current) setShelfSave("error");
       });
-  };
+  }, []);
+  // On, or off, the shelf by name; a name is on it once.
+  const shelve = useCallback(
+    (name: string) => {
+      const n = name.trim();
+      if (!n) return;
+      const rest = shelfNow.current.filter((k) => k.toLowerCase() !== n.toLowerCase());
+      setShelf([...rest, n]);
+    },
+    [setShelf],
+  );
+  const unshelve = useCallback(
+    (name: string) => setShelf(shelfNow.current.filter((k) => k !== name)),
+    [setShelf],
+  );
   // A shelf kept in this browser before it was saved to the account comes
   // along once, then the browser copy is cleared.
   const [legacyShelf, storeLegacyShelf] = useStoredValue("pt_board_exercise_shelf", asText);
@@ -411,15 +431,23 @@ export function WorkoutBoard({
         setColumns((c) => moveColumn(c, subject.key, target.index));
       } else if (subject.kind === "workout" && target.kind === "day") {
         moveToDay(subject.key, target.day);
+      } else if (subject.kind === "exercise" && target.kind === "shelf") {
+        // Out of its workout and onto the shelf, by name, to go back in later.
+        const name = findRow(board.store[subject.key], subject.id)?.name.trim();
+        if (!name) return;
+        edit((s) => removeExercise(s, subject.key, subject.id));
+        shelve(name);
       } else if (subject.kind === "shelf" && target.kind === "exercise") {
+        // Off the shelf and into the workout.
         const id = crypto.randomUUID();
         edit((s) =>
           insertExercise(s, target.key, target.section, target.index, shelfRow(id, subject.key)),
         );
         toggleRow(id, true);
+        unshelve(subject.key);
       }
     },
-    [edit, moveToDay, toggleRow],
+    [edit, moveToDay, toggleRow, board.store, shelve, unshelve],
   );
 
   const drag = useBoardDrag(layout, onDrop, () => scrollerRef.current);
@@ -441,7 +469,8 @@ export function WorkoutBoard({
     const section = sectionFor(name);
     edit((s) => insertExercise(s, key, section, s[key]?.rows[section].length ?? 0, shelfRow(id, name)));
     toggleRow(id, true);
-    setNotice({ tone: "ok", text: `Added ${name} to ${w.title.trim() || "Untitled workout"}.` });
+    unshelve(name);
+    setNotice({ tone: "ok", text: `Moved ${name} into ${w.title.trim() || "Untitled workout"}.` });
   };
 
   // What each workout on the week already trains, for the shelf's
@@ -894,8 +923,9 @@ export function WorkoutBoard({
                 dayLabels={week.days.map((d) => (d.dayOfMonth != null ? `${d.label} ${d.dayOfMonth}` : d.label))}
                 dragging={inHand?.kind === "shelf" ? inHand.key : null}
                 grip={drag.grip}
-                onAdd={(name) => setShelf([...shelf.filter((k) => k.toLowerCase() !== name.toLowerCase()), name])}
-                onRemove={(name) => setShelf(shelf.filter((k) => k !== name))}
+                onAdd={shelve}
+                onRemove={unshelve}
+                dropping={inHand?.kind === "exercise"}
                 saveState={shelfSave}
                 onPlace={place}
               />
