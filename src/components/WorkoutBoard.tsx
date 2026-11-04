@@ -21,7 +21,9 @@ import {
   loadBoardWeek,
   loadBoardWorkouts,
   saveBoard,
+  scheduleFromShelf,
 } from "@/app/(trainer)/library/compare/actions";
+import { BoardShelf, type ShelfItem } from "@/components/BoardShelf";
 import { AnimationToggle, ToggleChip } from "@/components/AnimationToggle";
 import { UndoButtons } from "@/components/UndoButtons";
 import { useFieldHistory } from "@/components/useFieldHistory";
@@ -46,9 +48,11 @@ import {
   type Dir,
 } from "@/lib/board-order";
 import { cn } from "@/lib/cn";
+import { toDateInput } from "@/lib/format";
 import { useStoredSet, useStoredValue } from "@/lib/use-stored-set";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
 import { workoutDay, withWorkoutDay } from "@/lib/library-view";
+import { hardMuscles, suggestDays, type DayLoad } from "@/lib/board-suggest";
 
 type Layout = "columns" | "week";
 
@@ -70,6 +74,8 @@ function parseOrder(raw: string): string[] {
     return [];
   }
 }
+const NO_SUGGESTION: ReadonlySet<number> = new Set();
+const onOff = (raw: unknown) => (raw === "on" ? "on" : "off");
 type Board = { store: BoardStore; base: BoardStore };
 type Notice = { tone: "ok" | "error"; text: string };
 
@@ -174,6 +180,13 @@ export function WorkoutBoard({
     else if (next.size < DAY_KEYS.size - 1) next.add(String(day));
     setHiddenDays(next);
   };
+  // The shelf of library workouts waiting to go on the week (BoardShelf), and
+  // whether it's out. Both per device.
+  const [shelfShown, storeShelfShown] = useStoredValue("pt_board_shelf_open", onOff);
+  const [shelfRaw, storeShelf] = useStoredValue("pt_board_shelf", asText);
+  const shelf = useMemo(() => parseOrder(shelfRaw), [shelfRaw]);
+  const setShelf = (next: string[]) => storeShelf(JSON.stringify(next));
+  const [placing, startPlace] = useTransition();
   const [saving, startSave] = useTransition();
   const [loading, startLoad] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -332,6 +345,8 @@ export function WorkoutBoard({
     [edit, week],
   );
 
+  // Set below, once the week's state it reads is in scope.
+  const placeRef = useRef<(key: string, day: number) => void>(() => {});
   const onDrop = useCallback(
     (subject: BoardSubject, target: BoardTarget) => {
       if (subject.kind === "exercise" && target.kind === "exercise") {
@@ -340,6 +355,8 @@ export function WorkoutBoard({
         setColumns((c) => moveColumn(c, subject.key, target.index));
       } else if (subject.kind === "workout" && target.kind === "day") {
         moveToDay(subject.key, target.day);
+      } else if (subject.kind === "shelf" && target.kind === "day" && target.day != null) {
+        placeRef.current(subject.key, target.day);
       }
     },
     [edit, moveToDay],
@@ -348,7 +365,122 @@ export function WorkoutBoard({
   const drag = useBoardDrag(layout, onDrop, () => scrollerRef.current);
   const inHand = drag.dragging;
   const draggingFor = (w: BoardWorkout): string | null =>
-    !inHand || inHand.key !== w.key ? null : inHand.kind === "workout" ? "workout" : inHand.id;
+    !inHand || inHand.key !== w.key || inHand.kind === "shelf"
+      ? null
+      : inHand.kind === "workout"
+        ? "workout"
+        : inHand.id;
+
+  // A shelf workout onto a day. On the library's week that's its title taking
+  // the day, an edit like any other that waits for Save. On a person's week
+  // it's a session for them on that date, made there and then, the way the
+  // client page's assign row does it.
+  const place = (key: string, day: number) => {
+    if (!week) return;
+    if (week.src === "library") {
+      if (board.store[key]) moveToDay(key, day);
+      return;
+    }
+    const date = week.days[day]?.date;
+    if (!date) return;
+    const src = week.src;
+    const title = board.store[key]?.title.trim() || "That workout";
+    startPlace(async () => {
+      try {
+        const res = await scheduleFromShelf(key, src, date);
+        if (!res.ok) {
+          setNotice({ tone: "error", text: res.error });
+          return;
+        }
+        replaceBoard((b) => join(b, [res.workout]));
+        setWeek((wk) =>
+          wk && wk.src === src && wk.days.some((d) => d.date === date)
+            ? { ...wk, keys: [...wk.keys, res.workout.key] }
+            : wk,
+        );
+        setNotice({ tone: "ok", text: `Scheduled ${title} for ${week.days[day].name}.` });
+      } catch {
+        setNotice({ tone: "error", text: "That didn't schedule. Check your connection and try again." });
+      }
+    });
+  };
+  useEffect(() => {
+    placeRef.current = place;
+  });
+
+  // What each day of the week on screen already trains, for the shelf's
+  // suggestions.
+  const muscles = useMemo(() => {
+    const keys = new Set([...(week?.keys ?? []), ...shelf]);
+    const out = new Map<string, ReturnType<typeof hardMuscles>>();
+    for (const k of keys) {
+      const w = board.store[k];
+      if (w) out.set(k, hardMuscles(w));
+    }
+    return out;
+  }, [week, shelf, board.store]);
+  const musclesOf = useCallback(
+    (w: BoardWorkout) => muscles.get(w.key) ?? new Map<string, string>(),
+    [muscles],
+  );
+  const shelfItems = useMemo((): ShelfItem[] => {
+    if (!week || !weekView) return [];
+    const titles = new Map(picker.library.map((l) => [l.key, l.title]));
+    const today = toDateInput(new Date());
+    return shelf.map((key) => {
+      const w = board.store[key] ?? null;
+      const on = week.src === "library" && w ? workoutDay(w.title) : null;
+      // The week as it would be without this workout on it, so one already on
+      // a day isn't counted against itself.
+      const loads: DayLoad[] = week.days.map((d, i) => {
+        const others = weekView.days[i].filter((o) => o.key !== key);
+        const muscles = new Map<string, string>();
+        for (const o of others) for (const [k, v] of musclesOf(o)) muscles.set(k, v);
+        // A day already gone in a person's week is no place to plan.
+        const past = d.date != null && d.date < today;
+        return { shown: isShown(i) && !past, label: d.label, count: others.length, muscles };
+      });
+      const mine = w ? musclesOf(w) : new Map<string, string>();
+      return {
+        key,
+        title: w?.title.trim() || titles.get(key) || "Untitled workout",
+        workout: w,
+        muscles: [...mine.values()],
+        suggestions: w
+          ? suggestDays(mine, loads, { cyclic: week.src === "library", skip: on })
+          : [],
+        on,
+      };
+    });
+  }, [shelf, board.store, week, weekView, picker.library, isShown, musclesOf]);
+  const suggestedFor = (key: string) =>
+    new Set(shelfItems.find((i) => i.key === key)?.suggestions.map((s) => s.day));
+
+  // Shelf workouts not loaded yet come in, a few at a time; any that have
+  // left the library drop off the shelf.
+  const shelfAsked = useRef(new Set<string>());
+  useEffect(() => {
+    if (shelfShown !== "on" || layout !== "week") return;
+    const missing = shelf.filter((k) => !board.store[k] && !shelfAsked.current.has(k));
+    if (missing.length === 0) return;
+    const batch = missing.slice(0, MAX_COLUMNS);
+    for (const k of batch) shelfAsked.current.add(k);
+    let live = true;
+    loadBoardWorkouts(batch)
+      .then((found) => {
+        if (!live) return;
+        replaceBoard((b) => join(b, found));
+        const have = new Set(found.map((w) => w.key));
+        const gone = batch.filter((k) => !have.has(k));
+        if (gone.length) storeShelf(JSON.stringify(shelf.filter((k) => !gone.includes(k))));
+      })
+      .catch(() => {
+        for (const k of batch) shelfAsked.current.delete(k);
+      });
+    return () => {
+      live = false;
+    };
+  }, [shelfShown, layout, shelf, board.store, replaceBoard, storeShelf]);
 
   const stepColumn = useCallback(
     (key: string, dir: Dir) =>
@@ -672,6 +804,14 @@ export function WorkoutBoard({
         {loading ? <span className="eyebrow text-ink-soft">Loading…</span> : null}
 
         <div className="ml-auto flex flex-wrap gap-2">
+          {layout === "week" ? (
+            <ToggleChip
+              pressed={shelfShown === "on"}
+              onToggle={() => storeShelfShown(shelfShown === "on" ? "off" : "on")}
+            >
+              Library
+            </ToggleChip>
+          ) : null}
           <WeekTotalsToggle />
           <AnimationToggle />
         </div>
@@ -752,19 +892,39 @@ export function WorkoutBoard({
           )
         ) : week && weekView ? (
           <>
+            {shelfShown === "on" ? (
+              <BoardShelf
+                items={shelfItems}
+                library={picker.library}
+                dayLabels={week.days.map((d) => (d.dayOfMonth != null ? `${d.label} ${d.dayOfMonth}` : d.label))}
+                personal={week.src !== "library"}
+                busy={placing}
+                dragging={inHand?.kind === "shelf" ? inHand.key : null}
+                grip={drag.grip}
+                onAdd={(key) => setShelf([...shelf.filter((k) => k !== key), key])}
+                onRemove={(key) => setShelf(shelf.filter((k) => k !== key))}
+                onPlace={place}
+              />
+            ) : null}
             <div
               ref={scrollerRef}
               className="mt-6 flex flex-col gap-7 lg:-mx-8 lg:grid lg:auto-cols-[minmax(12.5rem,1fr)] lg:grid-flow-col lg:gap-3 lg:overflow-x-auto lg:px-8 lg:pb-4"
             >
               {week.days.map((d, i) => {
                 if (!isShown(i)) return null;
+                const suggested = inHand?.kind === "shelf" ? suggestedFor(inHand.key) : NO_SUGGESTION;
                 const list = weekView.days[i];
                 return (
                   <section
                     key={d.name}
                     data-board-day={i}
                     aria-label={d.dayOfMonth != null ? `${d.name} ${d.dayOfMonth}` : d.name}
-                    className="min-w-0"
+                    className={cn(
+                      "min-w-0 rounded-[var(--radius-card)] transition-shadow",
+                      inHand?.kind === "shelf" &&
+                        suggested.has(i) &&
+                        "bg-jade-wash/40 ring-2 ring-jade/40 ring-offset-4 ring-offset-paper",
+                    )}
                   >
                     {/* A coach's week reads across the top of a whiteboard:
                         the day, its date in big figures, and today ruled in
