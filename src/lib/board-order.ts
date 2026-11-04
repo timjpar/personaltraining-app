@@ -218,6 +218,22 @@ export function removeExercise(store: BoardStore, key: string, id: string): Boar
   });
 }
 
+// A new exercise put in at a place, as a drop off the board's exercise shelf
+// lands. `index` past the end appends.
+export function insertExercise(
+  store: BoardStore,
+  key: string,
+  section: ExerciseSection,
+  index: number,
+  row: BoardExercise,
+): BoardStore {
+  const w = store[key];
+  if (!editable(w)) return store;
+  const list = [...w.rows[section]];
+  list.splice(Math.min(Math.max(index, 0), list.length), 0, row);
+  return put(store, { ...w, rows: { ...w.rows, [section]: list } });
+}
+
 // A copy of one exercise, every field and all, just below it. The id comes
 // from the caller, as with addExercise.
 export function duplicateExercise(

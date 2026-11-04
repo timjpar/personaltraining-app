@@ -380,6 +380,7 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
   catalog,
   dragging,
   revealSections,
+  suggested = false,
   open,
   error,
   maxSets,
@@ -408,6 +409,9 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
   // An exercise is being dragged somewhere on the board, so every card shows
   // its empty sections as places to drop.
   revealSections: boolean;
+  // An exercise from the shelf is in hand, and this is one of the workouts
+  // it's suggested for.
+  suggested?: boolean;
   open: ReadonlySet<string>;
   error: string | undefined;
   // The most sets on any workout in view, which this card's volume bar is
@@ -472,6 +476,7 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
         "flex flex-col rounded-[var(--radius-card)] border border-line bg-card shadow-[var(--shadow-card)] transition-opacity",
         dragging === "workout" && "opacity-40",
         error && "border-flag/50",
+        suggested && "border-jade ring-2 ring-jade/40",
       )}
     >
       <header className="flex items-start gap-1 px-2 pt-2.5 sm:px-2.5">
