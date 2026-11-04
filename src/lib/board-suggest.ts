@@ -185,5 +185,8 @@ export function suggestWorkouts(
   );
 
   scored.sort((a, b) => a.score - b.score || a.day - b.day);
-  return scored.slice(0, limit).map(({ key, day, title, reason }) => ({ key, day, title, reason }));
+  const sentence = (r: string) => r.charAt(0).toUpperCase() + r.slice(1);
+  return scored
+    .slice(0, limit)
+    .map(({ key, day, title, reason }) => ({ key, day, title, reason: sentence(reason) }));
 }
