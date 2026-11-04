@@ -371,6 +371,8 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
   targets,
   columnIndex,
   columnCount,
+  dayIndex,
+  dayCount,
   dayValue,
   dayOptions,
   grip,
@@ -379,6 +381,7 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
   onRefocus,
   onColumnStep,
   onRemoveColumn,
+  onDayStep,
   onDay,
 }: {
   workout: BoardWorkout;
@@ -399,6 +402,10 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
   targets: MoveTarget[];
   columnIndex?: number;
   columnCount?: number;
+  // Where the card sits among its day's workouts in the week layout, for the
+  // arrows that put them in the order the coach wants.
+  dayIndex?: number;
+  dayCount?: number;
   dayValue?: string;
   dayOptions?: { value: string; label: string }[];
   grip: GripFor;
@@ -407,6 +414,7 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
   onRefocus: (id: string, dir: Dir) => void;
   onColumnStep?: (key: string, dir: Dir) => void;
   onRemoveColumn?: (key: string) => void;
+  onDayStep?: (key: string, dir: Dir) => void;
   onDay?: (key: string, value: string) => void;
 }) {
   const count = exerciseCount(w);
@@ -490,6 +498,33 @@ export const BoardWorkoutCard = memo(function BoardWorkoutCard({
           )}
           <p className="eyebrow mt-0.5 px-1 text-ink-soft">{meta(w)}</p>
         </div>
+        {/* Up and down within the day, on the card rather than in its
+            options, only once the day has two to put in order. */}
+        {onDayStep && dayIndex != null && dayCount != null && dayCount > 1 ? (
+          <div className="flex shrink-0 flex-col">
+            {([-1, 1] as const).map((dir) => (
+              <button
+                key={dir}
+                type="button"
+                data-board-day-move={`${w.key}:${dir}`}
+                disabled={dir < 0 ? dayIndex === 0 : dayIndex === dayCount - 1}
+                onClick={() => onDayStep(w.key, dir)}
+                aria-label={`Move ${label} ${dir < 0 ? "up" : "down"} the day`}
+                className="grid h-7 w-8 place-items-center rounded-[6px] text-ink-soft transition-colors hover:bg-paper hover:text-ink disabled:pointer-events-none disabled:opacity-30 sm:h-6 sm:w-7"
+              >
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden>
+                  <path
+                    d={dir < 0 ? "M5 12.5 10 7.5l5 5" : "M5 7.5l5 5 5-5"}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <button
           type="button"
           aria-expanded={optionsOpen}

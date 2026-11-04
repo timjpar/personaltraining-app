@@ -46,7 +46,7 @@ import {
   type Dir,
 } from "@/lib/board-order";
 import { cn } from "@/lib/cn";
-import { useStoredSet } from "@/lib/use-stored-set";
+import { useStoredSet, useStoredValue } from "@/lib/use-stored-set";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
 import { workoutDay, withWorkoutDay } from "@/lib/library-view";
 
@@ -57,6 +57,19 @@ type Layout = "columns" | "week";
 // how they like their screen, not part of anyone's program.
 const NO_DAYS: readonly string[] = [];
 const DAY_KEYS: ReadonlySet<string> = new Set(["0", "1", "2", "3", "4", "5", "6"]);
+
+// The order a day's workouts are stacked in, as the coach set it with the
+// arrows: workout keys, first to last. Per device, like the days above; a key
+// it doesn't name keeps the order the week arrived in, after the ones it does.
+const asText = (raw: unknown) => (typeof raw === "string" ? raw : "");
+function parseOrder(raw: string): string[] {
+  try {
+    const list: unknown = JSON.parse(raw);
+    return Array.isArray(list) ? list.filter((k): k is string => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
 type Board = { store: BoardStore; base: BoardStore };
 type Notice = { tone: "ok" | "error"; text: string };
 
@@ -152,6 +165,8 @@ export function WorkoutBoard({
   const [showTotals] = useShowWeekTotals();
   const [hiddenDays, setHiddenDays] = useStoredSet("pt_board_hidden_days", NO_DAYS, DAY_KEYS);
   const isShown = useCallback((day: number) => !hiddenDays.has(String(day)), [hiddenDays]);
+  const [orderRaw, storeOrder] = useStoredValue("pt_board_day_order", asText);
+  const dayOrder = useMemo(() => parseOrder(orderRaw), [orderRaw]);
   // One day always stays: a week of nothing is the board looking broken.
   const toggleDay = (day: number) => {
     const next = new Set(hiddenDays);
@@ -230,8 +245,47 @@ export function WorkoutBoard({
       if (day != null) days[day].push(w);
       else if (week.src === "library") tray.push(w);
     }
+    const rank = (key: string) => {
+      const i = dayOrder.indexOf(key);
+      return i < 0 ? Infinity : i;
+    };
+    for (const list of days) list.sort((a, b) => rank(a.key) - rank(b.key));
     return { days, tray };
-  }, [week, board.store]);
+  }, [week, board.store, dayOrder]);
+
+  // The pressed arrow moves with its card, and React moving a node drops its
+  // focus; put it back, or on the other arrow once this one hits the end.
+  const dayMoved = useRef<{ key: string; dir: Dir } | null>(null);
+  // One workout a place up or down its day. The day's new order replaces
+  // whatever was stored for those workouts, so other days keep theirs.
+  const stepInDay = useCallback(
+    (key: string, dir: Dir) => {
+      const list = weekView?.days.find((d) => d.some((w) => w.key === key));
+      if (!list) return;
+      const keys = list.map((w) => w.key);
+      const i = keys.indexOf(key);
+      const j = i + dir;
+      if (j < 0 || j >= keys.length) return;
+      [keys[i], keys[j]] = [keys[j], keys[i]];
+      storeOrder(JSON.stringify([...dayOrder.filter((k) => !keys.includes(k)), ...keys]));
+      dayMoved.current = { key, dir };
+    },
+    [weekView, dayOrder, storeOrder],
+  );
+  useEffect(() => {
+    const target = dayMoved.current;
+    dayMoved.current = null;
+    if (!target) return;
+    for (const dir of [target.dir, -target.dir]) {
+      const el = document.querySelector<HTMLButtonElement>(
+        `[data-board-day-move="${target.key}:${dir}"]`,
+      );
+      if (el && !el.disabled) {
+        el.focus();
+        return;
+      }
+    }
+  }, [dayOrder]);
 
   const columnWorkouts = useMemo(
     () => columns.map((k) => board.store[k]).filter((w) => w != null),
@@ -516,6 +570,7 @@ export function WorkoutBoard({
       onEdit={edit}
       onToggleRow={toggleRow}
       onRefocus={requestRefocus}
+      onDayStep={stepInDay}
       {...extra}
     />
   );
@@ -735,7 +790,15 @@ export function WorkoutBoard({
                       </span>
                     </header>
                     <div data-board-day-list className="flex flex-col gap-3">
-                      {list.map((w) => card(w, { dayValue: String(i), dayOptions, onDay: setDay }))}
+                      {list.map((w, j) =>
+                        card(w, {
+                          dayValue: String(i),
+                          dayOptions,
+                          onDay: setDay,
+                          dayIndex: j,
+                          dayCount: list.length,
+                        }),
+                      )}
                       {list.length === 0 ? (
                         <p className="grid min-h-16 place-items-center rounded-[var(--radius-card)] border border-dashed border-line px-3 text-center text-xs text-ink-soft/70">
                           {week.src === "library" ? "Nothing on this day" : "No sessions"}
