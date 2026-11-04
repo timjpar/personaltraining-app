@@ -22,7 +22,7 @@ import {
   loadBoardWorkouts,
   saveBoard,
 } from "@/app/(trainer)/library/compare/actions";
-import { AnimationToggle } from "@/components/AnimationToggle";
+import { AnimationToggle, ToggleChip } from "@/components/AnimationToggle";
 import { UndoButtons } from "@/components/UndoButtons";
 import { useFieldHistory } from "@/components/useFieldHistory";
 import { useUndoHistory } from "@/components/useUndoHistory";
@@ -46,10 +46,17 @@ import {
   type Dir,
 } from "@/lib/board-order";
 import { cn } from "@/lib/cn";
+import { useStoredSet } from "@/lib/use-stored-set";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
 import { workoutDay, withWorkoutDay } from "@/lib/library-view";
 
 type Layout = "columns" | "week";
+
+// Days of the week left off the week layout, by index from Sunday. Kept per
+// device, like the other switches on the board: which days a coach looks at is
+// how they like their screen, not part of anyone's program.
+const NO_DAYS: readonly string[] = [];
+const DAY_KEYS: ReadonlySet<string> = new Set(["0", "1", "2", "3", "4", "5", "6"]);
 type Board = { store: BoardStore; base: BoardStore };
 type Notice = { tone: "ok" | "error"; text: string };
 
@@ -143,6 +150,15 @@ export function WorkoutBoard({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [trayOpen, setTrayOpen] = useState(false);
   const [showTotals] = useShowWeekTotals();
+  const [hiddenDays, setHiddenDays] = useStoredSet("pt_board_hidden_days", NO_DAYS, DAY_KEYS);
+  const isShown = useCallback((day: number) => !hiddenDays.has(String(day)), [hiddenDays]);
+  // One day always stays: a week of nothing is the board looking broken.
+  const toggleDay = (day: number) => {
+    const next = new Set(hiddenDays);
+    if (next.has(String(day))) next.delete(String(day));
+    else if (next.size < DAY_KEYS.size - 1) next.add(String(day));
+    setHiddenDays(next);
+  };
   const [saving, startSave] = useTransition();
   const [loading, startLoad] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -225,8 +241,11 @@ export function WorkoutBoard({
   const visible = useMemo(() => {
     if (layout === "columns") return columnWorkouts;
     if (!weekView) return [];
-    return [...weekView.days.flat(), ...(trayOpen ? weekView.tray : [])];
-  }, [layout, columnWorkouts, weekView, trayOpen]);
+    // Only the days on screen: the week totals and the bar scale follow what
+    // the coach chose to look at.
+    const days = weekView.days.filter((_, i) => isShown(i));
+    return [...days.flat(), ...(trayOpen ? weekView.tray : [])];
+  }, [layout, columnWorkouts, weekView, trayOpen, isShown]);
 
   // Where a row's "Move to…" can send it. Rebuilt from a signature so typing in
   // a row doesn't hand every card a new list and re-render it.
@@ -603,6 +622,26 @@ export function WorkoutBoard({
         </div>
       </div>
 
+      {layout === "week" && week ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Days shown">
+          <span className="eyebrow mr-1 text-ink-soft">Days</span>
+          {week.days.map((d, i) => (
+            <ToggleChip key={d.label} pressed={isShown(i)} onToggle={() => toggleDay(i)}>
+              {d.label}
+            </ToggleChip>
+          ))}
+          {hiddenDays.size > 0 ? (
+            <button
+              type="button"
+              onClick={() => setHiddenDays(new Set())}
+              className="metric ml-1 min-h-10 rounded-[var(--radius-sm)] px-2 text-xs text-ink-soft transition-colors hover:text-ink sm:min-h-8"
+            >
+              Show all
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {showTotals && visible.length ? <BoardWeekTotals workouts={visible} /> : null}
 
       <div inert={saving} className={cn("transition-opacity", saving && "opacity-60")}>
@@ -663,6 +702,7 @@ export function WorkoutBoard({
               className="mt-6 flex flex-col gap-7 lg:-mx-8 lg:grid lg:auto-cols-[minmax(12.5rem,1fr)] lg:grid-flow-col lg:gap-3 lg:overflow-x-auto lg:px-8 lg:pb-4"
             >
               {week.days.map((d, i) => {
+                if (!isShown(i)) return null;
                 const list = weekView.days[i];
                 return (
                   <section
