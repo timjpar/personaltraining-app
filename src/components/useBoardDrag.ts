@@ -20,6 +20,7 @@
 //   data-board-exercise=<id>   one row
 //   data-board-column=<key>    a column, in Columns
 //   data-board-day=<0-6|none>  a day, in Week, and data-board-day-list its list
+//   data-board-shelf-drop      the exercise shelf, where an exercise can be put back
 import { mid, usePointerDrag, type Hit } from "@/components/usePointerDrag";
 import { SECTION_ORDER, type ExerciseSection } from "@/lib/constants";
 
@@ -36,7 +37,9 @@ export type BoardTarget =
   // Before `index` among the columns, counted with the dragged one out.
   | { kind: "column"; index: number }
   // A day of the week; null is the library's "No day" tray.
-  | { kind: "day"; day: number | null };
+  | { kind: "day"; day: number | null }
+  // The exercise shelf (BoardShelf), for an exercise taken out of a workout.
+  | { kind: "shelf" };
 
 // Half the gap between rows (gap-1.5) and between columns (gap-3), so the line
 // sits in the middle of the gap.
@@ -99,6 +102,15 @@ function hitExercise(
   };
 }
 
+// The shelf, when the pointer is over it: an exercise dropped there leaves its
+// workout and waits on the shelf.
+function overShelf(x: number, y: number): DOMRect | null {
+  const el = document.querySelector<HTMLElement>("[data-board-shelf-drop]");
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom ? r : null;
+}
+
 function hitColumn(subject: { key: string }, x: number): Hit<BoardTarget> | null {
   const all = [...document.querySelectorAll<HTMLElement>("[data-board-column]")];
   if (all.length === 0) return null;
@@ -146,8 +158,18 @@ export function useBoardDrag(
 ) {
   return usePointerDrag<BoardSubject, BoardTarget>(
     (subject, y, x) => {
-      if (subject.kind === "exercise") return hitExercise(subject, x, y);
-      if (subject.kind === "shelf") return hitExercise({ id: "" }, x, y);
+      const shelf = overShelf(x, y);
+      if (subject.kind === "exercise") {
+        if (shelf) {
+          return {
+            target: { kind: "shelf" },
+            line: { top: shelf.bottom - 10, left: shelf.left + 16, width: shelf.width - 32 },
+          };
+        }
+        return hitExercise(subject, x, y);
+      }
+      // Back over the shelf it came from is no move at all.
+      if (subject.kind === "shelf") return shelf ? null : hitExercise({ id: "" }, x, y);
       return layout === "columns" ? hitColumn(subject, x) : hitDay(x, y);
     },
     onDrop,
