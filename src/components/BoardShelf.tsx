@@ -17,7 +17,7 @@ import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { ProgressionGuide } from "@/components/ProgressionGuide";
 import { animationFor, muscleLabel } from "@/lib/exercise-anim/lookup";
 import { ExercisePicker } from "@/components/ExercisePicker";
-import { buttonClass } from "@/components/ui";
+import { Select, buttonClass } from "@/components/ui";
 import type { BoardSubject } from "@/components/useBoardDrag";
 import type { Suggestion } from "@/lib/board-suggest";
 import { cn } from "@/lib/cn";
@@ -40,6 +40,8 @@ export function BoardShelf({
   onPlace,
   saveState,
   dropping,
+  workouts,
+  onSwap,
 }: {
   items: ShelfItem[];
   catalog: PickerCatalog;
@@ -52,6 +54,10 @@ export function BoardShelf({
   saveState: "saved" | "saving" | "error";
   // An exercise from a workout is in hand, and can be dropped here.
   dropping: boolean;
+  // Every workout on the week an exercise can go into, for "Add to…".
+  workouts: { key: string; label: string }[];
+  // Trade a shelf exercise for another step on its progression path.
+  onSwap: (from: string, to: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   // Bumped on each add, so the picker starts empty again.
@@ -192,8 +198,26 @@ export function BoardShelf({
                   No workout on the days shown to put it in yet.
                 </p>
               )}
-              {/* Where this movement leads, as on a workout's own rows. */}
-              <ProgressionGuide name={item.name} />
+              {workouts.length ? (
+                <Select
+                  value=""
+                  aria-label={`Add ${item.name} to a workout`}
+                  onChange={(e) => {
+                    if (e.target.value) onPlace(item.name, e.target.value);
+                  }}
+                  className="py-1.5 text-xs sm:min-h-8"
+                >
+                  <option value="">Add to a workout…</option>
+                  {workouts.map((w) => (
+                    <option key={w.key} value={w.key}>
+                      {w.label}
+                    </option>
+                  ))}
+                </Select>
+              ) : null}
+              {/* Where this movement leads, as on a workout's own rows; any
+                  other step can take its place on the shelf. */}
+              <ProgressionGuide name={item.name} onPick={(to) => onSwap(item.name, to)} />
             </li>
           ))}
         </ul>

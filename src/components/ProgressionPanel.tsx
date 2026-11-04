@@ -70,10 +70,14 @@ export function Ladder({
   path,
   at,
   map = false,
+  onPick,
 }: {
   path: ProgressionPath;
   at: number;
   map?: boolean;
+  // Offers each other step as a swap for this movement: the board's shelf
+  // trades an exercise for an easier or harder one this way.
+  onPick?: (name: string) => void;
 }) {
   return (
     <ol className="relative flex flex-col">
@@ -138,6 +142,16 @@ export function Ladder({
                 </p>
               ) : null}
               {last ? <p className="eyebrow mt-1.5 text-jade-strong">The goal</p> : null}
+              {onPick && !here ? (
+                <button
+                  type="button"
+                  onClick={() => onPick(step.name)}
+                  aria-label={`Switch to ${step.name}`}
+                  className={cn(buttonClass("outline", "sm"), "mt-2")}
+                >
+                  Switch to this
+                </button>
+              ) : null}
             </div>
             <ExerciseAnimation
               name={step.name}
