@@ -28,6 +28,28 @@ export async function loadBoardWeek(
   return boardWeek(trainer.id, String(src ?? ""), week == null ? null : String(week));
 }
 
+// The board's exercise shelf, saved to the coach's account as it changes so
+// it's still there next time. Names only, trimmed, de-duplicated, and capped
+// so a runaway client can't store an essay.
+const SHELF_LIMIT = 60;
+export async function saveBoardShelf(names: unknown): Promise<{ ok: boolean }> {
+  const trainer = await requireTrainer();
+  if (!Array.isArray(names)) return { ok: false };
+  const seen = new Set<string>();
+  const shelf: string[] = [];
+  for (const raw of names) {
+    if (typeof raw !== "string") continue;
+    const name = raw.trim().slice(0, 120);
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    shelf.push(name);
+    if (shelf.length >= SHELF_LIMIT) break;
+  }
+  await prisma.user.update({ where: { id: trainer.id }, data: { boardShelf: shelf } });
+  return { ok: true };
+}
+
 export type BoardSaveState =
   | { ok: true; workouts: BoardWorkout[] }
   | { ok: false; error?: string; errors?: Record<string, string> };

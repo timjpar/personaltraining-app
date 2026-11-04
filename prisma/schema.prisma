@@ -95,6 +95,12 @@ model User {
   // scale, and a default nobody has to find is worth more than a symmetric one.
   units String @default("IMPERIAL")
 
+  // The exercises on the side-by-side board's shelf (BoardShelf), by name, in
+  // the order the coach added them: movements set aside to fit into a week
+  // later. On the account rather than in the browser so the list is there on
+  // the next visit and on another device.
+  boardShelf String[] @default([])
+
   // How much micronutrient detail this person wants on nutrition pages —
   // OFF | KEY | ALL, see NUTRIENT_DETAIL in constants.ts. A viewer preference
   // on User for the reasons `units` gives above. Off by default: most days a
