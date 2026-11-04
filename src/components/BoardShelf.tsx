@@ -13,6 +13,9 @@
 import { useState } from "react";
 import type { PointerEvent } from "react";
 import { Grip } from "@/components/Drag";
+import { ExerciseAnimation } from "@/components/ExerciseAnimation";
+import { ProgressionGuide } from "@/components/ProgressionGuide";
+import { animationFor, muscleLabel } from "@/lib/exercise-anim/lookup";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { buttonClass } from "@/components/ui";
 import type { BoardSubject } from "@/components/useBoardDrag";
@@ -147,12 +150,11 @@ export function BoardShelf({
                   className="mt-0.5 h-9 w-6 hover:bg-card"
                   {...grip({ kind: "shelf", key: item.name, label: item.name })}
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink">{item.name}</p>
-                  <p className="metric truncate text-xs text-ink-soft">
-                    {item.muscles.length ? item.muscles.slice(0, 3).join(" · ") : "Nothing on file for it"}
-                  </p>
-                </div>
+                {/* Its demo, which opens larger with the muscles named. */}
+                <ExerciseAnimation name={item.name} className="h-14 w-14" />
+                <p className="min-w-0 flex-1 self-center text-sm font-semibold leading-snug text-ink">
+                  {item.name}
+                </p>
                 <button
                   type="button"
                   onClick={() => onRemove(item.name)}
@@ -164,6 +166,7 @@ export function BoardShelf({
                   </svg>
                 </button>
               </div>
+              <Muscles name={item.name} fallback={item.muscles} />
               {item.suggestions.length ? (
                 <>
                   <span className="eyebrow text-ink-soft/70">Suggested</span>
@@ -189,10 +192,38 @@ export function BoardShelf({
                   No workout on the days shown to put it in yet.
                 </p>
               )}
+              {/* Where this movement leads, as on a workout's own rows. */}
+              <ProgressionGuide name={item.name} />
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+// What an exercise targets, in the drawings' own two tints: the muscles it
+// works, then the ones it assists. A movement with no drawing falls back to
+// what the week's stats know about it.
+function Muscles({ name, fallback }: { name: string; fallback: string[] }) {
+  const info = animationFor(name);
+  const works = info?.primary.map(muscleLabel) ?? fallback;
+  const assists = info?.secondary.map(muscleLabel) ?? [];
+  if (works.length === 0 && assists.length === 0) {
+    return <p className="text-xs text-ink-soft">Nothing on file for it</p>;
+  }
+  const row = (label: string, tint: string, list: string[]) =>
+    list.length ? (
+      <p className="flex items-baseline gap-1.5 text-xs leading-snug text-ink-soft">
+        <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 translate-y-[-0.1em] rounded-full" style={{ background: tint }} />
+        <span className="eyebrow w-14 shrink-0 text-ink-soft/70">{label}</span>
+        <span className="min-w-0">{list.join(" · ")}</span>
+      </p>
+    ) : null;
+  return (
+    <div className="flex flex-col gap-1">
+      {row("Works", "#e2463b", works)}
+      {row("Assists", "#f0a493", assists)}
+    </div>
   );
 }
