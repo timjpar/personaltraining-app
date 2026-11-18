@@ -4,7 +4,12 @@ import { PageHeading } from "@/components/ui";
 import { WorkoutBoard } from "@/components/WorkoutBoard";
 import { assignableClients } from "@/lib/assignees";
 import { boardPicker, boardWeek, boardWorkouts } from "@/lib/board-load";
-import { MAX_COLUMNS, parseBoardKey, type BoardWorkout } from "@/lib/board-order";
+import {
+  MAX_COLUMNS,
+  hiddenDaysFrom,
+  parseBoardKey,
+  type BoardWorkout,
+} from "@/lib/board-order";
 import { getPickerCatalog } from "@/lib/exercise-catalog";
 import { prisma } from "@/lib/db";
 
@@ -12,9 +17,10 @@ type Search = Record<string, string | string[] | undefined>;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-// The board's state lives in the URL — ?layout=week&src=…&week=… and
+// The board's state lives in the URL — ?layout=week&src=…&week=…&days=… and
 // ?w=t:<id>,w:<id> for the columns — so a reload or a bookmark opens the same
-// view. The board rewrites it as it changes, without a navigation.
+// view, and two tabs can show two different views. The board rewrites it as it
+// changes, without a navigation.
 export default async function ComparePage({
   searchParams,
 }: {
@@ -67,6 +73,7 @@ export default async function ComparePage({
         initialLayout={layout}
         initialColumns={columnWorkouts.map((w) => w.key)}
         initialWeek={week?.week ?? null}
+        initialHiddenDays={hiddenDaysFrom(one(sp.days))}
         workouts={[...workouts.values()]}
         picker={picker}
         people={[
