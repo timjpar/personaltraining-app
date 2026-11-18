@@ -13,22 +13,26 @@ import { geminiConfig } from "@/lib/gemini";
 import { addDays, formatDate, toDateInput } from "@/lib/format";
 import { startOfWeekSunday } from "@/lib/calendar";
 import { recentFoods } from "@/lib/food-presets";
-import type { NutrientDetail } from "@/lib/constants";
+import type { NutrientDetail, Units } from "@/lib/constants";
+import { latestWeightKg } from "@/lib/body-weight";
 
 export async function NutritionDay({
   clientId,
   day,
   detail,
+  units,
 }: {
   clientId: string;
   day: Date;
   // The viewer's micronutrient preference, read by the page with the user.
   detail: NutrientDetail;
+  // The viewer's units, for the per-kilo (or per-pound) figures.
+  units: Units;
 }) {
   const weekStart = startOfWeekSunday(day);
   const weekEnd = addDays(weekStart, 7);
 
-  const [log, plan, recentRows, weekLogs] = await Promise.all([
+  const [log, plan, recentRows, weekLogs, weightKg] = await Promise.all([
     prisma.nutritionLog.findUnique({
       where: { clientId_date: { clientId, date: day } },
       include: { foods: { orderBy: { order: "asc" } } },
@@ -65,7 +69,11 @@ export async function NutritionDay({
       where: { clientId, date: { gte: weekStart, lt: weekEnd } },
       select: { date: true },
     }),
+    latestWeightKg(clientId),
   ]);
+
+  // The athlete's own weight, for the per-kilo protein and carb figures.
+  const body = { weightKg, units };
 
   const targets = plan
     ? {
@@ -115,7 +123,7 @@ export async function NutritionDay({
   // Ticking a food writes it into the log, so on a day that can't be logged the
   // boxes would be furniture. A future day gets the read-only plan instead.
   const planPanel = plan ? (
-    isFuture ? <NutritionPlanView plan={plan} detail={detail} /> : <PlanCheckoff plan={plan} detail={detail} />
+    isFuture ? <NutritionPlanView plan={plan} detail={detail} body={body} /> : <PlanCheckoff plan={plan} detail={detail} body={body} />
   ) : null;
 
   return (
@@ -156,6 +164,7 @@ export async function NutritionDay({
                 intro: `${formatDate(day)}${dayKey === todayKey ? " · today" : ""}`,
               }}
               detail={detail}
+              body={body}
               action={saveNutritionLog.bind(null, dayKey)}
               targets={hasTargets ? targets : null}
               recent={recentFoods(recentRows)}

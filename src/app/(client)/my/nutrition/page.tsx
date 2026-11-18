@@ -1,6 +1,6 @@
 import { requireClient } from "@/lib/auth";
 import { Container, PageHeading } from "@/components/ui";
-import { toNutrientDetail } from "@/lib/constants";
+import { toNutrientDetail, toUnits } from "@/lib/constants";
 import { NutritionDay } from "./day";
 
 // Today's log, with the coach's plan alongside. This page used to be the plan
@@ -25,6 +25,7 @@ export default async function ClientNutritionPage() {
       <div className="mt-7">
         <NutritionDay clientId={client.id} day={today}
           detail={toNutrientDetail(client.nutrientDetail)}
+          units={toUnits(client.units)}
         />
       </div>
     </Container>

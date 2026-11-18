@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { Container, PageHeading } from "@/components/ui";
-import { toNutrientDetail } from "@/lib/constants";
+import { toNutrientDetail, toUnits } from "@/lib/constants";
 import { parseDayParam } from "@/lib/calendar";
 import { formatDateLong } from "@/lib/format";
 import { MyNutritionDay } from "../day";
@@ -40,6 +40,7 @@ export default async function MyOwnNutritionDayPage({
       <div className="mt-7">
         <MyNutritionDay trainerId={trainer.id} day={day}
           detail={toNutrientDetail(trainer.nutrientDetail)}
+          units={toUnits(trainer.units)}
         />
       </div>
     </Container>

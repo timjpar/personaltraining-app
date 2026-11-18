@@ -9,6 +9,7 @@ import { sumNutrients } from "@/lib/nutrients";
 import { foodBlocks } from "@/lib/food-groups";
 import { foodDetail, type FoodDetail, type StoredFood } from "@/lib/food-presets";
 import type { NutrientDetail } from "@/lib/constants";
+import type { BodyBasis } from "@/lib/nutrient-guidance";
 
 type Food = StoredFood & { id: string; groupName?: string | null };
 type Meal = { id: string; name: string; foods: Food[] };
@@ -78,9 +79,12 @@ export function FoodGroupHeading({
 export function NutritionPlanView({
   plan,
   detail,
+  body,
 }: {
   plan: Plan;
   detail: NutrientDetail;
+  // Whose weight per-kilo figures use, and the viewer's units.
+  body?: BodyBasis | null;
 }) {
   const totals = sumMacros(plan.meals);
   const targets = {
@@ -143,6 +147,7 @@ export function NutritionPlanView({
         targets={hasTargets ? targets : null}
         nutrients={sumNutrients(allFoods.map((f) => ({ name: f.name, ...f.detail })))}
         detail={detail}
+        body={body}
       />
 
       <div className="flex flex-col gap-4">

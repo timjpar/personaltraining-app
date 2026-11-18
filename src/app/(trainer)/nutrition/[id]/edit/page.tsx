@@ -6,6 +6,7 @@ import { Container } from "@/components/ui";
 import { NutritionBuilder } from "@/components/NutritionBuilder";
 import { updateNutritionTemplate } from "../../actions";
 import { toNutrientDetail } from "@/lib/constants";
+import { bodyBasis } from "@/lib/body-weight";
 
 export default async function EditNutritionPage({
   params,
@@ -25,6 +26,10 @@ export default async function EditNutritionPage({
     },
   });
   if (!plan) notFound();
+
+  // A library plan has no athlete, so its per-kilo figures are the coach's
+  // own: the one person reading it, and the one eating it when self-assigned.
+  const body = await bodyBasis(trainer.id, trainer);
 
   return (
     <Container className="max-w-3xl">
@@ -46,6 +51,7 @@ export default async function EditNutritionPage({
           submitLabel="Save changes"
           cancelHref={`/nutrition/${plan.id}`}
           detail={toNutrientDetail(trainer.nutrientDetail)}
+          body={body}
           initial={{
             title: plan.title,
             notes: plan.notes,

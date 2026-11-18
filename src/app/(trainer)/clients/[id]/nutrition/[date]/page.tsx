@@ -11,6 +11,7 @@ import { NutritionPlanView } from "@/components/NutritionPlanView";
 import { parseDayParam } from "@/lib/calendar";
 import { formatDateLong } from "@/lib/format";
 import { toNutrientDetail } from "@/lib/constants";
+import { bodyBasis } from "@/lib/body-weight";
 
 export default async function ClientNutritionDayPage({
   params,
@@ -68,6 +69,9 @@ export default async function ClientNutritionDayPage({
       }
     : null;
 
+  // The athlete's weight, read in the coach's units.
+  const body = await bodyBasis(id, trainer);
+
   return (
     <Container className="max-w-5xl">
       <Link
@@ -95,6 +99,7 @@ export default async function ClientNutritionDayPage({
               log={log}
               targets={targets}
               detail={toNutrientDetail(trainer.nutrientDetail)}
+              body={body}
             />
           ) : (
             <Card className="p-5">
@@ -113,6 +118,7 @@ export default async function ClientNutritionDayPage({
             <NutritionPlanView
               plan={plan}
               detail={toNutrientDetail(trainer.nutrientDetail)}
+              body={body}
             />
           ) : (
             <Card className="p-5">

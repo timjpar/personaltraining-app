@@ -9,6 +9,7 @@ import { sumNutrients } from "@/lib/nutrients";
 import { foodBlocks } from "@/lib/food-groups";
 import { foodDetail, type FoodDetail, type StoredFood } from "@/lib/food-presets";
 import type { NutrientDetail } from "@/lib/constants";
+import type { BodyBasis } from "@/lib/nutrient-guidance";
 
 type LoggedFood = StoredFood & {
   id: string;
@@ -32,11 +33,14 @@ export function NutritionLogView({
   log,
   targets,
   detail,
+  body,
 }: {
   log: Log;
   // The viewer's micronutrient preference — the coach's own, when a coach is
   // reading an athlete's day.
   detail: NutrientDetail;
+  // Whose weight per-kilo figures use, and the viewer's units.
+  body?: BodyBasis | null;
   targets?: {
     calories: number | null;
     protein: number | null;
@@ -108,6 +112,7 @@ export function NutritionLogView({
         targets={hasTargets ? targets : null}
         nutrients={sumNutrients(foods.map((f) => ({ name: f.name, ...f.detail })))}
         detail={detail}
+        body={body}
       />
 
       <div className="flex flex-col gap-4">

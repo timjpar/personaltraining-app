@@ -30,6 +30,7 @@ import {
   type MacroKey,
   type Row,
 } from "@/components/nutrition-log-state";
+import type { BodyBasis } from "@/lib/nutrient-guidance";
 
 // Re-exported from its new home so callers that only ever wanted the log's
 // entry shape don't have to know the state moved.
@@ -75,6 +76,7 @@ export function NutritionLogForm({
   recent,
   photoEnabled,
   detail,
+  body,
   self = false,
   heading,
 }: {
@@ -91,6 +93,8 @@ export function NutritionLogForm({
   photoEnabled: boolean;
   // The viewer's micronutrient preference — see NutritionTotals.
   detail: NutrientDetail;
+  // Whose weight per-kilo figures use, and the viewer's units.
+  body?: BodyBasis | null;
   // Set when a coach is logging their own day — see the notes field below,
   // which is the only thing it changes.
   self?: boolean;
@@ -345,6 +349,7 @@ export function NutritionLogForm({
           targets={targets}
           nutrients={nutrientTotals}
           detail={detail}
+          body={body}
         />
       </Card>
 
