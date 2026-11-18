@@ -162,6 +162,7 @@ const RULES: Rule[] = [
       "breathing", "ankle", "thread the needle", "forward fold",
       "a-skip", "banded", "band ", "walk",
       "external rotation", "shoulder cars",
+      "piked tke", "saq", "straddle leg lift",
     ],
   },
 ];
