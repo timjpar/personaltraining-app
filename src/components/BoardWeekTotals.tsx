@@ -5,7 +5,7 @@
 // is listed, even the ones at zero, because the point is to spot what the week
 // leaves out.
 //
-// On or off is a per-device switch beside Animations.
+// On or off is a per-tab switch beside Animations (useTabValue).
 import { useMemo } from "react";
 import { ToggleChip } from "@/components/AnimationToggle";
 import { Sources } from "@/components/BoardWorkoutStats";
@@ -14,14 +14,14 @@ import { cn } from "@/lib/cn";
 import { SECTION_ORDER } from "@/lib/constants";
 import { parseDateInput } from "@/lib/format";
 import { DAY_SHORT, workoutDay } from "@/lib/library-view";
-import { useStoredValue } from "@/lib/use-stored-set";
+import { useTabValue } from "@/lib/use-stored-set";
 import { formatMinutes, weekStats, type WeekMuscle } from "@/lib/workout-stats";
 
 type Shown = "on" | "off";
 const coerce = (raw: unknown): Shown => (raw === "on" ? "on" : "off");
 
 export function useShowWeekTotals(): [boolean, (next: boolean) => void] {
-  const [value, store] = useStoredValue("pt_board_totals", coerce);
+  const [value, store] = useTabValue("pt_board_totals", coerce);
   return [value === "on", (next) => store(next ? "on" : "off")];
 }
 

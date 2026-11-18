@@ -121,3 +121,67 @@ export function useStoredValue<T extends string>(
 
   return [value, store];
 }
+
+// Per tab rather than per device: for switches a coach might want set one way
+// in one tab and another way in the next, like the board's Library, Week
+// totals and Animations. sessionStorage belongs to one tab and survives its
+// reloads. A new tab starts from the last value picked in any tab, which
+// localStorage keeps, and copies it in on its first read. After that the tab
+// has its own value, so a reload can't pick up another tab's choice. It
+// listens only to its own writes, never to the `storage` event, so another
+// tab's change never reaches it.
+function subscribeTab(onChange: () => void) {
+  listeners.add(onChange);
+  return () => {
+    listeners.delete(onChange);
+  };
+}
+
+function readTab(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const own = window.sessionStorage.getItem(key);
+    if (own != null) return own;
+    // First read in this tab: the last value picked in any tab, or "" when
+    // there's none yet, which `coerce` turns into the default. Stored either
+    // way: storing nothing would let a reload pick up whatever another tab
+    // chose in the meantime.
+    const start = read(key) ?? "";
+    window.sessionStorage.setItem(key, start);
+    return start;
+  } catch {
+    // No sessionStorage. The tab follows the device's value.
+    return read(key);
+  }
+}
+
+function writeTab(key: string, value: string) {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Unavailable; the localStorage write below still holds it.
+  }
+  // Also the starting point for the next new tab. write() tells this tab's
+  // listeners; other tabs don't listen to it.
+  write(key, value);
+}
+
+/**
+ * useStoredValue, but each tab keeps its own value (see above). The same
+ * contract for `coerce`.
+ */
+export function useTabValue<T extends string>(
+  key: string,
+  coerce: (raw: unknown) => T,
+): [T, (next: T) => void] {
+  const raw = useSyncExternalStore(
+    subscribeTab,
+    () => readTab(key),
+    () => null,
+  );
+
+  const value = useMemo(() => coerce(raw), [raw, coerce]);
+  const store = useCallback((next: T) => writeTab(key, next), [key]);
+
+  return [value, store];
+}

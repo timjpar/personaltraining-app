@@ -1,18 +1,19 @@
 "use client";
 
 // Whether the editors draw each exercise's animated demo. One switch shared by
-// the workout builder and the board, kept per device in localStorage: it's a
-// "how I like my screen" choice, not something a client or another coach
-// should inherit. On unless turned off.
+// the workout builder and the board, kept per tab (useTabValue): it's a "how I
+// like my screen" choice, not something a client or another coach should
+// inherit, and one tab can have it on while another has it off. A new tab
+// starts from the last choice. On unless turned off.
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { useStoredValue } from "@/lib/use-stored-set";
+import { useTabValue } from "@/lib/use-stored-set";
 
 type Shown = "on" | "off";
 const coerce = (raw: unknown): Shown => (raw === "off" ? "off" : "on");
 
 export function useShowAnimations(): [boolean, (next: boolean) => void] {
-  const [value, store] = useStoredValue("pt_editor_animations", coerce);
+  const [value, store] = useTabValue("pt_editor_animations", coerce);
   return [value === "on", (next) => store(next ? "on" : "off")];
 }
 
@@ -25,7 +26,7 @@ export function AnimationToggle({ className }: { className?: string }) {
   );
 }
 
-// The pill these per-device switches share, so a row of them reads as one set.
+// The pill these switches share, so a row of them reads as one set.
 export function ToggleChip({
   pressed,
   onToggle,
