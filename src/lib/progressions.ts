@@ -322,6 +322,103 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "shrimp-squat",
+    goal: "Advanced Shrimp Squat",
+    family: "bodyweight",
+    blurb:
+      "Single-leg strength with the free knee folded behind you. Very quad-heavy, and it asks less of the hamstrings than a pistol because the free leg never has to reach forward.",
+    steps: [
+      {
+        name: "Reverse Lunge",
+        how: "Step back, lower the back knee to just above the floor, front shin close to vertical. 3 × 8–12 per side.",
+        when: "3 × 12 per side without touching down for balance.",
+        target: reps(3, 12),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Bulgarian Split Squat",
+        how: "Back foot on a bench, sink until the back knee is a few centimetres off the floor. 3 × 8–12 per side.",
+        when: "3 × 12 per side at bodyweight, the back knee near the floor every rep.",
+        target: reps(3, 12),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Assisted Shrimp Squat",
+        how: "On one leg with the other knee bent behind you, hold a post or door frame and lower until the back knee touches a pad just behind the standing heel. Use the hands less each week. 3 × 5–8 per side.",
+        when: "3 × 8 per side with fingertip help only.",
+        target: reps(3, 8),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Shrimp Squat",
+        aka: ["Hands-Free Shrimp Squat"],
+        how: "Hands free, arms reaching forward. Keep the back thigh in line with the trunk and let the back knee drop straight down to a pad behind the standing heel; lean the chest forward as far as balance needs. 3 × 3–6 per side.",
+        when: "3 × 6 per side, the knee touching softly and the back foot staying off the floor.",
+        target: reps(3, 6),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Advanced Shrimp Squat",
+        how: "Hold the back foot up behind you with the same-side hand so only the knee touches. The trunk has to stay taller, so the standing leg does more. 3 × 3–5 per side.",
+      },
+    ],
+  },
+  {
+    id: "dragon-squat",
+    goal: "Dragon Squat",
+    family: "bodyweight",
+    blurb:
+      "A pistol with the free leg threaded behind the standing leg. It adds deep hip rotation and balance to pistol-level strength, so build the pistol first.",
+    steps: [
+      {
+        name: "Pistol Squat",
+        how: "Free leg straight out in front, sit all the way down and stand without the free foot touching. 3 × 3–5 per side.",
+        when: "3 × 5 per side, smooth out of the bottom with no bounce.",
+        target: reps(3, 5),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Assisted Dragon Squat",
+        how: "Hold a post. Swing the free leg behind the standing leg and slide it out long past the standing side as you sit, chest well forward, standing heel down. Use the hands less each week. 3 × 3–5 per side.",
+        when: "3 × 5 per side with fingertip help, the standing knee tracking over the toes.",
+        target: reps(3, 5),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Dragon Squat",
+        aka: ["Dragon Pistol Squat", "Dragon Pistol"],
+        how: "Hands free: thread the leg behind, let the chest come down over the standing knee and reach both arms forward to balance, hips down by the standing heel. 3 × 1–5 per side.",
+      },
+    ],
+  },
+  {
+    id: "figure-4-squat",
+    goal: "Figure-4 Squat",
+    family: "bodyweight",
+    blurb:
+      "A single-leg squat with the other ankle crossed over the standing knee, so one leg gets stronger while the crossed hip stretches. Works as a warm-up as well as a strength drill.",
+    steps: [
+      {
+        name: "Pigeon Stretch",
+        how: "Front shin across the body, back leg long, hips square, fold forward over the front shin. 2–3 × 30–60s per side.",
+        when: "The chest rests over the front shin for 60s with the hips level.",
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Box Figure-4 Squat",
+        how: "On one leg with the other ankle crossed just above that knee, sit back to a box and stand up without rocking. Lower the box over the weeks. 3 × 5–8 per side.",
+        when: "3 × 8 per side to a box at knee height or lower.",
+        target: reps(3, 8),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Figure-4 Squat",
+        aka: ["Figure-4 Single-Leg Squat", "Figure Four Squat", "Crossed-Leg Squat"],
+        how: "No box. Ankle above the knee, not on it, crossed knee falling open; sit the hips back and down until the crossed shin is level, chest up, arms forward. 3 × 5–8 per side. Pause at the bottom or take 3–4s down to make it harder.",
+      },
+    ],
+  },
+  {
     id: "handstand-push-up",
     goal: "Deficit Handstand Push-Up",
     family: "bodyweight",

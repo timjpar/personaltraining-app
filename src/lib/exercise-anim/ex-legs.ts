@@ -15,6 +15,7 @@ import {
   kettlebellGoblet,
   legPressFrame,
   legPressSled,
+  mat,
   roller,
   seat,
   step,
@@ -23,15 +24,21 @@ import {
   add,
   at,
   base,
+  dirAngle,
   FOOT,
+  frontJoints,
+  gripArm,
   grips,
   hold,
   joints,
   kf,
   kfv,
+  LEN,
   lerp,
+  lerpV,
   limb,
   line,
+  mirror,
   onTrunk,
   palms,
   plant,
@@ -43,6 +50,7 @@ import {
   sub,
   turned,
   v,
+  type Limb,
   type Pose,
   type PropState,
   type Spec,
@@ -675,6 +683,166 @@ function pistol(o: { name: string; box?: boolean; assisted?: boolean }): Spec {
   };
 }
 
+// A straight leg from `hip` to `ankle`, drawn shorter when the reach is less
+// than the leg: a leg running toward or away from the viewer.
+function reachLeg(hip: V, ankle: V, foot: number): Limb {
+  const d = sub(ankle, hip);
+  const k = Math.min(1, Math.hypot(d.x, d.y) / (LEN.thigh + LEN.shin));
+  const a = dirAngle(d);
+  return { upper: a, lower: a, end: foot, ku: k, kl: k };
+}
+
+// A two-bone limb drawn from `root` through `mid` to `end`, each bone
+// foreshortened to the distance it spans — for a leg folded across the body.
+function throughLimb(root: V, mid: V, end: V, l1: number, l2: number, foot: number): Limb {
+  const a = sub(mid, root);
+  const b = sub(end, mid);
+  return {
+    upper: dirAngle(a),
+    lower: dirAngle(b),
+    end: foot,
+    ku: Math.min(1, Math.hypot(a.x, a.y) / l1),
+    kl: Math.min(1, Math.hypot(b.x, b.y) / l2),
+  };
+}
+
+// One leg, the other knee bent so its foot rides up behind. The back knee
+// comes down to the floor a little behind the standing heel with the back
+// thigh close to in line with the trunk, which is what makes it a shrimp
+// rather than a reverse lunge. `held` holds the back foot up behind with the
+// same-side hand, so only the knee touches and the trunk has to stay taller;
+// `assisted` holds a post in front.
+function shrimp(o: { name: string; aka?: string[]; held?: boolean; assisted?: boolean }): Spec {
+  const KNEE_ON_FLOOR = -6;
+  const bottom = v(o.held ? -8 : o.assisted ? -10 : -14, -46);
+  const thighDown = (-Math.acos((KNEE_ON_FLOOR - bottom.y) / LEN.thigh) * 180) / Math.PI;
+  const lean = o.held ? -18 : o.assisted ? -30 : -44;
+  const post = v(54, -150);
+  const kneeX = bottom.x + LEN.thigh * Math.sin((thighDown * Math.PI) / 180);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: 3.6,
+    hands: { N: o.assisted ? "fist" : "hand", F: o.held || o.assisted ? "fist" : "hand" },
+    primary: ["quads", "glutes"],
+    secondary: ["hip_flexors", "adductors", "abs"],
+    still: 0.85,
+    scene: [
+      { draw: mat(kneeX - 16, kneeX + 14), layer: "back" },
+      ...(o.assisted ? [{ draw: column(post.x, post.y, 6), layer: "back" as const }] : []),
+    ],
+    motion: (p) => {
+      const hip = lerpV(v(0.5, -94.4), bottom, p);
+      const torso = lerp(-4, lean, p);
+      let pose = base(hip, { torso, pelvis: torso * 0.85, head: torso * 0.45 });
+      const thigh = lerp(-4, thighDown, p);
+      const shin = o.held ? -170 : lerp(-98, -104, p);
+      pose = { ...pose, legN: plantLeg(hip, v(0, -8), 0, 1), legF: limb(thigh, shin, shin - 55) };
+      if (o.assisted) {
+        const s = shoulders(pose).N;
+        pose = hold(pose, "side", v(post.x + 1, s.y + 12), undefined, -1);
+      } else {
+        const reach = lerp(18, 86, p);
+        pose = { ...pose, armN: limb(reach, reach + 6), armF: limb(reach - 8, reach - 2) };
+      }
+      if (o.held) {
+        const toes = add(joints(pose).ankleF, rot(v(8, 4), shin - 55));
+        pose = { ...pose, armF: gripArm(shoulders(pose).F, toes, 1) };
+      }
+      return { pose };
+    },
+  };
+}
+
+// One leg, the other swung behind it and out long past the standing side, so
+// from here it trails back and away from the viewer (drawn foreshortened).
+// The trunk folds right over the working knee to balance it, both arms
+// reaching toward the floor in front. `assisted` holds a post and stays a
+// little taller.
+function dragon(o: { name: string; aka?: string[]; assisted?: boolean }): Spec {
+  const post = v(56, -150);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: 4,
+    hands: { N: o.assisted ? "fist" : "hand" },
+    primary: ["quads", "glutes"],
+    secondary: ["abductors", "adductors", "abs"],
+    still: 0.9,
+    scene: o.assisted ? [{ draw: column(post.x, post.y, 6), layer: "back" }] : [],
+    motion: (p) => {
+      // The free leg threads behind first, then the hips sink while it slides out long.
+      const sink = kf(p, [[0.18, 0], [1, 1]]);
+      const hip = lerpV(v(1, -94.4), v(o.assisted ? -4 : -8, -40), sink);
+      const torso = lerp(-6, o.assisted ? -44 : -68, sink);
+      let pose = base(hip, { torso, pelvis: torso * 0.8, head: torso * 0.5 });
+      pose = { ...pose, legN: plantLeg(hip, v(0, -8), 0, 1) };
+      const ankle = kfv(p, [[0, v(8, -18)], [0.3, v(-22, -24)], [1, v(-80, -5)]]);
+      const free = reachLeg(hip, ankle, 0);
+      // Toes turn from forward to trailing back as the leg threads behind,
+      // never dipping through the floor on the way.
+      let foot = lerp(free.upper + 10, -148, kf(p, [[0, 0], [0.4, 1]]));
+      while (ankle.y + rot(FOOT.toe, foot).y > -1 && foot > -180) foot -= 2;
+      pose = { ...pose, legF: { ...free, end: foot } };
+      if (o.assisted) {
+        const s = shoulders(pose).N;
+        pose = hold(pose, "side", v(post.x + 1, s.y + 10), undefined, -1);
+      } else {
+        pose = { ...pose, armN: limb(lerp(14, 62, sink), lerp(20, 66, sink)), armF: limb(lerp(10, 50, sink), lerp(16, 56, sink)) };
+      }
+      return { pose };
+    },
+  };
+}
+
+// Square-on: standing on the left-of-picture leg with the other ankle crossed
+// over that thigh just above the knee, so the legs make a 4, then sitting
+// back and down on the standing leg until the crossed shin lies level across
+// the lap. The standing thigh points at the viewer, so it shortens as it
+// bends. `box` sits down to a box behind.
+function figure4(o: { name: string; aka?: string[]; box?: boolean }): Spec {
+  const RAD = Math.PI / 180;
+  const foot = v(-7, -8);
+  return {
+    name: o.name,
+    aka: o.aka,
+    view: "front",
+    legsInFront: true,
+    mode: "alternate",
+    seconds: 3.6,
+    hands: { N: "hand" },
+    primary: ["quads", "glutes"],
+    secondary: ["abductors", "adductors", "abs"],
+    still: 0.9,
+    scene: o.box ? [{ draw: box(-34, 34, -50), layer: "back" }] : [],
+    motion: (p) => {
+      const pitch = lerp(4, o.box ? 66 : 78, p);
+      const tilt = lerp(2, 28, p);
+      const ku = Math.cos(pitch * RAD);
+      const kl = Math.cos(tilt * RAD);
+      // The standing knee tracks a little out over the toes, which also keeps
+      // the bend readable from the front; then the body is slid so that foot
+      // stays planted.
+      const standing: Limb = { upper: lerp(-1, -16, p), lower: lerp(0, 9, p), end: 0, ku, kl };
+      let pose = base(v(0, -94.4), { torso: lerp(0, 3, p), pelvis: 0, head: 0 });
+      pose = { ...pose, legF: standing };
+      pose = { ...pose, hip: add(pose.hip, sub(foot, frontJoints(pose).ankleF)) };
+      // The crossed ankle rests just above the standing knee, the foot hanging
+      // off its outside; the crossed knee opens out to the right.
+      const j = frontJoints(pose);
+      const ankle = add(lerpV(j.hipF, j.kneeF, 0.8), v(-3, -2));
+      const knee = add(ankle, v(38, lerp(2, 4, p)));
+      pose = { ...pose, legN: throughLimb(j.hip, knee, ankle, LEN.thigh, LEN.shin, -100) };
+      // Arms out for balance, then reaching forward (toward the viewer).
+      const arm = { ...limb(lerp(34, 10, p), lerp(40, 10, p)), ku: lerp(1, 0.35, p), kl: lerp(1, 0.4, p) };
+      pose = { ...pose, armN: arm, armF: mirror(arm) };
+      return { pose };
+    },
+  };
+}
+
 const stepUp: Spec = {
   name: "Step-Up",
   mode: "alternate",
@@ -765,6 +933,13 @@ export const LEGS: Spec[] = [
   pistol({ name: "Pistol Squat" }),
   pistol({ name: "Box Pistol Squat", box: true }),
   pistol({ name: "Assisted Pistol Squat", assisted: true }),
+  shrimp({ name: "Shrimp Squat", aka: ["Hands-Free Shrimp Squat"] }),
+  shrimp({ name: "Assisted Shrimp Squat", assisted: true }),
+  shrimp({ name: "Advanced Shrimp Squat", held: true }),
+  dragon({ name: "Dragon Squat", aka: ["Dragon Pistol Squat", "Dragon Pistol"] }),
+  dragon({ name: "Assisted Dragon Squat", assisted: true }),
+  figure4({ name: "Figure-4 Squat", aka: ["Figure-4 Single-Leg Squat", "Figure Four Squat", "Crossed-Leg Squat"] }),
+  figure4({ name: "Box Figure-4 Squat", box: true }),
   legPress,
   lunge({ name: "Reverse Lunge", kind: "reverse", load: "dumbbells", primary: ["quads", "glutes"], secondary: ["adductors", "hamstrings"] }),
   lunge({ name: "Walking Lunge", kind: "forward", load: "dumbbells", primary: ["quads", "glutes"], secondary: ["adductors", "hamstrings", "calves"] }),
