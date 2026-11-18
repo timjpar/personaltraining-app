@@ -14,16 +14,20 @@
 
 export type NutrientUnit = "g" | "mg" | "µg";
 
-// "key" is the short list most people mean by micronutrients; "all" is
-// everything on a US nutrition label, plus the fats a coach programs around.
+// "key" is the short list most people mean by micronutrients, plus the fat
+// types a coach programs around (a day's fat is only half read without them);
+// "all" is everything on a US nutrition label besides.
 export type NutrientTier = "key" | "all";
 
-// The three families a nutrition panel reads in. Real categories, not
-// decoration: they are how a coach scans for "is this day short on minerals".
-export type NutrientGroup = "fats" | "minerals" | "vitamins";
+// The families a nutrition panel reads in. Real categories, not decoration:
+// they are how a coach scans for "is this day short on minerals". Carbs and
+// fats are read against guidelines (src/lib/nutrient-guidance.ts), minerals and
+// vitamins against the label's Daily Value.
+export type NutrientGroup = "carbs" | "fats" | "minerals" | "vitamins";
 
 export const NUTRIENT_GROUP_LABELS: Record<NutrientGroup, string> = {
-  fats: "Fibre, sugar & fats",
+  carbs: "Carbs: fibre & sugar",
+  fats: "Fats",
   minerals: "Minerals",
   vitamins: "Vitamins",
 };
@@ -110,17 +114,17 @@ export type Nutrients = Partial<Record<NutrientKey, number>>;
 // Order is display order, grouped: fibre, sugar and the fats first, then
 // minerals, then vitamins — roughly the order a nutrition facts panel reads in.
 export const NUTRIENTS: NutrientDef[] = [
-  { key: "fiber", label: "Fibre", unit: "g", dv: 28, tier: "key", group: "fats", usda: [1079], off: ["fiber"] },
-  { key: "sugar", label: "Sugar", unit: "g", dv: null, limit: true, tier: "key", group: "fats", usda: [2000], off: ["sugars"] },
-  { key: "addedSugar", label: "Added sugar", unit: "g", dv: 50, limit: true, tier: "key", group: "fats", usda: [1235], off: ["added-sugars"] },
+  { key: "fiber", label: "Fibre", unit: "g", dv: 28, tier: "key", group: "carbs", usda: [1079], off: ["fiber"] },
+  { key: "sugar", label: "Sugar", unit: "g", dv: null, limit: true, tier: "key", group: "carbs", usda: [2000], off: ["sugars"] },
+  { key: "addedSugar", label: "Added sugar", unit: "g", dv: 50, limit: true, tier: "key", group: "carbs", usda: [1235], off: ["added-sugars"] },
   { key: "satFat", label: "Saturated fat", unit: "g", dv: 20, limit: true, tier: "key", group: "fats", usda: [1258], off: ["saturated-fat"] },
   { key: "transFat", label: "Trans fat", unit: "g", dv: null, limit: true, tier: "all", group: "fats", usda: [1257], off: ["trans-fat"] },
-  { key: "monoFat", label: "Monounsaturated fat", unit: "g", dv: null, tier: "all", group: "fats", usda: [1292], off: ["monounsaturated-fat"] },
-  { key: "polyFat", label: "Polyunsaturated fat", unit: "g", dv: null, tier: "all", group: "fats", usda: [1293], off: ["polyunsaturated-fat"] },
-  { key: "omega3Ala", label: "Omega-3 ALA", unit: "g", dv: null, tier: "all", group: "fats", usda: [1404, 1270], off: ["alpha-linolenic-acid"] },
-  { key: "omega3Epa", label: "Omega-3 EPA", unit: "g", dv: null, tier: "all", group: "fats", usda: [1278], off: ["eicosapentaenoic-acid"] },
-  { key: "omega3Dha", label: "Omega-3 DHA", unit: "g", dv: null, tier: "all", group: "fats", usda: [1272], off: ["docosahexaenoic-acid"] },
-  { key: "omega6La", label: "Omega-6 LA", unit: "g", dv: null, tier: "all", group: "fats", usda: [1316, 1269], off: ["linoleic-acid"] },
+  { key: "monoFat", label: "Monounsaturated fat", unit: "g", dv: null, tier: "key", group: "fats", usda: [1292], off: ["monounsaturated-fat"] },
+  { key: "polyFat", label: "Polyunsaturated fat", unit: "g", dv: null, tier: "key", group: "fats", usda: [1293], off: ["polyunsaturated-fat"] },
+  { key: "omega3Ala", label: "Omega-3 ALA", unit: "g", dv: null, tier: "key", group: "fats", usda: [1404, 1270], off: ["alpha-linolenic-acid"] },
+  { key: "omega3Epa", label: "Omega-3 EPA", unit: "g", dv: null, tier: "key", group: "fats", usda: [1278], off: ["eicosapentaenoic-acid"] },
+  { key: "omega3Dha", label: "Omega-3 DHA", unit: "g", dv: null, tier: "key", group: "fats", usda: [1272], off: ["docosahexaenoic-acid"] },
+  { key: "omega6La", label: "Omega-6 LA", unit: "g", dv: null, tier: "key", group: "fats", usda: [1316, 1269], off: ["linoleic-acid"] },
   { key: "cholesterol", label: "Cholesterol", unit: "mg", dv: 300, limit: true, tier: "key", group: "fats", usda: [1253], off: ["cholesterol"] },
   { key: "sodium", label: "Sodium", unit: "mg", dv: 2300, limit: true, tier: "key", group: "minerals", usda: [1093], off: ["sodium"] },
   { key: "potassium", label: "Potassium", unit: "mg", dv: 4700, tier: "key", group: "minerals", usda: [1092], off: ["potassium"] },
