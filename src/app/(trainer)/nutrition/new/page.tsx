@@ -5,6 +5,7 @@ import { Container } from "@/components/ui";
 import { NutritionBuilder } from "@/components/NutritionBuilder";
 import { createNutritionTemplate } from "../actions";
 import { toNutrientDetail } from "@/lib/constants";
+import { bodyBasis } from "@/lib/body-weight";
 
 // Whole positive integers only. A target arriving as "-1" or "2e9" from a
 // hand-edited URL reads as absent rather than as a number the builder then
@@ -49,6 +50,10 @@ export default async function NewNutritionPage({
       })
     : null;
 
+  // Built for the athlete it came from, when it came from one; otherwise the
+  // coach's own library plan, read against the coach's own weight.
+  const body = await bodyBasis(from?.id ?? trainer.id, trainer);
+
   return (
     <Container className="max-w-3xl">
       <Link
@@ -79,6 +84,7 @@ export default async function NewNutritionPage({
           }}
           action={createNutritionTemplate}
           detail={toNutrientDetail(trainer.nutrientDetail)}
+          body={body}
           submitLabel="Save plan"
           cancelHref={from ? `/clients/${from.id}/profile` : "/nutrition"}
           initial={{

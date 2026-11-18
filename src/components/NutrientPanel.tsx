@@ -1,12 +1,14 @@
 // Micronutrients, drawn. Pure markup like MacroBar, so the server views and the
 // client forms render the same thing from the same numbers.
 import { cn } from "@/lib/cn";
+import { UnitsToggle } from "@/components/UnitsToggle";
 import { NUTRIENT_DETAIL, type NutrientDetail } from "@/lib/constants";
 import {
   energyOf,
-  formatShare,
+  formatPercent,
   macroGuide,
   nutrientGuide,
+  type BodyBasis,
   type Guide,
   type GuidedKey,
   type MacroKey,
@@ -66,15 +68,23 @@ const HIGH_SOURCE = 20;
 // turns the warning colour once it's past that mark — so a full bar never
 // looks like an achievement when it's the opposite. A range (polyunsaturated
 // fat) shades the stretch to land in between two marks.
+//
+// Every percentage is of a recommended amount, like a daily value: the DV for
+// minerals and vitamins, and for the macros, carbs and fats the guideline
+// worked out for this day (nutrient-guidance.ts), each row saying what its
+// 100% is.
 export function NutrientPanel({
   totals,
   macros,
+  body,
   detail,
   className,
 }: {
   totals: NutrientTotals;
-  // The day's macros, for the shares of calories carbs and fats are read in.
+  // The day's macros, for the calories carbs and fats are read against.
   macros: MacroTotals;
+  // Whose weight the per-kilo figures use, and the viewer's units.
+  body?: BodyBasis | null;
   detail: NutrientDetail;
   className?: string;
 }) {
@@ -98,7 +108,7 @@ export function NutrientPanel({
 
       {withData > 0 ? (
         <div className="mt-3 flex flex-col gap-4">
-          {kcal > 0 ? <CaloriesFrom macros={macros} kcal={kcal} /> : null}
+          {kcal > 0 ? <CaloriesFrom macros={macros} kcal={kcal} body={body} /> : null}
           {GROUPS.map((group) => {
             const rows = defs.filter((d) => d.group === group);
             if (!rows.length) return null;
@@ -129,9 +139,9 @@ export function NutrientPanel({
           })}
           <p className="flex flex-wrap items-center gap-x-1.5 text-[0.6875rem] leading-snug text-ink-soft">
             <span>
-              Calories, carbs and fats: share of the day&apos;s calories, with the
-              guideline under each. Minerals and vitamins: % of the daily value. Tap a
-              nutrient to see which foods it comes from.
+              % of the recommended amount: for calories, carbs and fats the guideline
+              worked out for this day, with what 100% is under each; for minerals and
+              vitamins the daily value. Tap a nutrient to see which foods it comes from.
             </span>
             <span className="inline-flex items-center gap-1">
               <CeilingMark /> marks a limit to stay under; a shaded stretch, a range to
@@ -360,17 +370,30 @@ const MACROS: { key: MacroKey; label: string }[] = [
   { key: "fat", label: "Fat" },
 ];
 
-// Protein, carbs and fat as shares of the day's calories, each against the
-// range the National Academies set. First, because it is the breakdown every
-// row below it is a part of.
-function CaloriesFrom({ macros, kcal }: { macros: MacroTotals; kcal: number }) {
+// Protein, carbs and fat against their recommended amounts: protein per kilo
+// of body weight once there is a weigh-in, the rest as shares of calories.
+// First, because it is the breakdown every row below it is a part of. The
+// units switch sits here because these are the rows it changes — g/kg or
+// g/lb — and it is the same account-wide setting the body pages use.
+function CaloriesFrom({
+  macros,
+  kcal,
+  body,
+}: {
+  macros: MacroTotals;
+  kcal: number;
+  body?: BodyBasis | null;
+}) {
   return (
     <div>
-      <p className="eyebrow mb-1.5 text-ink-soft/70">Calories from</p>
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+        <p className="eyebrow text-ink-soft/70">Calories from</p>
+        {body?.weightKg ? <UnitsToggle value={body.units} /> : null}
+      </div>
       <ul className="grid gap-x-6 gap-y-2.5 @lg:grid-cols-2">
         {MACROS.map(({ key, label }) => {
           const grams = macros[key];
-          const guide = macroGuide(key, grams, kcal);
+          const guide = macroGuide(key, grams, kcal, body);
           return (
             <li key={key}>
               <RowHead label={label} value={`${grams} g`} guide={guide} />
@@ -458,7 +481,8 @@ function GuidedRow({ item, kcal, withData }: { item: GuidedItem; kcal: number; w
           </span>
           <span className="w-10 shrink-0" />
         </div>
-        {guide ? <GuideNote guide={guide} /> : null}
+        {/* No "You:" — a total nobody reports isn't 0% of anything. */}
+        {guide ? <GuideNote guide={{ ...guide, yours: null }} /> : null}
       </li>
     );
   }
@@ -491,7 +515,7 @@ function GuidedRow({ item, kcal, withData }: { item: GuidedItem; kcal: number; w
   );
 }
 
-// Name, amount, and the share of calories it is where the guideline is one.
+// Name, amount, and the amount as a share of what's recommended.
 function RowHead({
   label,
   value,
@@ -516,11 +540,11 @@ function RowHead({
       <span
         className={cn(
           "metric w-10 shrink-0 text-right text-xs",
-          guide?.status === "above" ? "text-flag" : "text-ink-soft",
+          guide?.status === "above" && !guide.soft ? "text-flag" : "text-ink-soft",
         )}
-        title={guide?.share != null ? "Share of the day's calories" : undefined}
+        title={guide?.percent != null ? "Of the recommended amount" : undefined}
       >
-        {guide?.share != null ? formatShare(guide.share) : ""}
+        {guide?.percent != null ? formatPercent(guide.percent) : ""}
       </span>
     </div>
   );
@@ -537,9 +561,9 @@ function GuideBar({ value, guide }: { value: number; guide: Guide }) {
   const top = Math.max(value, high ?? 0, low ?? 0) * 1.25 || 1;
   const at = (v: number) => Math.min(v / top, 1) * 100;
   const fill =
-    guide.status === "above"
+    guide.status === "above" && !guide.soft
       ? "bg-flag"
-      : guide.status === "below" || guide.limit
+      : guide.status !== "within" || guide.limit
         ? "bg-ink-soft/60"
         : "bg-jade";
   return (
@@ -561,11 +585,19 @@ function Mark({ at }: { at: number }) {
   return <span className="absolute -top-1 h-3 w-px bg-ink-soft" style={{ left: `${at}%` }} />;
 }
 
-// What to aim for, worked out for this day, and who says so.
+// What 100% is for this row, where the day sits by the guideline's own
+// measure (share of calories, grams per kilo), and who says so.
 function GuideNote({ guide }: { guide: Guide }) {
   return (
     <p className="mt-1 pl-4 text-[0.6875rem] leading-snug text-ink-soft">
-      {guide.text}
+      {guide.text}.
+      {guide.yours ? (
+        <>
+          {" "}
+          You: <span className="text-ink">{guide.yours}</span>.
+        </>
+      ) : null}
+      {guide.extra ? ` ${guide.extra}.` : null}
       <span className="text-ink-soft/70"> · {guide.source}</span>
     </p>
   );

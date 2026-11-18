@@ -46,6 +46,7 @@ import {
   type Dir,
 } from "@/lib/meal-order";
 import type { NutrientKey } from "@/lib/nutrients";
+import type { BodyBasis } from "@/lib/nutrient-guidance";
 
 // How a row is edited — scaling, units, what breaks the preset link — lives in
 // src/lib/food-rows.ts, shared with the athlete's day log. How rows are
@@ -229,6 +230,7 @@ export function NutritionBuilder({
   cancelHref,
   initial,
   detail,
+  body,
   heading,
 }: {
   action: (
@@ -240,6 +242,8 @@ export function NutritionBuilder({
   initial?: Initial;
   // The coach's micronutrient preference — see NutritionTotals.
   detail: NutrientDetail;
+  // Whose weight per-kilo figures use, and the viewer's units.
+  body?: BodyBasis | null;
   // The page's heading, drawn here so a second save can sit beside it, as
   // WorkoutBuilder does: a plan's bottom button is a day of meals away.
   heading: { eyebrow: string; title: string; intro?: ReactNode };
@@ -833,6 +837,7 @@ export function NutritionBuilder({
           totals={totals.macros}
           nutrients={totals.nutrients}
           detail={detail}
+          body={body}
         />
       </Card>
 

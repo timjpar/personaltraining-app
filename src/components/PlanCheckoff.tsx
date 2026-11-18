@@ -26,6 +26,7 @@ import { switchSavedForm } from "@/lib/food-rows";
 import type { NutrientDetail } from "@/lib/constants";
 import { useLogRows, type PlanFood } from "@/components/nutrition-log-state";
 import { switchPlanFoodForm } from "@/app/plan-form-actions";
+import type { BodyBasis } from "@/lib/nutrient-guidance";
 
 type Food = PlanFood & { id: string };
 type Meal = { id: string; name: string; foods: Food[] };
@@ -41,9 +42,12 @@ type Plan = {
 export function PlanCheckoff({
   plan: saved,
   detail,
+  body,
 }: {
   plan: Plan;
   detail: NutrientDetail;
+  // Whose weight per-kilo figures use, and the viewer's units.
+  body?: BodyBasis | null;
 }) {
   const { togglePlanFood, isPlanned, switchPlanFood } = useLogRows();
 
@@ -181,6 +185,7 @@ export function PlanCheckoff({
         targets={hasTargets ? targets : null}
         nutrients={nutrients}
         detail={detail}
+        body={body}
       />
 
       <div className="flex flex-col gap-4">

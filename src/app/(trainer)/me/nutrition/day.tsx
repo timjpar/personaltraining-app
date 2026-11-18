@@ -30,17 +30,20 @@ import { dailyTargets, suggestTargets, targetInputsFrom } from "@/lib/body";
 import { addDays, formatDate, toDateInput } from "@/lib/format";
 import { startOfWeekSunday } from "@/lib/calendar";
 import { recentFoods } from "@/lib/food-presets";
-import type { NutrientDetail } from "@/lib/constants";
+import type { NutrientDetail, Units } from "@/lib/constants";
 
 export async function MyNutritionDay({
   trainerId,
   day,
   detail,
+  units,
 }: {
   trainerId: string;
   day: Date;
   // The viewer's micronutrient preference, read by the page with the user.
   detail: NutrientDetail;
+  // The viewer's units, for the per-kilo (or per-pound) figures.
+  units: Units;
 }) {
   const weekStart = startOfWeekSunday(day);
   const weekEnd = addDays(weekStart, 7);
@@ -95,6 +98,8 @@ export async function MyNutritionDay({
   // it: the numbers are a pure function of the profile and the newest weigh-in,
   // so a stored copy would go stale the moment either changed.
   const { inputs } = targetInputsFrom(profile, latest);
+  // The coach's own newest weigh-in, already read above for the targets.
+  const body = { weightKg: latest?.weightKg ?? null, units };
   const t = inputs ? suggestTargets(inputs) : null;
   const planTargets = plan
     ? {
@@ -143,7 +148,7 @@ export async function MyNutritionDay({
     : undefined;
 
   const planPanel = plan ? (
-    isFuture ? <NutritionPlanView plan={plan} detail={detail} /> : <PlanCheckoff plan={plan} detail={detail} />
+    isFuture ? <NutritionPlanView plan={plan} detail={detail} body={body} /> : <PlanCheckoff plan={plan} detail={detail} body={body} />
   ) : null;
 
   return (
@@ -189,6 +194,7 @@ export async function MyNutritionDay({
               intro: `${formatDate(day)}${dayKey === todayKey ? " · today" : ""}`,
             }}
             detail={detail}
+            body={body}
             action={saveMyNutritionLog.bind(null, dayKey)}
             targets={targets}
             recent={recentFoods(recentRows)}

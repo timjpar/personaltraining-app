@@ -9,6 +9,7 @@ import { NutrientPanel } from "@/components/NutrientPanel";
 import { NUTRIENT_DETAIL, type NutrientDetail } from "@/lib/constants";
 import type { MacroTotals } from "@/lib/nutrition-form";
 import type { NutrientTotals } from "@/lib/nutrients";
+import type { BodyBasis } from "@/lib/nutrient-guidance";
 
 export function NutritionTotals({
   label,
@@ -16,6 +17,7 @@ export function NutritionTotals({
   targets,
   nutrients,
   detail,
+  body,
   className,
 }: {
   label: string;
@@ -28,6 +30,8 @@ export function NutritionTotals({
   } | null;
   nutrients: NutrientTotals;
   detail: NutrientDetail;
+  // Whose weight per-kilo figures use, and the viewer's units.
+  body?: BodyBasis | null;
   className?: string;
 }) {
   return (
@@ -38,7 +42,7 @@ export function NutritionTotals({
       </div>
       <MacroBar totals={totals} targets={targets} />
       {detail !== NUTRIENT_DETAIL.OFF ? (
-        <NutrientPanel totals={nutrients} macros={totals} detail={detail} className="mt-2.5" />
+        <NutrientPanel totals={nutrients} macros={totals} body={body} detail={detail} className="mt-2.5" />
       ) : null}
     </div>
   );

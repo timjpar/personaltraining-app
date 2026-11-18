@@ -9,6 +9,7 @@ import { AssignClients } from "@/components/AssignClients";
 import { DeleteWorkoutForm } from "@/components/DeleteWorkoutForm";
 import { deleteNutritionTemplate, assignNutritionPlan } from "../actions";
 import { toNutrientDetail } from "@/lib/constants";
+import { bodyBasis } from "@/lib/body-weight";
 
 export default async function NutritionPlanPage({
   params,
@@ -30,6 +31,10 @@ export default async function NutritionPlanPage({
   if (!plan) notFound();
 
   const clients = await assignableClients(trainer.id);
+
+  // A library plan has no athlete, so its per-kilo figures are the coach's
+  // own: the one person reading it, and the one eating it when self-assigned.
+  const body = await bodyBasis(trainer.id, trainer);
 
   return (
     <Container className="max-w-3xl">
@@ -67,6 +72,7 @@ export default async function NutritionPlanPage({
         <NutritionPlanView
           plan={plan}
           detail={toNutrientDetail(trainer.nutrientDetail)}
+          body={body}
         />
       </div>
 
