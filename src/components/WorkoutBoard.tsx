@@ -54,7 +54,7 @@ import {
 import { cn } from "@/lib/cn";
 import { SECTION_ORDER } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
-import { useStoredValue } from "@/lib/use-stored-set";
+import { useStoredValue, useTabValue } from "@/lib/use-stored-set";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
 import { workoutDay, withWorkoutDay } from "@/lib/library-view";
 import {
@@ -221,8 +221,8 @@ export function WorkoutBoard({
   };
   // The shelf of exercises waiting to go into the week's workouts
   // (BoardShelf), by name. Saved to the account on every change, so it's
-  // there next visit and on any device; whether it's out is per device.
-  const [shelfShown, storeShelfShown] = useStoredValue("pt_board_shelf_open", onOff);
+  // there next visit and on any device; whether it's out is per tab.
+  const [shelfShown, storeShelfShown] = useTabValue("pt_board_shelf_open", onOff);
   const [shelf, setShelfState] = useState<string[]>(initialShelf);
   const [shelfSave, setShelfSave] = useState<"saved" | "saving" | "error">("saved");
   const shelfSeq = useRef(0);
