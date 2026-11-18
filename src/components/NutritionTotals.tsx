@@ -38,7 +38,7 @@ export function NutritionTotals({
       </div>
       <MacroBar totals={totals} targets={targets} />
       {detail !== NUTRIENT_DETAIL.OFF ? (
-        <NutrientPanel totals={nutrients} detail={detail} className="mt-2.5" />
+        <NutrientPanel totals={nutrients} macros={totals} detail={detail} className="mt-2.5" />
       ) : null}
     </div>
   );
