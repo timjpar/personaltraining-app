@@ -49,11 +49,12 @@ import {
   type BoardWeek,
   type BoardWorkout,
   type Dir,
+  daysParam,
 } from "@/lib/board-order";
 import { cn } from "@/lib/cn";
 import { SECTION_ORDER } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
-import { useStoredSet, useStoredValue } from "@/lib/use-stored-set";
+import { useStoredValue } from "@/lib/use-stored-set";
 import type { PickerCatalog } from "@/lib/exercise-catalog";
 import { workoutDay, withWorkoutDay } from "@/lib/library-view";
 import {
@@ -67,12 +68,6 @@ import {
 } from "@/lib/board-suggest";
 
 type Layout = "columns" | "week";
-
-// Days of the week left off the week layout, by index from Sunday. Kept per
-// device, like the other switches on the board: which days a coach looks at is
-// how they like their screen, not part of anyone's program.
-const NO_DAYS: readonly string[] = [];
-const DAY_KEYS: ReadonlySet<string> = new Set(["0", "1", "2", "3", "4", "5", "6"]);
 
 // The order a day's workouts are stacked in, as the coach set it with the
 // arrows: workout keys, first to last. Per device, like the days above; a key
@@ -165,6 +160,7 @@ export function WorkoutBoard({
   initialLayout,
   initialColumns,
   initialWeek,
+  initialHiddenDays,
   workouts,
   picker,
   people,
@@ -174,6 +170,9 @@ export function WorkoutBoard({
   initialLayout: Layout;
   initialColumns: string[];
   initialWeek: BoardWeek | null;
+  // Days of the week left off the week layout, by index from Sunday, as the
+  // URL's ?days= gave them (hiddenDaysFrom).
+  initialHiddenDays: number[];
   workouts: BoardWorkout[];
   picker: BoardPicker;
   // Whose week can be shown: "me", then the roster.
@@ -205,15 +204,19 @@ export function WorkoutBoard({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [trayOpen, setTrayOpen] = useState(false);
   const [showTotals] = useShowWeekTotals();
-  const [hiddenDays, setHiddenDays] = useStoredSet("pt_board_hidden_days", NO_DAYS, DAY_KEYS);
-  const isShown = useCallback((day: number) => !hiddenDays.has(String(day)), [hiddenDays]);
+  // Per tab, not per device: they go in the URL with the rest of the view, so
+  // one tab can show Monday while another shows Tuesday.
+  const [hiddenDays, setHiddenDays] = useState<ReadonlySet<number>>(
+    () => new Set(initialHiddenDays),
+  );
+  const isShown = useCallback((day: number) => !hiddenDays.has(day), [hiddenDays]);
   const [orderRaw, storeOrder] = useStoredValue("pt_board_day_order", asText);
   const dayOrder = useMemo(() => parseOrder(orderRaw), [orderRaw]);
   // One day always stays: a week of nothing is the board looking broken.
   const toggleDay = (day: number) => {
     const next = new Set(hiddenDays);
-    if (next.has(String(day))) next.delete(String(day));
-    else if (next.size < DAY_KEYS.size - 1) next.add(String(day));
+    if (next.has(day)) next.delete(day);
+    else if (next.size < 6) next.add(day);
     setHiddenDays(next);
   };
   // The shelf of exercises waiting to go into the week's workouts
@@ -560,6 +563,8 @@ export function WorkoutBoard({
         parts.push(`src=${encodeURIComponent(week.src)}`);
         if (week.week && week.week !== week.thisWeek) parts.push(`week=${week.week}`);
       }
+      const days = daysParam(hiddenDays);
+      if (days) parts.push(`days=${days}`);
     }
     if (columns.length) parts.push(`w=${columns.join(",")}`);
     window.history.replaceState(
@@ -567,7 +572,7 @@ export function WorkoutBoard({
       "",
       parts.length ? `?${parts.join("&")}` : window.location.pathname,
     );
-  }, [layout, columns, week]);
+  }, [layout, columns, week, hiddenDays]);
 
   // A newly added column lands off to the right on a narrow screen; bring it
   // into view.

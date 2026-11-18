@@ -97,6 +97,27 @@ export type BoardPicker = { library: BoardPickerItem[]; scheduled: BoardPickerIt
 
 export const MAX_COLUMNS = 7;
 
+// The days on the week layout, by index from Sunday, as the URL holds them:
+// ?days=1,2 is Monday and Tuesday, and no ?days at all is the whole week. In
+// the URL, with the rest of the view, so each tab keeps its own — one tab on
+// Monday, another on Tuesday. They were once per device in localStorage, and
+// every open tab followed whichever was clicked last.
+const WEEK_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+// The days the param leaves off. Anything it can't read is ignored, and a
+// param that would leave nothing on screen shows the whole week.
+export function hiddenDaysFrom(param: string | undefined): number[] {
+  const shown = new Set((param ?? "").split(",").map((d) => d.trim()));
+  if (!WEEK_DAYS.some((d) => shown.has(String(d)))) return [];
+  return WEEK_DAYS.filter((d) => !shown.has(String(d)));
+}
+
+// The other way: "1,2" for the param, or null when every day is showing.
+export function daysParam(hidden: ReadonlySet<number>): string | null {
+  const shown = WEEK_DAYS.filter((d) => !hidden.has(d));
+  return shown.length === WEEK_DAYS.length || shown.length === 0 ? null : shown.join(",");
+}
+
 export function boardKey(kind: BoardKind, id: string): string {
   return `${kind === "template" ? "t" : "w"}:${id}`;
 }
