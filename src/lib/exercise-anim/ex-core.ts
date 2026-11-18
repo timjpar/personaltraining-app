@@ -1,7 +1,7 @@
 // Trunk and hip work: planks, hollows, hanging raises, rollouts, crunches,
 // rotations, levers, and the banded/cabled hip moves.
 
-import { box, cable, cableTower, flatBench, hyperBench, medBall, pullUpBar, pullUpBarAcross } from "./equipment";
+import { box, cable, cableTower, column, flatBench, hyperBench, medBall, pullUpBar, pullUpBarAcross } from "./equipment";
 import {
   add,
   allFours,
@@ -418,6 +418,80 @@ function dragonFlag(o: { name: string; tuck?: boolean }): Spec {
   };
 }
 
+// --- Human flag -------------------------------------------------------------------
+//
+// Square-on, the pole on the left of the picture and the athlete facing out
+// from it: the top hand pulls, the bottom hand pushes with the arm locked, and
+// the body sticks out sideways. `tilt` is how far the body is raised above
+// level, 90 being the vertical flag, straight up over the bottom hand. The
+// hands stay put on the pole; the shoulders slide in toward it as the body
+// rises, as they have to on a real pole.
+const POLE_X = -66;
+const POLE_TOP = -214;
+const PERCH = -128; // the shoulder line's height when the body is level
+// Hands an even distance above and below the shoulders, so both arms lock
+// straight when the body is level.
+const GRIP_TOP = v(POLE_X, PERCH - 48);
+const GRIP_BOTTOM = v(POLE_X, PERCH + 48);
+const FLAG_MUSCLES: Pick<Spec, "primary" | "secondary"> = {
+  primary: ["lats", "obliques", "delts_side"],
+  secondary: ["delts_front", "triceps", "abs", "forearms", "glutes"],
+};
+
+type FlagLegs = "together" | "straddle" | "tuck";
+
+function flagPose(tilt: number, legs: FlagLegs): Pose {
+  const torso = 90 + tilt;
+  const up = tilt / 90;
+  const shoulderLine = v(POLE_X + lerp(54.3, 22, up), PERCH + lerp(0, 4, up));
+  const lumbar = sub(shoulderLine, rot(v(0, -38), torso));
+  const hip = sub(lumbar, rot(v(0, -11), torso));
+  let pose = base(hip, { torso, pelvis: torso, head: torso - 4 });
+  if (legs === "tuck") {
+    // Knees pulled to the chest come toward the viewer, so both bones shorten;
+    // the heels end up back by the seat.
+    const thigh = (a: number): Limb => ({ ...limb(torso + a, torso + a + 165, torso + a + 140), ku: 0.55, kl: 0.6 });
+    pose = { ...pose, legN: thigh(26), legF: thigh(-14) };
+  } else {
+    const spread = legs === "straddle" ? 24 : 1.5;
+    pose = { ...pose, legN: limb(torso + spread, torso + spread, torso + spread), legF: limb(torso - spread, torso - spread, torso - spread) };
+  }
+  // Top elbow would bend upward, bottom one downward — both away from the body.
+  return hold(pose, "front", GRIP_TOP, GRIP_BOTTOM, -1, 1);
+}
+
+const flagPole = (): Spec["scene"] => [{ draw: column(POLE_X - 3, POLE_TOP, 6), layer: "back" }];
+
+function flagHold(o: { name: string; aka?: string[]; tilt: number; legs: FlagLegs } & Pick<Spec, "primary" | "secondary">): Spec {
+  return {
+    name: o.name,
+    aka: o.aka,
+    view: "front",
+    mode: "loop",
+    seconds: 4,
+    hands: { N: "fist" },
+    primary: o.primary,
+    secondary: o.secondary,
+    still: 0.25,
+    scene: flagPole(),
+    motion: (p) => ({ pose: flagPose(o.tilt + breathe(p, 2.4), o.legs) }),
+  };
+}
+
+// The whole sweep from the vertical flag down to level, phase 1 at the top,
+// so `negative()` turns it into a quick kick up and a slow lowering.
+const flagSweep: Spec = {
+  name: "Human Flag",
+  view: "front",
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist" },
+  ...FLAG_MUSCLES,
+  still: 0.5,
+  scene: flagPole(),
+  motion: (p) => ({ pose: flagPose(lerp(0, 90, p), "together") }),
+};
+
 // The rollout from the feet: from a pike over the wheel out to a body near
 // level with the floor, legs straight throughout.
 const standingAbWheel: Spec = {
@@ -701,6 +775,18 @@ export const CORE: Spec[] = [
   dragonFlag({ name: "Tuck Dragon Flag", tuck: true }),
   negative(dragonFlag({ name: "Dragon Flag" }), "Dragon Flag Negative"),
   dragonFlag({ name: "Dragon Flag" }),
+  flagHold({
+    name: "Vertical Flag",
+    aka: ["Vertical Flag Hold"],
+    tilt: 90,
+    legs: "together",
+    primary: ["delts_side", "triceps", "lats"],
+    secondary: ["obliques", "abs", "forearms", "traps"],
+  }),
+  flagHold({ name: "Tuck Flag", aka: ["Tuck Human Flag"], tilt: 4, legs: "tuck", ...FLAG_MUSCLES }),
+  negative(flagSweep, "Human Flag Negative", ["Flag Negative"]),
+  flagHold({ name: "Straddle Flag", aka: ["Straddle Human Flag"], tilt: 2, legs: "straddle", ...FLAG_MUSCLES }),
+  flagHold({ name: "Human Flag", aka: ["Full Human Flag", "Full Flag"], tilt: 0, legs: "together", ...FLAG_MUSCLES }),
   windshieldWiper,
   abWheel,
   standingAbWheel,

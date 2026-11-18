@@ -549,6 +549,60 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
 
+  {
+    id: "human-flag",
+    goal: "Human Flag",
+    family: "bodyweight",
+    blurb:
+      "The body held level out from a pole: the top arm pulls, the bottom arm pushes with the elbow locked, and the side of the trunk holds it all straight. Train both sides.",
+    steps: [
+      {
+        name: "Side Plank",
+        how: "Elbow under the shoulder, hips high, body one straight line. 3 × 30–60s per side.",
+        when: "3 × 60s per side without the hips dropping.",
+        target: hold(3, 60),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Vertical Flag",
+        aka: ["Vertical Flag Hold"],
+        how: "Top hand high on the pole, bottom hand about shoulder width below it, bottom arm locked. Kick up until the body is straight up above the bottom hand, like a handstand held against the pole. 3–5 × 10–20s per side.",
+        when: "3 × 20s per side with the bottom arm locked and the legs together.",
+        target: hold(3, 20),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Tuck Flag",
+        aka: ["Tuck Human Flag"],
+        how: "Same grip, knees pulled to the chest. Push the bottom shoulder away from the pole and pull with the top arm until the hips are level with the hands. 4–6 × 5–10s per side.",
+        when: "4 × 10s per side with the hips level.",
+        target: hold(4, 10),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Human Flag Negative",
+        aka: ["Flag Negative"],
+        how: "Kick up to the vertical flag, then lower a straight body toward level as slowly as you can and step down. 3–5 per side, each 5s or longer.",
+        when: "3 × 3 per side that each take a full 5s to reach level.",
+        target: reps(3, 3),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Straddle Flag",
+        aka: ["Straddle Human Flag"],
+        how: "Legs wide to shorten the lever, body level from the shoulders, bottom arm locked. Bring the legs closer together over the weeks. 4–6 × 3–8s per side.",
+        when: "4 × 8s per side with the body level.",
+        target: hold(4, 8),
+        weeks: "6–12 weeks",
+      },
+      {
+        name: "Human Flag",
+        aka: ["Full Human Flag", "Full Flag"],
+        how: "Legs together, body level and straight from the shoulders to the feet. 3–5 × 3–10s per side, starting with the weaker side.",
+      },
+    ],
+  },
+
   // ---- Core ---------------------------------------------------------------
   {
     id: "l-sit",
@@ -1291,6 +1345,9 @@ const AUTO_PATH: Record<string, string> = {
   "air squat": "pistol-squat",
   "single-leg glute bridge": "hip-thrust",
   "seated forward fold": "pancake",
+  // Side Plank also starts the human flag path; the Copenhagen plank is the
+  // nearer next step for most people.
+  "side plank": "copenhagen",
   "glute bridge": "hip-thrust",
   "handstand hold": "freestanding-handstand",
 };
