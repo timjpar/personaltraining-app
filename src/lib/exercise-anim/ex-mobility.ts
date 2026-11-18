@@ -2,7 +2,7 @@
 // rooms (sauna, cold plunge).
 
 import { FRONT } from "./body-front";
-import { box, doorFrame, foamRoller, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, wall } from "./equipment";
+import { box, column, doorFrame, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, wall } from "./equipment";
 import {
   add,
   allFours,
@@ -13,6 +13,7 @@ import {
   grips,
   hips,
   hold,
+  joints,
   kf,
   LEN,
   lerp,
@@ -944,6 +945,135 @@ const frontSplit: Spec = {
   },
 };
 
+// --- End-range quad strength, hamstrings long --------------------------------------
+
+// Sitting in a pike, the chest folded toward the legs so the hamstrings stay
+// long, with a roll under the near knee and a band from that ankle to a
+// kettlebell on the floor ahead. The knee straightens over the roll until
+// the heel lifts and the leg is locked, then lowers. The far leg stays long.
+const SAQ_HIP = v(0, -14);
+const SAQ_THIGH = 105; // resting up over the roll
+const SAQ_KB = v(112, -17.2);
+const saqInPike: Spec = {
+  name: "Banded SAQ in Pike",
+  aka: ["Banded Short Arc Quad in Pike", "Pike SAQ", "Banded Pike SAQ"],
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "palm" },
+  primary: ["quads"],
+  secondary: ["hamstrings", "hip_flexors"],
+  still: 1,
+  props: [
+    { id: "roll", draw: foamRoller(9), layer: "back" },
+    { id: "kb", draw: kettlebell(), layer: "back" },
+    band(),
+  ],
+  motion: (p) => {
+    const torso = -56;
+    let pose = base(SAQ_HIP, { torso, pelvis: -34, head: torso + 10 });
+    const shin = lerp(74.6, SAQ_THIGH, p);
+    pose = { ...pose, legN: limb(SAQ_THIGH, shin, shin + 82), legF: limb(90, 90, 172) };
+    const s = shoulders(pose).N;
+    pose = palms(pose, "side", v(s.x + 8, 0), v(s.x + 8, 0), 90, -1);
+    const j = joints(pose);
+    return {
+      pose,
+      props: {
+        roll: at(v(j.kneeN.x - 2, -9)),
+        kb: at(SAQ_KB),
+        band: line(add(SAQ_KB, v(0, -4)), j.ankleN),
+      },
+    };
+  },
+};
+
+// Square-on, sitting tall in a wide straddle with a yoga block outside each
+// ankle. One straight leg at a time lifts up and over its block, sets down
+// outside it, then lifts back over to where it started; toes stay pointing
+// up and the knee stays locked. The trunk tips a touch away from the working
+// leg to balance.
+const STRADDLE_IN = v(54, -7); // ankle: x out from its own hip, y above the floor
+const STRADDLE_UP = v(66, -54);
+const STRADDLE_OUT = v(80, -7);
+const STRADDLE_BLOCK: [number, number] = [61, 73];
+const straddleLifts: Spec = {
+  name: "Seated Straddle Leg Lifts over Blocks",
+  aka: ["Seated Straddle Leg Lifts", "Straddle Leg Lifts over Blocks", "Seated Straddle Leg Lift"],
+  view: "front",
+  mode: "loop",
+  seconds: 6,
+  samples: 48,
+  hands: { N: "hand" },
+  primary: ["hip_flexors", "quads"],
+  secondary: ["abs", "adductors", "hamstrings"],
+  still: 0.125,
+  scene: [-1, 1].map((s) => {
+    const [a, b] = STRADDLE_BLOCK.map((x) => s * (x + 9));
+    return { draw: box(Math.min(a, b), Math.max(a, b), -16), layer: "back" as const };
+  }),
+  motion: (p) => {
+    // Near leg (right of the picture) over and back in the first half, far
+    // leg in the second.
+    const path = (q: number): V => {
+      const k: [number, V][] = [[0, STRADDLE_IN], [0.25, STRADDLE_UP], [0.45, STRADDLE_OUT], [0.55, STRADDLE_OUT], [0.75, STRADDLE_UP], [1, STRADDLE_IN]];
+      return v(kf(q, k.map(([t, a]) => [t, a.x])), kf(q, k.map(([t, a]) => [t, a.y])));
+    };
+    const qN = p < 0.5 ? p * 2 : 0;
+    const qF = p < 0.5 ? 0 : (p - 0.5) * 2;
+    const lift = (q: number) => Math.sin(Math.PI * q);
+    let pose = base(v(0, -13), { torso: (lift(qN) - lift(qF)) * 4, pelvis: 0, head: 0 });
+    const h = hips(pose, "front");
+    // Ankle x is measured out from its own hip, y from the floor.
+    const legTo = (hip: V, ankle: V, side: 1 | -1): Limb => {
+      const d = v(ankle.x * side, ankle.y - hip.y);
+      const k = Math.min(1, Math.hypot(d.x, d.y) / (LEN.thigh + LEN.shin));
+      const a = dirAngle(d);
+      return { upper: a, lower: a, end: 180 * side, ku: k, kl: k };
+    };
+    const ankleN = path(qN);
+    const ankleF = path(qF);
+    pose = {
+      ...pose,
+      legN: legTo(h.N, ankleN, 1),
+      legF: legTo(h.F, ankleF, -1),
+      armN: limb(16, 10, 10),
+      armF: mirror(limb(16, 10, 10)),
+    };
+    return { pose };
+  },
+};
+
+// Standing folded into a flat-backed pike, hips back over the heels and hands
+// on a post in front, with a band from the post to the back of the near knee.
+// The band draws the knees into a slight bend; the athlete locks them straight
+// again without coming out of the fold.
+const TKE_POST = 92;
+const TKE_TORSO = -92;
+const pikedTke: Spec = {
+  name: "Piked TKE",
+  aka: ["Piked Terminal Knee Extension", "Pike TKE", "Pike Terminal Knee Extension"],
+  mode: "alternate",
+  seconds: 2.6,
+  hands: { N: "fist" },
+  primary: ["quads"],
+  secondary: ["hamstrings", "calves"],
+  still: 1,
+  scene: [{ draw: column(TKE_POST - 4, -150, 8), layer: "back" }],
+  props: [band()],
+  motion: (p) => {
+    const bend = lerp(34, 0, p); // knee flexion, degrees
+    const reach = Math.sqrt(LEN.thigh ** 2 + LEN.shin ** 2 + 2 * LEN.thigh * LEN.shin * Math.cos((bend * Math.PI) / 180));
+    const back = -14;
+    const hip = v(back, -8 - Math.sqrt(reach ** 2 - back ** 2));
+    let pose = base(hip, { torso: TKE_TORSO, pelvis: -72, head: -100 });
+    pose = plant(pose, "side", v(0, -8), v(0, -8));
+    const s = shoulders(pose).N;
+    pose = hold(pose, "side", v(TKE_POST, s.y + 6), undefined, -1);
+    const knee = joints(pose).kneeN;
+    return { pose, props: { band: line(v(TKE_POST, -48), add(knee, v(-3, 0))) } };
+  },
+};
+
 // Sitting with the legs wide and straight, toes up, folding forward from the
 // hips until the chest nears the floor. Side-on, the near leg is drawn swung
 // out towards the viewer.
@@ -1018,6 +1148,9 @@ export const MOBILITY: Spec[] = [
   pigeon,
   hamstringStretch,
   seatedForwardFold,
+  pikedTke,
+  saqInPike,
+  straddleLifts,
   pancake,
   halfSplit,
   frontSplit,

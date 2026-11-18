@@ -1283,6 +1283,42 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "end-range-quads",
+    goal: "Seated Straddle Leg Lifts over Blocks",
+    family: "mobility",
+    blurb:
+      "Strength at the very end of the range: locking the knee and lifting the leg while the hamstrings are long. Passive length comes first, then owning it under load.",
+    steps: [
+      {
+        name: "Seated Forward Fold",
+        how: "Legs straight, hinge from the hips with a long back. 3 × 30–60s.",
+        when: "Hands reach the toes with a flat back and straight knees.",
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Piked TKE",
+        aka: ["Piked Terminal Knee Extension", "Pike TKE"],
+        how: "Band behind one knee, anchored low in front. Fold into a flat-backed pike, let the band draw the knee into a slight bend, then lock it out hard and hold 2s without coming up. 3 × 10–15 per side.",
+        when: "3 × 15 per side with a full lockout every rep and the fold held.",
+        target: reps(3, 15),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Banded SAQ in Pike",
+        aka: ["Banded Short Arc Quad in Pike", "Pike SAQ"],
+        how: "Sit in a pike leaning forward, a rolled towel or small roller under one knee and a light band from that ankle to a weight ahead. Straighten the knee until the heel lifts, hold 2s, lower slowly. 3 × 10–15 per side.",
+        when: "3 × 15 per side with the heel lifting and the knee locking while the chest stays forward.",
+        target: reps(3, 15),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Seated Straddle Leg Lifts over Blocks",
+        aka: ["Seated Straddle Leg Lifts", "Straddle Leg Lifts over Blocks"],
+        how: "Sit tall in a wide straddle with a yoga block outside each ankle. Knee locked and toes up, lift one leg up and over its block and back. Hands on the floor behind you at first, then beside the hips. 3 × 6–10 per side; move the blocks further out or use taller ones to progress.",
+      },
+    ],
+  },
+  {
     id: "jefferson-curl",
     goal: "Zercher Jefferson Curl",
     family: "mobility",
