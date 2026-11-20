@@ -200,6 +200,34 @@ export function plateStack(x: number, top: number, count = 2, r = 16): Drawing {
   return { svg, box: [x - r, top, x + r, 0] };
 }
 
+// A loaded barbell seen from the front or behind, lying in the picture: the
+// bar along +x through its middle, a plate edge-on at each end. Drawn around
+// the middle, for a bar across the shoulders.
+export function barbellAcross(half = 92, r = 20): Drawing {
+  const sleeve = half + 12;
+  const plate = (x: number) =>
+    `<rect class="iron" x="${n(x - 3.2)}" y="${-r}" width="6.4" height="${2 * r}" rx="1.8"/>` +
+    `<rect class="steel" x="${n(x + (x > 0 ? 3.2 : -5.2))}" y="-3.2" width="2" height="6.4" rx=".6"/>`;
+  return {
+    svg:
+      `<path d="M${-sleeve} 0H${sleeve}" fill="none" stroke="#6f7976" stroke-width="2.6" stroke-linecap="round"/>` +
+      plate(half) +
+      plate(-half),
+    box: [-sleeve - 1.3, -r, sleeve + 1.3, r],
+  };
+}
+
+// An inflated stability ball, drawn around its centre, with one seam so the
+// roll shows.
+export function stabilityBall(r = 25): Drawing {
+  return {
+    svg:
+      `<circle r="${r}" fill="#8eb0c9" stroke="#56778f" stroke-width=".8"/>` +
+      `<path d="M${-r} 0C${n(-r / 2)} ${n(r / 2.6)} ${n(r / 2)} ${n(r / 2.6)} ${r} 0" fill="none" stroke="#56778f" stroke-width=".6"/>`,
+    box: [-r, -r, r, r],
+  };
+}
+
 // The landmine's floor base, with the sleeve the bar pivots in at `pivot`.
 export function landmineBase(pivot: V): Drawing {
   return {

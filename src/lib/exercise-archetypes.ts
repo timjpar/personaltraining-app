@@ -72,6 +72,10 @@ const RULES: Rule[] = [
   // guard: "Pallof Press" is anti-rotation core, not a press.
   { archetype: "core", match: ["pallof"] },
 
+  // guard: a Landmine Rainbow swings the bar side to side over the head, which
+  // is rotation, not a press ("landmine") or a hip hinge ("swing").
+  { archetype: "core", match: ["landmine rainbow", "landmine swing", "pendulum swing", "seesaw"] },
+
   // guard: "Turkish Get-Up" matches nothing else meaningful.
   { archetype: "core", match: ["turkish", "get-up"] },
 
@@ -141,7 +145,7 @@ const RULES: Rule[] = [
     match: [
       "plank", "hollow", "dead bug", "bird dog", "crunch", "sit-up", "v-up",
       "knee raise", "leg raise", "rollout", "twist", "woodchop",
-      "toes-to-bar", "ab wheel",
+      "toes-to-bar", "ab wheel", "ab roller",
       "human flag", "vertical flag", "tuck flag", "straddle flag",
     ],
   },
