@@ -13,9 +13,6 @@ import type { Model, ModelFrame, ModelPoint, ThreeDStage } from "@/lib/exercise-
 
 type P3 = { x: number; y: number; z: number };
 
-// Half-widths across the body, in drawing units.
-const SHOULDER_Z = 15;
-const HIP_Z = 8.5;
 const BAR_HALF = 62;
 
 // Fixed, like the flat drawings' plate, so the figure reads the same in both
@@ -30,42 +27,19 @@ const STEEL = "#7d8784";
 
 const SPEEDS = [1, 0.5, 0.25] as const;
 
-function lift([x, y]: ModelPoint, z: number): P3 {
-  return { x, y: -y, z };
-}
+const lift = ([x, y, z]: ModelPoint): P3 => ({ x, y: -y, z });
 
-// Where each joint sits across the body. Near-side limbs (toward the viewer
-// in the flat drawing) at +z, far-side at -z. A one-arm move pulls the bar
-// hand in toward the middle and lets the free arm swing out wide.
-function body(f: ModelFrame, oneArm: boolean) {
-  const handZ = oneArm ? 4 : SHOULDER_Z + 3;
-  return {
-    shoulderN: lift(f.shoulder, SHOULDER_Z),
-    shoulderF: lift(f.shoulder, -SHOULDER_Z),
-    hipN: lift(f.hip, HIP_Z),
-    hipF: lift(f.hip, -HIP_Z),
-    hip: lift(f.hip, 0),
-    lumbar: lift(f.lumbar, 0),
-    neck: lift(f.neck, 0),
-    head: lift(f.head, 0),
-    face: lift(f.face, 0),
-    elbowN: lift(f.elbowN, oneArm ? 12 : SHOULDER_Z + 2),
-    wristN: lift(f.wristN, handZ),
-    handN: lift(f.handN, handZ),
-    elbowF: lift(f.elbowF, oneArm ? -27 : -SHOULDER_Z - 2),
-    wristF: lift(f.wristF, oneArm ? -36 : -handZ),
-    handF: lift(f.handF, oneArm ? -38 : -handZ),
-    kneeN: lift(f.kneeN, HIP_Z + 1),
-    ankleN: lift(f.ankleN, HIP_Z),
-    toeN: lift(f.toeN, HIP_Z + 1),
-    kneeF: lift(f.kneeF, -HIP_Z - 1),
-    ankleF: lift(f.ankleF, -HIP_Z),
-    toeF: lift(f.toeF, -HIP_Z - 1),
-  };
+// The server has already placed every joint in 3D; flip y to point up.
+function body(f: ModelFrame) {
+  const out = {} as Record<Exclude<keyof ModelFrame, "torso">, P3>;
+  for (const k of Object.keys(f) as (keyof ModelFrame)[]) {
+    if (k !== "torso") out[k] = lift(f[k]);
+  }
+  return out;
 }
 
 const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
-const lerpP = (a: ModelPoint, b: ModelPoint, t: number): ModelPoint => [lerpN(a[0], b[0], t), lerpN(a[1], b[1], t)];
+const lerpP = (a: ModelPoint, b: ModelPoint, t: number): ModelPoint => [lerpN(a[0], b[0], t), lerpN(a[1], b[1], t), lerpN(a[2], b[2], t)];
 
 function frameAt(frames: ModelFrame[], p: number): ModelFrame {
   const at = Math.min(Math.max(p, 0), 1) * (frames.length - 1);
@@ -94,7 +68,9 @@ export function Exercise3D({ src, stage, name }: { src: string; stage: ThreeDSta
   const canvas = useRef<HTMLCanvasElement>(null);
   const [model, setModel] = useState<Model | null>(null);
   const [failed, setFailed] = useState(false);
-  const [yaw, setYaw] = useState(-30);
+  // Opens from the bar-hand side and a little in front, where the reel's
+  // camera stands.
+  const [yaw, setYaw] = useState(-145);
   const [pitch, setPitch] = useState(14);
   // Respect a reader who asked for less motion: start paused. Only ever
   // rendered in the browser (inside an opened dialog).
@@ -216,7 +192,7 @@ export function Exercise3D({ src, stage, name }: { src: string; stage: ThreeDSta
     }
 
     const f = frameAt(model.frames, phaseAt(model, u));
-    const j = body(f, Boolean(stage.oneArm));
+    const j = body(f);
     const bar = (z: number): P3 => ({ x: stage.bar.x, y: -stage.bar.y, z });
     const shapes: Shape[] = [
       // The bar across, and its two posts.
