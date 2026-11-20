@@ -677,6 +677,51 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "l-sit-press",
+    goal: "L-Sit Press to Handstand",
+    family: "bodyweight",
+    blurb:
+      "From sitting in an L-sit to standing on your hands without a kick. Three parts carry it: compression to fold the legs in, shoulders that lean on to let the legs pass, and shoulders that keep pushing as the hips go over. Train each on its own, then put them together. Work the L-Sit and Freestanding Handstand paths alongside.",
+    steps: [
+      {
+        name: "L-Sit",
+        how: "Hands beside the hips, arms locked, legs straight out at hip height. 3 × 10–20s.",
+        when: "3 × 20s with straight knees.",
+        target: hold(3, 20),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Block Pike Compression Lean",
+        aka: ["Heels-Elevated Compression Lean", "Elevated Pike Compression"],
+        how: "Heels up on two or three stacked blocks, hands flat just in front of the hips, hips off the floor. Lean the shoulders past the wrists and pull the chest down to the thighs, round back, then ease off. 3 × 6–10 slow reps.",
+        when: "3 × 10 with the chest touching the thighs and straight arms.",
+        target: reps(3, 10),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Chair Press Leg Pass",
+        aka: ["Chair-Assisted Press Leg Pass", "Chair Leg Pass-Through"],
+        how: "Hands on the floor, one foot up on a chair behind you, shoulders over the hands. Lean on and bring the free leg down and through past the hands, then back up. If it won't pass yet, just reach the knee to the arms. 3 × 5 per leg.",
+        when: "3 × 5 per leg with the toes landing past the hands.",
+        target: reps(3, 5),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Wall Pike Press Lean",
+        aka: ["Wall Pike Shoulder Push", "Back-to-Wall Pike Lean"],
+        how: "Seat and heels against a wall, fold forward with hands flat on the floor. Push the floor away and lean the shoulders over the hands until the heels go light, hold, return. 3 × 5 × 5s.",
+        when: "3 × 5 holds of 5s with the heels off the floor.",
+        target: reps(3, 5),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "L-Sit Press to Handstand",
+        aka: ["L-Sit to Handstand Press", "Pike Press to Handstand"],
+        how: "From an L-sit, lean on, swing the hips back and up through the arms, keep pushing as the hips pass over the shoulders, then open into a handstand. 3 × 1–3.",
+      },
+    ],
+  },
+  {
     id: "dragon-flag",
     goal: "Dragon Flag",
     family: "core",
