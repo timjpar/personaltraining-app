@@ -237,6 +237,38 @@ const sissySquat: Spec = {
   motion: sissyFrame,
 };
 
+// Goblet squat ankle shift, the ankle fix in reel DI17NR-PTVz: sit in the
+// bottom of a goblet squat, then shift the weight onto one foot and drive
+// that knee forward past the toes, heel flat, chest over the knee. Held
+// 5-10 s to stretch the soleus, then the other side. Side view, near leg
+// working: the hips slide forward and a touch down, the shin tips from
+// about 30 to about 45 degrees, and the foot never leaves the floor.
+const ANKLE_SHIFT_HIP = -47;
+
+function ankleShiftFrame(p: number) {
+  const s = kf(p, [[0, 0], [0.75, 1], [1, 1]]);
+  const torso = lerp(-26, -40, s);
+  const trunk = { torso, pelvis: torso * 0.88, head: torso * 0.45 };
+  const probe = (pose: Pose) => onTrunk(pose, v(4, -22));
+  let pose = stand(ANKLE_SHIFT_HIP + lerp(0, 5, s), trunk, { probe, over: lerp(6, 21, s), ankleN: v(0, -8), ankleF: v(-3, -8) });
+  const g = onTrunk(pose, GOBLET);
+  pose = hold(pose, "side", g, undefined, -1);
+  return { pose, props: { w: turned(g, torso * 0.5) } };
+}
+
+const gobletAnkleShift: Spec = {
+  name: "Goblet Squat Ankle Shift",
+  aka: ["Goblet Squat Soleus Stretch", "Goblet Squat Knee Shift", "Goblet Squat Ankle Mobilization", "Goblet Squat Ankle Pry"],
+  mode: "alternate",
+  seconds: 5,
+  hands: { N: "fist" },
+  primary: ["calves"],
+  secondary: ["quads", "adductors"],
+  still: 1,
+  props: [{ id: "w", draw: dumbbellGoblet(), layer: "front" }],
+  motion: ankleShiftFrame,
+};
+
 // --- Lunges ------------------------------------------------------------------------
 
 type LungeLoad = "none" | "dumbbells" | "back";
@@ -976,6 +1008,7 @@ export const LEGS: Spec[] = [
   squat({ name: "Kettlebell Goblet Squat", load: "goblet-kb", primary: ["quads", "glutes"], secondary: ["adductors", "abs"] }),
   squat({ name: "Hack Squat", load: "hack", primary: ["quads"], secondary: ["glutes", "adductors"] }),
   sissySquat,
+  gobletAnkleShift,
   pistol({ name: "Pistol Squat" }),
   pistol({ name: "Box Pistol Squat", box: true }),
   pistol({ name: "Assisted Pistol Squat", assisted: true }),
