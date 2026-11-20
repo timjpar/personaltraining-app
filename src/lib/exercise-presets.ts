@@ -140,6 +140,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Ring Row",
       "Inverted Row",
       "Air Squat",
+      "Sissy Squat",
       "Pistol Squat",
       "Box Pistol Squat",
       "Assisted Pistol Squat",

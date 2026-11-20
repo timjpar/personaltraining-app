@@ -192,6 +192,51 @@ function hackFrame(p: number) {
   return { pose, props: { pad: turned(hackPad(hip), HACK_LEAN) } };
 }
 
+// --- Knees over toes ---------------------------------------------------------------
+
+// Bodyweight sissy squat on flat ground, as in reel DJSvX28y5Jm: the heels
+// peel up early and the body rides up onto the toes, the knees travel
+// forward and down until they rest on the floor, and the body stays nearly
+// straight from knee to shoulder, leaning back about 50 degrees at the
+// bottom. The arms hang loose, the hands ending down by the heels.
+const SISSY_TOE = v(FOOT.toe.x, 0);
+const SISSY_KNEE_Y = -5;
+const SISSY_FOOT = -72;
+
+function sissyFrame(p: number) {
+  // The foot turns about the toe, heel up (negative = heel up).
+  const foot = kf(p, [[0, 0], [0.25, -36], [1, SISSY_FOOT]]);
+  const ankle = sub(SISSY_TOE, rot(FOOT.toe, foot));
+  // Shin tilt forward from vertical, solved so the knee rests on the floor
+  // at the bottom.
+  const low = sub(SISSY_TOE, rot(FOOT.toe, SISSY_FOOT));
+  const shinBottom = (Math.acos((low.y - SISSY_KNEE_Y) / LEN.shin) * 180) / Math.PI;
+  const shin = (kf(p, [[0, 0], [1, shinBottom]]) * Math.PI) / 180;
+  const knee = add(ankle, v(Math.sin(shin) * LEN.shin, -Math.cos(shin) * LEN.shin));
+  // The trunk leans back; the thigh follows it with a slight hip bend.
+  const lean = kf(p, [[0, -2], [0.3, 18], [1, 48]]);
+  const hipBend = kf(p, [[0, 0], [1, 14]]);
+  const hip = add(knee, rot(v(0, -LEN.thigh), lean - hipBend));
+  let pose = base(hip, { torso: lean, pelvis: lean - hipBend * 0.6, head: lean * 0.2 });
+  const leg = plantLeg(hip, ankle, foot, 1);
+  pose = { ...pose, legN: leg, legF: { ...leg } };
+  const arm = kf(p, [[0, 6], [1, -18]]);
+  pose = { ...pose, armN: limb(arm, arm + 8), armF: limb(arm + 4, arm + 12) };
+  return { pose };
+}
+
+const sissySquat: Spec = {
+  name: "Sissy Squat",
+  aka: ["Knees Over Toes Squat", "KOT Squat", "Bodyweight Sissy Squat", "Sissy Squat to Knees"],
+  mode: "alternate",
+  seconds: 3.8,
+  hands: { N: "hand" },
+  primary: ["quads"],
+  secondary: ["hip_flexors", "abs"],
+  still: 0.8,
+  motion: sissyFrame,
+};
+
 // --- Lunges ------------------------------------------------------------------------
 
 type LungeLoad = "none" | "dumbbells" | "back";
@@ -930,6 +975,7 @@ export const LEGS: Spec[] = [
   squat({ name: "Goblet Squat", load: "goblet-db", primary: ["quads", "glutes"], secondary: ["adductors", "abs"] }),
   squat({ name: "Kettlebell Goblet Squat", load: "goblet-kb", primary: ["quads", "glutes"], secondary: ["adductors", "abs"] }),
   squat({ name: "Hack Squat", load: "hack", primary: ["quads"], secondary: ["glutes", "adductors"] }),
+  sissySquat,
   pistol({ name: "Pistol Squat" }),
   pistol({ name: "Box Pistol Squat", box: true }),
   pistol({ name: "Assisted Pistol Squat", assisted: true }),
