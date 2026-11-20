@@ -603,6 +603,65 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
 
+  {
+    id: "one-arm-pullover",
+    goal: "One-Arm Pullover",
+    family: "bodyweight",
+    blurb:
+      "From a hang to a support on top of the bar by rolling backwards over it: the legs go up and over, the hips meet the bar, and the body pivots on them until it is upright. One arm makes it a pulling and core skill at once. Train both sides.",
+    steps: [
+      {
+        name: "Hanging Knee Raise",
+        how: "Dead hang, knees to the chest, then curl the hips up so the pelvis tips toward the bar. That curl is what a pullover starts with. 3 × 10–15.",
+        when: "3 × 15 without swinging, hips curling at the top.",
+        target: reps(3, 15),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Toes-to-Bar",
+        how: "Straight legs all the way to the bar, controlled, no kip. 3 × 5–8.",
+        when: "3 × 8 strict.",
+        target: reps(3, 8),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Bar Pullover",
+        aka: ["Pullover", "Hip Pullover"],
+        how: "Two hands, from a dead hang. Pull the bar toward the waist while the legs go up and over it, keep the hips close, and roll on them to a straight-arm support. No kick. 3 × 3–6.",
+        when: "3 × 6 strict, without a swing to start them.",
+        target: reps(3, 6),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "One-Arm Hang",
+        how: "One arm on the bar, shoulder pulled down and in, the body still. 3 × 10–20s per side.",
+        when: "3 × 20s per side without the shoulder creeping to the ear.",
+        target: hold(3, 20),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Assisted One-Arm Pull-Up",
+        how: "One hand on the bar, the other on a band or towel lower down doing as little as it can. 3 × 3–5 per side.",
+        when: "3 × 5 per side with the helping hand only lightly loaded.",
+        target: reps(3, 5),
+        weeks: "6–12 weeks",
+      },
+      {
+        name: "One-Arm Pullover Negative",
+        aka: ["Negative One-Arm Pullover"],
+        how: "Get into a one-arm support on top of the bar (step up, or pullover with two hands and let one go), then roll backwards off it as slowly as you can: hips on the bar, legs over, down through the tuck to a hang. 3 × 2–3 per side, 5s each.",
+        when: "3 × 3 per side, controlled all the way to the hang.",
+        target: reps(3, 3),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "One-Arm Pullover",
+        aka: ["One-Arm Bar Pullover", "Single-Arm Pullover"],
+        how: "One-arm hang, free arm loose. Pull and tuck at once, roll back until the hips reach the bar with the legs over it, then pivot on the hips and press to a support. Singles per side, weaker side first.",
+      },
+    ],
+  },
+
   // ---- Core ---------------------------------------------------------------
   {
     id: "l-sit",
@@ -1452,6 +1511,10 @@ const AUTO_PATH: Record<string, string> = {
   "hollow hold": "l-sit",
   "hollow body hold": "l-sit",
   "hanging leg raise": "toes-to-bar",
+  // Both also start the one-arm pullover path, which comes earlier in the
+  // list; the toes-to-bar ladder is the nearer next step.
+  "hanging knee raise": "toes-to-bar",
+  "toes-to-bar": "toes-to-bar",
   plank: "ab-wheel",
   "air squat": "pistol-squat",
   "single-leg glute bridge": "hip-thrust",
