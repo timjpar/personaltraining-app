@@ -222,6 +222,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Standing Ab Wheel Rollout",
       "Cable Crunch",
       "Russian Twist",
+      "Twisting Alternating Tuck",
       "Pallof Press",
       "V-Up",
       "Tuck L-Sit",
