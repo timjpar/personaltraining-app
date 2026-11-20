@@ -57,6 +57,10 @@ export type Spec = {
   // Square views: draw the legs over the trunk rather than behind it, for a
   // body sitting with its knees up toward the viewer.
   legsInFront?: boolean;
+  // Side view: draw the near shin and foot over the near thigh, for a leg
+  // swung out toward the viewer with the knee bent, where the lower leg is
+  // the part nearest the camera.
+  nearShinOnTop?: boolean;
   // Paint the whole picture this colour (a climbing wall) instead of the
   // plain plate, and whether to draw the floor; by default the floor appears
   // whenever the movement reaches the ground.
@@ -69,7 +73,7 @@ type Piece = { key: string; at: V; angle: number; k?: number; art: PartArt; far?
 
 // --- Layout --------------------------------------------------------------------
 
-function sidePieces(p: Pose, hands: Spec["hands"], depth: V): Piece[] {
+function sidePieces(p: Pose, hands: Spec["hands"], depth: V, nearShinOnTop = false): Piece[] {
   const j = joints(p);
   const far = (q: V) => add(q, depth);
   const handN = SIDE[hands?.N ?? "hand"];
@@ -102,7 +106,7 @@ function sidePieces(p: Pose, hands: Spec["hands"], depth: V): Piece[] {
     { key: "head", at: j.neck, angle: p.head, art: SIDE.head },
     { key: "torso", at: j.lumbar, angle: p.torso, art: SIDE.torso },
     { key: "pelvis", at: j.hip, angle: p.pelvis, art: SIDE.pelvis },
-    ...leg(p.legN, "N"),
+    ...(nearShinOnTop ? leg(p.legN, "N").reverse() : leg(p.legN, "N")),
     ...arm(p.armN, "N"),
   ];
 }
@@ -144,7 +148,7 @@ function squarePieces(p: Pose, hands: Spec["hands"], back: boolean, legsInFront 
 
 function pieces(spec: Spec, pose: Pose): Piece[] {
   const view = spec.view ?? "side";
-  if (view === "side") return sidePieces(pose, spec.hands, spec.depth ?? v(-2.2, -1));
+  if (view === "side") return sidePieces(pose, spec.hands, spec.depth ?? v(-2.2, -1), spec.nearShinOnTop);
   return squarePieces(pose, spec.hands, view === "back", spec.legsInFront);
 }
 

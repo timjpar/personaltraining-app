@@ -274,6 +274,43 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "muscle-down",
+    goal: "Muscle-Down",
+    family: "bodyweight",
+    blurb:
+      "Lower from the top of the bar to a dead hang without dropping. It builds the transition from the strong end and lets you link muscle-ups instead of jumping back up each rep.",
+    steps: [
+      {
+        name: "Straight-Bar Support Hold",
+        aka: ["Bar Support Hold", "Straight Bar Support"],
+        how: "Jump or step to support on top of the bar, arms locked, shoulders pushed down, hips touching the bar. 3 × 20–30s.",
+        when: "3 × 30s with locked arms and no shrugging.",
+        target: hold(3, 30),
+        weeks: "1–3 weeks",
+      },
+      {
+        name: "Straight-Bar Dip",
+        how: "From the support, lean over the bar, lower the chest to it and press out. 3 × 5–10.",
+        when: "3 × 10 with the chest touching the bar.",
+        target: reps(3, 10),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Negative Muscle-Up",
+        aka: ["Muscle-Up Negative"],
+        how: "Jump to the top, then lower through the dip and the transition into a hang. 3 × 3, about 5s each.",
+        when: "3 × 3 with no drop at the transition.",
+        target: reps(3, 3),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Muscle-Down",
+        aka: ["Muscle Down", "Muscle-Up Lowering", "Controlled Muscle-Down"],
+        how: "Start in support on top. Lower to the bottom of the dip and pause 2s, roll the elbows under the bar and pause 2s in the transition, then lower to a dead hang. 3 × 3, 8–10s each.",
+      },
+    ],
+  },
+  {
     id: "pistol-squat",
     goal: "Pistol Squat",
     family: "bodyweight",
@@ -703,6 +740,65 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
 
+  {
+    id: "one-arm-pullover",
+    goal: "One-Arm Pullover",
+    family: "bodyweight",
+    blurb:
+      "From a hang to a support on top of the bar by rolling backwards over it: the legs go up and over, the hips meet the bar, and the body pivots on them until it is upright. One arm makes it a pulling and core skill at once. Train both sides.",
+    steps: [
+      {
+        name: "Hanging Knee Raise",
+        how: "Dead hang, knees to the chest, then curl the hips up so the pelvis tips toward the bar. That curl is what a pullover starts with. 3 × 10–15.",
+        when: "3 × 15 without swinging, hips curling at the top.",
+        target: reps(3, 15),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Toes-to-Bar",
+        how: "Straight legs all the way to the bar, controlled, no kip. 3 × 5–8.",
+        when: "3 × 8 strict.",
+        target: reps(3, 8),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Bar Pullover",
+        aka: ["Pullover", "Hip Pullover"],
+        how: "Two hands, from a dead hang. Pull the bar toward the waist while the legs go up and over it, keep the hips close, and roll on them to a straight-arm support. No kick. 3 × 3–6.",
+        when: "3 × 6 strict, without a swing to start them.",
+        target: reps(3, 6),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "One-Arm Hang",
+        how: "One arm on the bar, shoulder pulled down and in, the body still. 3 × 10–20s per side.",
+        when: "3 × 20s per side without the shoulder creeping to the ear.",
+        target: hold(3, 20),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Assisted One-Arm Pull-Up",
+        how: "One hand on the bar, the other on a band or towel lower down doing as little as it can. 3 × 3–5 per side.",
+        when: "3 × 5 per side with the helping hand only lightly loaded.",
+        target: reps(3, 5),
+        weeks: "6–12 weeks",
+      },
+      {
+        name: "One-Arm Pullover Negative",
+        aka: ["Negative One-Arm Pullover"],
+        how: "Get into a one-arm support on top of the bar (step up, or pullover with two hands and let one go), then roll backwards off it as slowly as you can: hips on the bar, legs over, down through the tuck to a hang. 3 × 2–3 per side, 5s each.",
+        when: "3 × 3 per side, controlled all the way to the hang.",
+        target: reps(3, 3),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "One-Arm Pullover",
+        aka: ["One-Arm Bar Pullover", "Single-Arm Pullover"],
+        how: "One-arm hang, free arm loose. Pull and tuck at once, roll back until the hips reach the bar with the legs over it, then pivot on the hips and press to a support. Singles per side, weaker side first.",
+      },
+    ],
+  },
+
   // ---- Core ---------------------------------------------------------------
   {
     id: "l-sit",
@@ -717,6 +813,14 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
         how: "Lower back pressed to the floor, arms overhead, legs low. 3 × 20–40s.",
         when: "3 × 40s with the lower back flat.",
         target: hold(3, 40),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Seated Leg Lift",
+        aka: ["Seated Straight-Leg Raise"],
+        how: "Sit tall, hands flat beside the hips, one knee bent. Lift the straight leg as high as it goes without leaning back, then lower slowly. 3 × 8–12 per leg.",
+        when: "3 × 12 per leg with the heel clearing knee height.",
+        target: reps(3, 12),
         weeks: "2–4 weeks",
       },
       {
@@ -741,8 +845,75 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
         weeks: "6–12 weeks",
       },
       {
+        name: "Wall One-Leg V-Sit",
+        how: "Upper back on a wall, hands on the floor beside the hips, hips just off the floor. One leg straight and as high as it goes, the other tucked. 3 × 10–15s per leg.",
+        when: "3 × 15s per leg with the straight leg near vertical.",
+        target: hold(3, 15),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Wall V-Sit",
+        how: "Same set-up against the wall with both legs straight and together, pulled up towards the chest. 3 × 10–15s.",
+        when: "3 × 15s with locked knees and the hips off the floor.",
+        target: hold(3, 15),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Banded V-Sit",
+        aka: ["Band-Assisted V-Sit"],
+        how: "Off the wall. Loop a light band round the feet and behind the upper back; it holds the legs up while you push the floor away. Start with one leg, then both. 3 × 10–15s.",
+        when: "3 × 15s with the lightest band.",
+        target: hold(3, 15),
+        weeks: "3–6 weeks",
+      },
+      {
         name: "V-Sit",
-        how: "From the L-sit, lift the legs higher while the shoulders lean back. 3 × 5–10s.",
+        how: "Hands pushing the floor or parallettes away, shoulders leaning back, straight legs lifted above the hips. 3 × 5–10s.",
+      },
+    ],
+  },
+  {
+    id: "l-sit-press",
+    goal: "L-Sit Press to Handstand",
+    family: "bodyweight",
+    blurb:
+      "From sitting in an L-sit to standing on your hands without a kick. Three parts carry it: compression to fold the legs in, shoulders that lean on to let the legs pass, and shoulders that keep pushing as the hips go over. Train each on its own, then put them together. Work the L-Sit and Freestanding Handstand paths alongside.",
+    steps: [
+      {
+        name: "L-Sit",
+        how: "Hands beside the hips, arms locked, legs straight out at hip height. 3 × 10–20s.",
+        when: "3 × 20s with straight knees.",
+        target: hold(3, 20),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Block Pike Compression Lean",
+        aka: ["Heels-Elevated Compression Lean", "Elevated Pike Compression"],
+        how: "Heels up on two or three stacked blocks, hands flat just in front of the hips, hips off the floor. Lean the shoulders past the wrists and pull the chest down to the thighs, round back, then ease off. 3 × 6–10 slow reps.",
+        when: "3 × 10 with the chest touching the thighs and straight arms.",
+        target: reps(3, 10),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Chair Press Leg Pass",
+        aka: ["Chair-Assisted Press Leg Pass", "Chair Leg Pass-Through"],
+        how: "Hands on the floor, one foot up on a chair behind you, shoulders over the hands. Lean on and bring the free leg down and through past the hands, then back up. If it won't pass yet, just reach the knee to the arms. 3 × 5 per leg.",
+        when: "3 × 5 per leg with the toes landing past the hands.",
+        target: reps(3, 5),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Wall Pike Press Lean",
+        aka: ["Wall Pike Shoulder Push", "Back-to-Wall Pike Lean"],
+        how: "Seat and heels against a wall, fold forward with hands flat on the floor. Push the floor away and lean the shoulders over the hands until the heels go light, hold, return. 3 × 5 × 5s.",
+        when: "3 × 5 holds of 5s with the heels off the floor.",
+        target: reps(3, 5),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "L-Sit Press to Handstand",
+        aka: ["L-Sit to Handstand Press", "Pike Press to Handstand"],
+        how: "From an L-sit, lean on, swing the hips back and up through the arms, keep pushing as the hips pass over the shoulders, then open into a handstand. 3 × 1–3.",
       },
     ],
   },
@@ -1383,6 +1554,43 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "butterfly",
+    goal: "Feet-Elevated Kettlebell Butterfly Stretch",
+    family: "mobility",
+    blurb:
+      "Adductor and hip length for the knees to fall open with the soles together. Raise the heels for more range, then let kettlebells do the pressing.",
+    steps: [
+      {
+        name: "Butterfly Stretch",
+        aka: ["Seated Butterfly Stretch", "Bound Angle Pose"],
+        how: "Soles together, heels as close in as is comfortable, sit tall and let the knees fall out. 2 × 60s.",
+        when: "2 × 60s sitting tall with the knees relaxed, not held up.",
+        target: hold(2, 60),
+        weeks: "2–3 weeks",
+      },
+      {
+        name: "Feet-Elevated Butterfly Stretch",
+        how: "Same position with the heels up on a yoga block, so the knees have further to drop below the feet. 2 × 60s.",
+        when: "2 × 60s with the knees at or below the height of the block.",
+        target: hold(2, 60),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Kettlebell Butterfly Stretch",
+        aka: ["Loaded Butterfly Stretch", "Weighted Butterfly Stretch"],
+        how: "Back on the floor, rest a kettlebell on each thigh just inside the knee and let it press the knees down. Start light (4–8 kg). 2–3 × 60–90s, breathing slowly.",
+        when: "3 × 90s with no pinching at the front of the hip or the knee.",
+        target: hold(3, 90),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Feet-Elevated Kettlebell Butterfly Stretch",
+        aka: ["Elevated Kettlebell Butterfly Stretch"],
+        how: "Heels on the block and a kettlebell on each thigh. 2–3 × 60–90s. Go heavier only while the knees and hips stay comfortable.",
+      },
+    ],
+  },
+  {
     id: "end-range-quads",
     goal: "Seated Straddle Leg Lifts over Blocks",
     family: "mobility",
@@ -1477,6 +1685,10 @@ const AUTO_PATH: Record<string, string> = {
   "hollow hold": "l-sit",
   "hollow body hold": "l-sit",
   "hanging leg raise": "toes-to-bar",
+  // Both also start the one-arm pullover path, which comes earlier in the
+  // list; the toes-to-bar ladder is the nearer next step.
+  "hanging knee raise": "toes-to-bar",
+  "toes-to-bar": "toes-to-bar",
   plank: "ab-wheel",
   "air squat": "pistol-squat",
   "single-leg glute bridge": "hip-thrust",

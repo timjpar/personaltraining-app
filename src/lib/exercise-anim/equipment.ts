@@ -140,6 +140,17 @@ export function kettlebell(): Drawing {
   };
 }
 
+// A kettlebell standing on the floor seen from above, centred on the middle of
+// its handle, which runs along y.
+export function kettlebellFromAbove(at: V): Drawing {
+  return {
+    svg:
+      `<circle class="iron" cx="${n(at.x)}" cy="${n(at.y)}" r="8.4"/>` +
+      `<path d="M${n(at.x)} ${n(at.y - 5.8)}V${n(at.y + 5.8)}" fill="none" stroke="#6d7673" stroke-width="2.6" stroke-linecap="round"/>`,
+    box: [at.x - 8.4, at.y - 8.4, at.x + 8.4, at.y + 8.4],
+  };
+}
+
 // A kettlebell held upside-down by the horns at the chest (goblet): the grip
 // point is the middle of the handle, bell up.
 export function kettlebellGoblet(): Drawing {
@@ -249,6 +260,14 @@ export function seat(x0: number, x1: number, top: number, backTop?: number): Dra
 
 export function mat(x0: number, x1: number): Drawing {
   return { svg: `<rect class="mat" x="${n(x0)}" y="-1.6" width="${n(x1 - x0)}" height="1.8" rx=".8"/>`, box: [x0, -2, x1, 0] };
+}
+
+// The same mat seen from above, for a body drawn lying on it.
+export function matFromAbove(x0: number, y0: number, x1: number, y1: number): Drawing {
+  return {
+    svg: `<rect class="mat" x="${n(x0)}" y="${n(y0)}" width="${n(x1 - x0)}" height="${n(y1 - y0)}" rx="4"/>`,
+    box: [x0, y0, x1, y1],
+  };
 }
 
 // --- Machines ---------------------------------------------------------------
@@ -474,6 +493,20 @@ export function foamRoller(r = 7.5): Drawing {
   return {
     svg: `<circle r="${r}" fill="#4f8fb8" stroke="#2f6488" stroke-width=".8"/><circle r="${n(r * 0.45)}" fill="none" stroke="#2f6488" stroke-width=".6"/>`,
     box: [-r, -r, r, r],
+  };
+}
+
+// The same roller stood on its end, seen side-on: an upright cylinder on the
+// floor centred at x, with its top face showing as a flat ellipse.
+export function uprightRoller(x: number, height = 32, r = 7): Drawing {
+  const x0 = n(x - r);
+  const cap = n(r * 0.32);
+  return {
+    svg:
+      `<rect x="${x0}" y="${-height}" width="${2 * r}" height="${height}" fill="#4f8fb8" stroke="#2f6488" stroke-width=".8"/>` +
+      `<path d="M${n(x - r * 0.45)} ${n(-height + 3)}V-3" stroke="#78aed1" stroke-width="2" stroke-linecap="round"/>` +
+      `<ellipse cx="${n(x)}" cy="${-height}" rx="${r}" ry="${cap}" fill="#6ea4c8" stroke="#2f6488" stroke-width=".8"/>`,
+    box: [x - r, -height - cap, x + r, 0],
   };
 }
 

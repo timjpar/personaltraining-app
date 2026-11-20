@@ -1159,6 +1159,7 @@ export const PUSH: Spec[] = [
   scapularPushUp,
   dip({ name: "Dip", primary: ["chest", "triceps"], secondary: ["delts_front"] }),
   dip({ name: "Straight-Bar Dip", straightBar: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
+  dip({ name: "Straight-Bar Support Hold", straightBar: true, support: true, primary: ["triceps", "chest"], secondary: ["delts_front", "abs", "forearms"] }),
   dip({ name: "Ring Support Hold", rings: true, support: true, primary: ["triceps", "chest"], secondary: ["delts_front", "abs", "forearms"] }),
   dip({ name: "Ring Dip", rings: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   overheadPress({ name: "Overhead Press", primary: ["delts_front", "delts_side"], secondary: ["triceps", "traps", "abs"] }),

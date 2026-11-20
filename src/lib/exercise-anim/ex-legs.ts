@@ -192,6 +192,83 @@ function hackFrame(p: number) {
   return { pose, props: { pad: turned(hackPad(hip), HACK_LEAN) } };
 }
 
+// --- Knees over toes ---------------------------------------------------------------
+
+// Bodyweight sissy squat on flat ground, as in reel DJSvX28y5Jm: the heels
+// peel up early and the body rides up onto the toes, the knees travel
+// forward and down until they rest on the floor, and the body stays nearly
+// straight from knee to shoulder, leaning back about 50 degrees at the
+// bottom. The arms hang loose, the hands ending down by the heels.
+const SISSY_TOE = v(FOOT.toe.x, 0);
+const SISSY_KNEE_Y = -5;
+const SISSY_FOOT = -72;
+
+function sissyFrame(p: number) {
+  // The foot turns about the toe, heel up (negative = heel up).
+  const foot = kf(p, [[0, 0], [0.25, -36], [1, SISSY_FOOT]]);
+  const ankle = sub(SISSY_TOE, rot(FOOT.toe, foot));
+  // Shin tilt forward from vertical, solved so the knee rests on the floor
+  // at the bottom.
+  const low = sub(SISSY_TOE, rot(FOOT.toe, SISSY_FOOT));
+  const shinBottom = (Math.acos((low.y - SISSY_KNEE_Y) / LEN.shin) * 180) / Math.PI;
+  const shin = (kf(p, [[0, 0], [1, shinBottom]]) * Math.PI) / 180;
+  const knee = add(ankle, v(Math.sin(shin) * LEN.shin, -Math.cos(shin) * LEN.shin));
+  // The trunk leans back; the thigh follows it with a slight hip bend.
+  const lean = kf(p, [[0, -2], [0.3, 18], [1, 48]]);
+  const hipBend = kf(p, [[0, 0], [1, 14]]);
+  const hip = add(knee, rot(v(0, -LEN.thigh), lean - hipBend));
+  let pose = base(hip, { torso: lean, pelvis: lean - hipBend * 0.6, head: lean * 0.2 });
+  const leg = plantLeg(hip, ankle, foot, 1);
+  pose = { ...pose, legN: leg, legF: { ...leg } };
+  const arm = kf(p, [[0, 6], [1, -18]]);
+  pose = { ...pose, armN: limb(arm, arm + 8), armF: limb(arm + 4, arm + 12) };
+  return { pose };
+}
+
+const sissySquat: Spec = {
+  name: "Sissy Squat",
+  aka: ["Knees Over Toes Squat", "KOT Squat", "Bodyweight Sissy Squat", "Sissy Squat to Knees"],
+  mode: "alternate",
+  seconds: 3.8,
+  hands: { N: "hand" },
+  primary: ["quads"],
+  secondary: ["hip_flexors", "abs"],
+  still: 0.8,
+  motion: sissyFrame,
+};
+
+// Goblet squat ankle shift, the ankle fix in reel DI17NR-PTVz: sit in the
+// bottom of a goblet squat, then shift the weight onto one foot and drive
+// that knee forward past the toes, heel flat, chest over the knee. Held
+// 5-10 s to stretch the soleus, then the other side. Side view, near leg
+// working: the hips slide forward and a touch down, the shin tips from
+// about 30 to about 45 degrees, and the foot never leaves the floor.
+const ANKLE_SHIFT_HIP = -47;
+
+function ankleShiftFrame(p: number) {
+  const s = kf(p, [[0, 0], [0.75, 1], [1, 1]]);
+  const torso = lerp(-26, -40, s);
+  const trunk = { torso, pelvis: torso * 0.88, head: torso * 0.45 };
+  const probe = (pose: Pose) => onTrunk(pose, v(4, -22));
+  let pose = stand(ANKLE_SHIFT_HIP + lerp(0, 5, s), trunk, { probe, over: lerp(6, 21, s), ankleN: v(0, -8), ankleF: v(-3, -8) });
+  const g = onTrunk(pose, GOBLET);
+  pose = hold(pose, "side", g, undefined, -1);
+  return { pose, props: { w: turned(g, torso * 0.5) } };
+}
+
+const gobletAnkleShift: Spec = {
+  name: "Goblet Squat Ankle Shift",
+  aka: ["Goblet Squat Soleus Stretch", "Goblet Squat Knee Shift", "Goblet Squat Ankle Mobilization", "Goblet Squat Ankle Pry"],
+  mode: "alternate",
+  seconds: 5,
+  hands: { N: "fist" },
+  primary: ["calves"],
+  secondary: ["quads", "adductors"],
+  still: 1,
+  props: [{ id: "w", draw: dumbbellGoblet(), layer: "front" }],
+  motion: ankleShiftFrame,
+};
+
 // --- Lunges ------------------------------------------------------------------------
 
 type LungeLoad = "none" | "dumbbells" | "back";
@@ -438,6 +515,65 @@ const hipThrust: Spec = {
     const bar = add(pose.hip, rot(v(13, -6), pose.pelvis));
     pose = hold(pose, "side", add(bar, v(0, -1)), undefined, 1);
     return { pose, props: { bar: at(bar) } };
+  },
+};
+
+// From reel DQKLYtmCFgm: shoulders on a bench, hips held up level in a
+// bridge, one kettlebell held by the horns at arm's length. The straight arms
+// sweep the bell in an arc over the chest, from low beside the near hip, up
+// over the face, and down past the far shoulder, the trunk turning a little
+// with it while the hips stay up. Seen side-on, the arc runs across the body,
+// so each arm direction is aimed in three dimensions (toward the feet, down,
+// toward the viewer) and drawn as its projection, shortened by how much of it
+// points at or away from the viewer. The bell shows in front of the body on
+// the near side and behind it on the far side.
+type Dir3 = [feet: number, down: number, near: number];
+const RAINBOW: [number, Dir3][] = [
+  [-1, [0.45, 0.5, 0.74]], // low beside the near hip
+  [0, [0, -1, 0]], // straight up over the chest
+  [1, [-0.35, 0.5, -0.79]], // low past the far shoulder
+];
+function rainbowDir(side: number): Dir3 {
+  const i = side <= 0 ? 0 : 1;
+  const [s0, a] = RAINBOW[i];
+  const [s1, b] = RAINBOW[i + 1];
+  const t = (side - s0) / (s1 - s0);
+  const d: Dir3 = [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+  const n = Math.hypot(...d);
+  return [d[0] / n, d[1] / n, d[2] / n];
+}
+
+const bridgeRainbow: Spec = {
+  name: "Bench Bridge Kettlebell Rainbow",
+  aka: ["Hip Thrust Kettlebell Rainbow", "Kettlebell Rainbow Hip Thrust", "Bridge Kettlebell Rainbow", "Bench Bridge Rainbow"],
+  mode: "alternate",
+  seconds: 3.4,
+  samples: 16,
+  hands: { N: "fist" },
+  primary: ["obliques", "abs", "glutes"],
+  secondary: ["lats", "hamstrings", "delts_front", "forearms"],
+  still: 0,
+  scene: [{ draw: flatBench(-110, -24, -44), layer: "back" }],
+  props: [
+    { id: "kbFar", draw: kettlebell(), layer: "back" },
+    { id: "kbNear", draw: kettlebell(), layer: "front" },
+  ],
+  motion: (p) => {
+    // -1 low on the near side, +1 low on the far side, a beat at each end.
+    const side = kf(p, [[0, -1], [0.12, -1], [0.5, 0], [0.88, 1], [1, 1]]);
+    const d = rainbowDir(side);
+    let angle = (Math.atan2(d[0], d[1]) * 180) / Math.PI;
+    if (side > 0 && angle < 0) angle += 360; // over the top toward the head
+    const k = Math.max(0.12, Math.hypot(d[0], d[1]));
+    // The hips stay up; the trunk tips a touch toward the bell.
+    let pose = bridgePose(v(-27, -44), 90 - side * 2, v(42, -8));
+    const arm = { ...limb(angle, angle, angle), ku: k, kl: k, ke: Math.max(0.4, k) };
+    pose = { ...pose, armN: arm, armF: { ...arm } };
+    const g = grips(pose).N;
+    const kb = { at: g, angle, scaleX: 1 };
+    const hidden = { at: g, angle, scaleX: 0.001 };
+    const near = d[2] >= 0;
+    return { pose, props: { kbNear: near ? kb : hidden, kbFar: near ? hidden : kb } };
   },
 };
 
@@ -930,6 +1066,8 @@ export const LEGS: Spec[] = [
   squat({ name: "Goblet Squat", load: "goblet-db", primary: ["quads", "glutes"], secondary: ["adductors", "abs"] }),
   squat({ name: "Kettlebell Goblet Squat", load: "goblet-kb", primary: ["quads", "glutes"], secondary: ["adductors", "abs"] }),
   squat({ name: "Hack Squat", load: "hack", primary: ["quads"], secondary: ["glutes", "adductors"] }),
+  sissySquat,
+  gobletAnkleShift,
   pistol({ name: "Pistol Squat" }),
   pistol({ name: "Box Pistol Squat", box: true }),
   pistol({ name: "Assisted Pistol Squat", assisted: true }),
@@ -965,6 +1103,7 @@ export const LEGS: Spec[] = [
   swing({ name: "Kettlebell Swing", top: 88 }),
   swing({ name: "American Kettlebell Swing", top: 172 }),
   hipThrust,
+  bridgeRainbow,
   gluteBridge({ name: "Glute Bridge" }),
   gluteBridge({ name: "Single-Leg Glute Bridge", single: true }),
   gluteBridge({ name: "Banded Glute Bridge", band: true }),
