@@ -1,7 +1,7 @@
 // Trunk and hip work: planks, hollows, hanging raises, rollouts, crunches,
 // rotations, levers, and the banded/cabled hip moves.
 
-import { box, cable, cableTower, column, flatBench, hyperBench, kettlebellFromAbove, matFromAbove, medBall, pullUpBar, pullUpBarAcross, wall } from "./equipment";
+import { box, cable, cableTower, column, flatBench, hyperBench, kettlebellFromAbove, matFromAbove, medBall, pullUpBar, pullUpBarAcross, ring, strap, wall } from "./equipment";
 import {
   add,
   allFours,
@@ -327,6 +327,49 @@ const frontLeverRaise: Spec = {
   still: 1,
   scene: [{ draw: pullUpBar(HANG_BAR), layer: "back" }],
   motion: (p) => ({ pose: leverPose(p, kf(p, [[0, 0], [0.5, 0.9], [1, 1]])) }),
+};
+
+// Skin the cat: from a dead hang, tuck the knees and roll backwards between
+// the arms, through an inverted tuck hang, and on round until the body hangs
+// face-down behind the hands in a German hang with the shoulders fully
+// extended. The hands never move; the body turns about the shoulders. Then
+// back the same way. Drawn on rings, where it is usually done; the straps
+// hang either side of the body, so it can pass between them.
+function skinPose(torso: number, arm: number, tuck: number): Pose {
+  const shoulder = sub(HANG_BAR, rot(v(0, LEN.upperArm + LEN.forearm + LEN.grip), arm));
+  const lumbar = sub(shoulder, rot(v(0, -41), torso));
+  const hip = sub(lumbar, rot(v(0, -11), torso));
+  const pose = base(hip, { torso, pelvis: torso, head: torso - 10 });
+  const thigh = lerp(torso, torso + 128, tuck);
+  const shin = lerp(torso, torso - 30, tuck);
+  return { ...pose, armN: limb(arm), armF: limb(arm), legN: limb(thigh, shin, shin + 30), legF: limb(thigh - 2, shin - 2, shin + 28) };
+}
+
+const SKIN_TORSO = 322;
+const SKIN_ARM_LEVER = 166;
+const SKIN_ARM_GERMAN = 206;
+const SKIN_TUCK = 0.2;
+
+const skinTheCat: Spec = {
+  name: "Skin the Cat",
+  aka: ["Skin The Cat", "Skin-the-Cat", "German Hang Skin the Cat"],
+  mode: "alternate",
+  seconds: 7,
+  samples: 60,
+  hands: { N: "fist" },
+  primary: ["lats", "abs", "delts_front"],
+  secondary: ["chest", "biceps", "upper_back", "hip_flexors", "forearms"],
+  still: 0.6,
+  props: [
+    { id: "sN", draw: strap(), layer: "back" },
+    { id: "rN", draw: ring(), layer: "front" },
+  ],
+  motion: (p) => {
+    const torso = kf(p, [[0, 0], [0.22, 18], [0.6, 180], [0.82, 262], [1, SKIN_TORSO]]);
+    const arm = kf(p, [[0, 180], [0.4, SKIN_ARM_LEVER], [0.6, 180], [1, SKIN_ARM_GERMAN]]);
+    const tuck = kf(p, [[0, 0], [0.22, 1], [0.7, 1], [1, SKIN_TUCK]]);
+    return { pose: skinPose(torso, arm, tuck), props: { rN: at(HANG_BAR), sN: line(v(HANG_BAR.x, HANG_BAR.y - 40), HANG_BAR) } };
+  },
 };
 
 // The rest of the lever ladder: hips opened from the tuck, legs out straddled,
@@ -962,6 +1005,7 @@ export const CORE: Spec[] = [
   lever({ name: "Straddle Front Lever", tuck: 0, straddle: true }),
   lever({ name: "Front Lever", aka: ["Full Front Lever"], tuck: 0 }),
   frontLeverRaise,
+  skinTheCat,
   lSit({ name: "Tuck L-Sit", kind: "tuck", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
   lSit({ name: "One-Leg L-Sit", kind: "one", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
   lSit({ name: "L-Sit", aka: ["L Sit"], kind: "full", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
