@@ -308,6 +308,7 @@ const WARMUP_AND_MOBILITY: PresetCategory[] = [
     discipline: DISCIPLINES.MOBILITY,
     exercises: [
       "Couch Stretch",
+      "Eccentric Thomas Test",
       "Pigeon Stretch",
       "Hamstring Stretch",
       "Hip Flexor Stretch",

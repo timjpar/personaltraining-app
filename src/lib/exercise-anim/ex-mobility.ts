@@ -151,6 +151,47 @@ const kneeExternalRotation: Spec = {
   },
 };
 
+// Eccentric Thomas test. Sit near one end of a flat bench and hug the far knee
+// to the chest. The near foot is hooked under a heavy dumbbell on the floor.
+// Roll back slowly until the head and shoulders hang past the far end of the
+// bench. The hugged knee keeps the pelvis tucked, so the anchored thigh is
+// pulled into hip extension and the front of it lengthens under load. Then
+// sit back up. About 2 s down, a beat at the bottom, 1 s up, as in reel
+// DIJKJOEqwXf.
+const THOMAS_SEAT = -44;
+const THOMAS_ANKLE = v(40, -8);
+const eccentricThomas: Spec = {
+  name: "Eccentric Thomas Test",
+  aka: ["Eccentric Thomas Stretch", "Bench Thomas Lowering", "Thomas Test Eccentric", "Eccentric Thomas"],
+  mode: "loop",
+  seconds: 5.5,
+  samples: 48,
+  hands: { N: "fist", F: "fist" },
+  primary: ["hip_flexors", "quads"],
+  secondary: ["abs"],
+  still: 0.04,
+  scene: [{ draw: flatBench(-24, 24, THOMAS_SEAT), layer: "back" }],
+  props: [{ id: "db", draw: dumbbellEnd(7.5), layer: "front" }],
+  motion: (p) => {
+    // 0 = sitting tall, 1 = bottom.
+    const d = kf(p, [[0, 0], [0.08, 0], [0.46, 1], [0.56, 1], [0.76, 0], [1, 0]]);
+    const pelvis = lerp(2, 76, d);
+    const torso = lerp(4, 124, d);
+    const head = lerp(4, 150, d);
+    const hip = v(lerp(0, -7, d), lerp(THOMAS_SEAT - 12, THOMAS_SEAT - 14, d));
+    let pose = base(hip, { pelvis, torso, head });
+    // Hugged far leg: the thigh rides with the pelvis, folded tight to the chest.
+    const thigh = 140 + pelvis * 0.85;
+    const legF: Limb = { upper: thigh, lower: thigh - 122, end: thigh - 112 };
+    pose = { ...pose, legN: plantLeg(hip, THOMAS_ANKLE, 0, 1), legF };
+    // Both hands wrap the shin just below the hugged knee.
+    const knee = add(hip, rot(v(0, LEN.thigh), legF.upper));
+    const grip = add(knee, rot(v(0, 9), legF.lower));
+    pose = hold(pose, "side", add(grip, v(0, 0)), add(grip, v(1, -1)), 1);
+    return { pose, props: { db: at(add(THOMAS_ANKLE, v(7, 0.5))) } };
+  },
+};
+
 const wallSlide: Spec = {
   name: "Wall Slide",
   view: "back",
@@ -1189,6 +1230,7 @@ export const MOBILITY: Spec[] = [
   threadTheNeedle,
   catCow,
   couchStretch,
+  eccentricThomas,
   halfKneel({ name: "Hip Flexor Stretch", aka: ["Half-Kneeling Hip Flexor Stretch"], primary: ["hip_flexors", "quads"], secondary: ["abs"] }),
   halfKneel({ name: "Ankle Rock", aka: ["Ankle Rocks"], ankleRock: true, primary: ["calves"], secondary: ["tibialis"] }),
   pigeon,
