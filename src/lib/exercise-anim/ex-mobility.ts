@@ -2,7 +2,7 @@
 // rooms (sauna, cold plunge).
 
 import { FRONT } from "./body-front";
-import { box, column, doorFrame, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, wall } from "./equipment";
+import { box, column, doorFrame, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, uprightRoller, wall } from "./equipment";
 import {
   add,
   allFours,
@@ -13,8 +13,10 @@ import {
   grips,
   hips,
   hold,
+  ik2,
   joints,
   kf,
+  kfv,
   LEN,
   lerp,
   lerpV,
@@ -447,6 +449,80 @@ const catCow: Spec = {
     const c = Math.sin(2 * Math.PI * p);
     const pose = allFours({ torso: -90 + c * 10, pelvis: -90 - c * 16, head: -90 - c * 28, shrug: 0 });
     return { pose };
+  },
+};
+
+// On hands and knees, head to the right, a foam roller stood on its end
+// beside the near knee, about a third of the way to the hand. The near leg
+// kicks straight back, circles out and forward with the knee bent so the foot
+// clears the top of the roller, and plants flat beside the near hand; then
+// lifts back over the roller the same way and the knee returns to the floor.
+// Seen side-on, the leg shortens as it swings out toward the viewer, which is
+// what the foreshortened knee and shin keys below draw.
+// Shoulders a little above the hips, so the arms are straight as in the reel
+// and there is room under the trunk for the foot to cross the roller.
+const HURDLE_REST = allFours({ torso: -77 });
+const HURDLE_HIP = HURDLE_REST.hip;
+const HURDLE_REST_KNEE = joints(HURDLE_REST).kneeN;
+const HURDLE_REST_ANKLE = joints(HURDLE_REST).ankleN;
+const HURDLE_ROLLER_X = 15;
+const HURDLE_ROLLER_H = 25;
+const HURDLE_PLANT = v(38, -8);
+const HURDLE_PLANT_KNEE = ik2(HURDLE_HIP, HURDLE_PLANT, LEN.thigh, LEN.shin, 1).mid;
+
+// Thigh toward `knee` (shortened if the knee is closer than a thigh length),
+// shin from wherever that leaves the knee toward `ankle`.
+function legThrough(hip: V, knee: V, ankle: V, foot: number): Limb {
+  const a = sub(knee, hip);
+  const ku = Math.min(1, Math.hypot(a.x, a.y) / LEN.thigh);
+  const upper = dirAngle(a);
+  const k = add(hip, rot(v(0, LEN.thigh * ku), upper));
+  const b = sub(ankle, k);
+  return { upper, lower: dirAngle(b), end: foot, ku, kl: Math.min(1, Math.hypot(b.x, b.y) / LEN.shin) };
+}
+
+const rollerHurdle: Spec = {
+  name: "Quadruped Roller Hurdle",
+  aka: [
+    "Quadruped Hip Hurdle",
+    "Roller Hip Hurdle",
+    "Kickback to Step-Through over Roller",
+    "Quadruped Kickback to Step-Through",
+  ],
+  mode: "loop",
+  seconds: 4.4,
+  samples: 48,
+  hands: { N: "palm" },
+  primary: ["glutes", "hip_flexors"],
+  secondary: ["abductors", "abs", "hamstrings"],
+  still: 0.56,
+  nearShinOnTop: true,
+  scene: [{ draw: uprightRoller(HURDLE_ROLLER_X, HURDLE_ROLLER_H), layer: "mid" }],
+  motion: (p) => {
+    const restK = HURDLE_REST_KNEE;
+    const restA = HURDLE_REST_ANKLE;
+    const back = { k: v(-43.6, -55), a: v(-86, -61) };
+    const over = { k: v(28, -57), a: v(12, -43) };
+    const ahead = { k: v(41, -56), a: v(35, -32) };
+    const knee = kfv(p, [
+      [0, restK], [0.06, restK], [0.16, v(-26, -15)], [0.28, back.k], [0.38, back.k],
+      [0.48, v(10, -44)], [0.52, v(20, -52)], [0.56, over.k], [0.61, ahead.k], [0.66, HURDLE_PLANT_KNEE],
+      [0.76, HURDLE_PLANT_KNEE], [0.8, ahead.k], [0.84, over.k], [0.88, v(18, -56)], [0.94, v(8, -22)],
+      [1, restK],
+    ]);
+    const ankle = kfv(p, [
+      [0, restA], [0.06, restA], [0.16, v(-36, -57)], [0.28, back.a], [0.38, back.a],
+      [0.48, v(-22, -50)], [0.52, v(-2, -52)], [0.56, over.a], [0.61, ahead.a], [0.66, HURDLE_PLANT],
+      [0.76, HURDLE_PLANT], [0.8, ahead.a], [0.84, over.a], [0.88, v(0, -50)], [0.94, v(-22, -36)],
+      [1, restA],
+    ]);
+    const foot = kf(p, [
+      [0, -100], [0.06, -100], [0.16, -180], [0.28, -170], [0.38, -170],
+      [0.48, -160], [0.52, -60], [0.56, -20], [0.61, -15], [0.66, 0],
+      [0.76, 0], [0.8, -15], [0.84, -20], [0.88, -30], [0.94, -150],
+      [1, -100],
+    ]);
+    return { pose: { ...HURDLE_REST, legN: legThrough(HURDLE_HIP, knee, ankle, foot) } };
   },
 };
 
@@ -1142,6 +1218,7 @@ export const MOBILITY: Spec[] = [
   childsPose,
   threadTheNeedle,
   catCow,
+  rollerHurdle,
   couchStretch,
   halfKneel({ name: "Hip Flexor Stretch", aka: ["Half-Kneeling Hip Flexor Stretch"], primary: ["hip_flexors", "quads"], secondary: ["abs"] }),
   halfKneel({ name: "Ankle Rock", aka: ["Ankle Rocks"], ankleRock: true, primary: ["calves"], secondary: ["tibialis"] }),

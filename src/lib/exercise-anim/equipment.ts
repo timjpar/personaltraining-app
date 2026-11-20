@@ -477,6 +477,20 @@ export function foamRoller(r = 7.5): Drawing {
   };
 }
 
+// The same roller stood on its end, seen side-on: an upright cylinder on the
+// floor centred at x, with its top face showing as a flat ellipse.
+export function uprightRoller(x: number, height = 32, r = 7): Drawing {
+  const x0 = n(x - r);
+  const cap = n(r * 0.32);
+  return {
+    svg:
+      `<rect x="${x0}" y="${-height}" width="${2 * r}" height="${height}" fill="#4f8fb8" stroke="#2f6488" stroke-width=".8"/>` +
+      `<path d="M${n(x - r * 0.45)} ${n(-height + 3)}V-3" stroke="#78aed1" stroke-width="2" stroke-linecap="round"/>` +
+      `<ellipse cx="${n(x)}" cy="${-height}" rx="${r}" ry="${cap}" fill="#6ea4c8" stroke="#2f6488" stroke-width=".8"/>`,
+    box: [x - r, -height - cap, x + r, 0],
+  };
+}
+
 // A sauna: a bench against a wall of planks.
 export function sauna(x0: number, x1: number, seatTop: number): Drawing {
   const planks = Array.from({ length: 13 }, (_, i) => `<path d="M${x0} ${-16 * (i + 1)}H${x1}" stroke="#b07f48" stroke-width=".7"/>`).join("");
