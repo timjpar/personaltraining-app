@@ -143,6 +143,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Straight-Bar Dip",
       "Straight-Bar Support Hold",
       "Ring Support Hold",
+      "Skin the Cat",
       "Ring Row",
       "Inverted Row",
       "Air Squat",
