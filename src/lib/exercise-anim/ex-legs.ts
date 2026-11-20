@@ -518,6 +518,65 @@ const hipThrust: Spec = {
   },
 };
 
+// From reel DQKLYtmCFgm: shoulders on a bench, hips held up level in a
+// bridge, one kettlebell held by the horns at arm's length. The straight arms
+// sweep the bell in an arc over the chest, from low beside the near hip, up
+// over the face, and down past the far shoulder, the trunk turning a little
+// with it while the hips stay up. Seen side-on, the arc runs across the body,
+// so each arm direction is aimed in three dimensions (toward the feet, down,
+// toward the viewer) and drawn as its projection, shortened by how much of it
+// points at or away from the viewer. The bell shows in front of the body on
+// the near side and behind it on the far side.
+type Dir3 = [feet: number, down: number, near: number];
+const RAINBOW: [number, Dir3][] = [
+  [-1, [0.45, 0.5, 0.74]], // low beside the near hip
+  [0, [0, -1, 0]], // straight up over the chest
+  [1, [-0.35, 0.5, -0.79]], // low past the far shoulder
+];
+function rainbowDir(side: number): Dir3 {
+  const i = side <= 0 ? 0 : 1;
+  const [s0, a] = RAINBOW[i];
+  const [s1, b] = RAINBOW[i + 1];
+  const t = (side - s0) / (s1 - s0);
+  const d: Dir3 = [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+  const n = Math.hypot(...d);
+  return [d[0] / n, d[1] / n, d[2] / n];
+}
+
+const bridgeRainbow: Spec = {
+  name: "Bench Bridge Kettlebell Rainbow",
+  aka: ["Hip Thrust Kettlebell Rainbow", "Kettlebell Rainbow Hip Thrust", "Bridge Kettlebell Rainbow", "Bench Bridge Rainbow"],
+  mode: "alternate",
+  seconds: 3.4,
+  samples: 16,
+  hands: { N: "fist" },
+  primary: ["obliques", "abs", "glutes"],
+  secondary: ["lats", "hamstrings", "delts_front", "forearms"],
+  still: 0,
+  scene: [{ draw: flatBench(-110, -24, -44), layer: "back" }],
+  props: [
+    { id: "kbFar", draw: kettlebell(), layer: "back" },
+    { id: "kbNear", draw: kettlebell(), layer: "front" },
+  ],
+  motion: (p) => {
+    // -1 low on the near side, +1 low on the far side, a beat at each end.
+    const side = kf(p, [[0, -1], [0.12, -1], [0.5, 0], [0.88, 1], [1, 1]]);
+    const d = rainbowDir(side);
+    let angle = (Math.atan2(d[0], d[1]) * 180) / Math.PI;
+    if (side > 0 && angle < 0) angle += 360; // over the top toward the head
+    const k = Math.max(0.12, Math.hypot(d[0], d[1]));
+    // The hips stay up; the trunk tips a touch toward the bell.
+    let pose = bridgePose(v(-27, -44), 90 - side * 2, v(42, -8));
+    const arm = { ...limb(angle, angle, angle), ku: k, kl: k, ke: Math.max(0.4, k) };
+    pose = { ...pose, armN: arm, armF: { ...arm } };
+    const g = grips(pose).N;
+    const kb = { at: g, angle, scaleX: 1 };
+    const hidden = { at: g, angle, scaleX: 0.001 };
+    const near = d[2] >= 0;
+    return { pose, props: { kbNear: near ? kb : hidden, kbFar: near ? hidden : kb } };
+  },
+};
+
 function gluteBridge(o: { name: string; aka?: string[]; single?: boolean; band?: boolean }): Spec {
   return {
     name: o.name,
@@ -1044,6 +1103,7 @@ export const LEGS: Spec[] = [
   swing({ name: "Kettlebell Swing", top: 88 }),
   swing({ name: "American Kettlebell Swing", top: 172 }),
   hipThrust,
+  bridgeRainbow,
   gluteBridge({ name: "Glute Bridge" }),
   gluteBridge({ name: "Single-Leg Glute Bridge", single: true }),
   gluteBridge({ name: "Banded Glute Bridge", band: true }),

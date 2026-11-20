@@ -231,6 +231,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Cable Crunch",
       "Russian Twist",
       "Twisting Alternating Tuck",
+      "Bench Bridge Kettlebell Rainbow",
       "Pallof Press",
       "V-Up",
       "Seated Leg Lift",
