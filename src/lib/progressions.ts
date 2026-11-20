@@ -1417,6 +1417,43 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "butterfly",
+    goal: "Feet-Elevated Kettlebell Butterfly Stretch",
+    family: "mobility",
+    blurb:
+      "Adductor and hip length for the knees to fall open with the soles together. Raise the heels for more range, then let kettlebells do the pressing.",
+    steps: [
+      {
+        name: "Butterfly Stretch",
+        aka: ["Seated Butterfly Stretch", "Bound Angle Pose"],
+        how: "Soles together, heels as close in as is comfortable, sit tall and let the knees fall out. 2 × 60s.",
+        when: "2 × 60s sitting tall with the knees relaxed, not held up.",
+        target: hold(2, 60),
+        weeks: "2–3 weeks",
+      },
+      {
+        name: "Feet-Elevated Butterfly Stretch",
+        how: "Same position with the heels up on a yoga block, so the knees have further to drop below the feet. 2 × 60s.",
+        when: "2 × 60s with the knees at or below the height of the block.",
+        target: hold(2, 60),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Kettlebell Butterfly Stretch",
+        aka: ["Loaded Butterfly Stretch", "Weighted Butterfly Stretch"],
+        how: "Back on the floor, rest a kettlebell on each thigh just inside the knee and let it press the knees down. Start light (4–8 kg). 2–3 × 60–90s, breathing slowly.",
+        when: "3 × 90s with no pinching at the front of the hip or the knee.",
+        target: hold(3, 90),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Feet-Elevated Kettlebell Butterfly Stretch",
+        aka: ["Elevated Kettlebell Butterfly Stretch"],
+        how: "Heels on the block and a kettlebell on each thigh. 2–3 × 60–90s. Go heavier only while the knees and hips stay comfortable.",
+      },
+    ],
+  },
+  {
     id: "end-range-quads",
     goal: "Seated Straddle Leg Lifts over Blocks",
     family: "mobility",
