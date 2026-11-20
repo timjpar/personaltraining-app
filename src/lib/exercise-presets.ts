@@ -299,6 +299,7 @@ const WARMUP_AND_MOBILITY: PresetCategory[] = [
       "Cat-Cow",
       "Hip Airplane",
       "Ankle Rock",
+      "Goblet Squat Ankle Shift",
       "Empty Bar Warm-Up",
       "A-Skip",
     ],
