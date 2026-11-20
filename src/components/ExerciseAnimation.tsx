@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { animationFor, muscleLabel } from "@/lib/exercise-anim/lookup";
+import { threeDFor } from "@/lib/exercise-anim/three-d";
+import { Exercise3D } from "./Exercise3D";
 
 // The two muscle tints the drawings use, so the legend matches the picture
 // rather than the app's theme. Fixed for the same reason the chart series
@@ -41,13 +43,23 @@ export function ExerciseAnimation({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const info = animationFor(name);
+  const threeD = threeDFor(name);
+  // A movement with a 3D view opens on it: it has one because the flat
+  // drawing doesn't make the movement clear.
+  const [view, setView] = useState<"2d" | "3d">("3d");
+  // Mounted only while the dialog is open, so a closed one isn't animating.
+  const [open, setOpen] = useState(false);
   if (!info) return null;
+  const show3d = threeD && view === "3d";
 
   return (
     <>
       <button
         type="button"
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => {
+          setOpen(true);
+          dialog.current?.showModal();
+        }}
         aria-label={`Show how to do ${name}`}
         className={cn(
           "block shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-line bg-[#f4f6f5] transition-colors hover:border-jade/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-jade",
@@ -62,6 +74,7 @@ export function ExerciseAnimation({
       <dialog
         ref={dialog}
         aria-label={name}
+        onClose={() => setOpen(false)}
         // A click that lands on the dialog itself, not its contents, is a
         // click on the backdrop.
         onClick={(e) => {
@@ -82,15 +95,37 @@ export function ExerciseAnimation({
             </svg>
           </button>
         </div>
+        {threeD && (
+          <div role="group" aria-label="View" className="mx-4 mt-3 inline-flex overflow-hidden rounded-[var(--radius-sm)] border border-line sm:mx-5">
+            {(["3d", "2d"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={view === k}
+                onClick={() => setView(k)}
+                className={cn(
+                  "h-9 px-3.5 text-xs font-semibold uppercase tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-jade",
+                  view === k ? "bg-jade/15 text-ink" : "text-ink-soft hover:text-ink",
+                )}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="px-4 pt-3 sm:px-5">
-          {/* eslint-disable-next-line @next/next/no-img-element -- see above. */}
-          <img
-            src={info.src}
-            alt={`${name}, animated`}
-            loading="lazy"
-            decoding="async"
-            className="block aspect-square w-full rounded-[var(--radius-sm)] border border-line bg-[#f4f6f5]"
-          />
+          {show3d ? (
+            open && <Exercise3D src={threeD.src} stage={threeD.stage} name={name} />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element -- see above.
+            <img
+              src={info.src}
+              alt={`${name}, animated`}
+              loading="lazy"
+              decoding="async"
+              className="block aspect-square w-full rounded-[var(--radius-sm)] border border-line bg-[#f4f6f5]"
+            />
+          )}
         </div>
         <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-2.5 px-4 pb-5 pt-4 sm:px-5">
           <MuscleRow label="Works" tint={WORKS} muscles={info.primary} />
