@@ -163,6 +163,7 @@ const RULES: Rule[] = [
       "a-skip", "banded", "band ", "walk",
       "external rotation", "shoulder cars",
       "piked tke", "saq", "straddle leg lift",
+      "roller hurdle", "hip hurdle",
     ],
   },
 ];

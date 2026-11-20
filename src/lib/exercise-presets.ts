@@ -302,6 +302,7 @@ const WARMUP_AND_MOBILITY: PresetCategory[] = [
       "World's Greatest Stretch",
       "Cat-Cow",
       "Hip Airplane",
+      "Quadruped Roller Hurdle",
       "Ankle Rock",
       "Goblet Squat Ankle Shift",
       "Empty Bar Warm-Up",
