@@ -2,6 +2,7 @@
 // rooms (sauna, cold plunge).
 
 import { FRONT } from "./body-front";
+import { SQUARE } from "./rig";
 import { box, column, doorFrame, dumbbellEnd, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, wall } from "./equipment";
 import {
   add,
@@ -34,6 +35,7 @@ import {
   standSquare,
   sub,
   supine,
+  turned,
   v,
   type Limb,
   type Pose,
@@ -958,6 +960,92 @@ const ninetyNinety: Spec = {
   },
 };
 
+// Seated tall, soles of the feet together, knees out to the sides and sinking
+// toward the floor. Square-on, like the 90/90: each leg is placed by where its
+// knee and ankle land on screen. The heavier versions rest a kettlebell on
+// each thigh just inside the knee, hands steadying the handles, and/or put
+// the heels up on a yoga block so the knees have further to fall — the two
+// ways the reel this was drawn from (DNqIvjvM9PW) loads it.
+const BLOCK_TOP = -11;
+function butterfly(o: { name: string; aka?: string[]; kb?: boolean; block?: boolean }): Spec {
+  const lift = o.block ? -BLOCK_TOP : 0;
+  return {
+    name: o.name,
+    aka: o.aka,
+    view: "front",
+    legsInFront: true,
+    mode: "alternate",
+    seconds: 4,
+    hands: { N: o.kb ? "fist" : "palm" },
+    primary: ["adductors"],
+    secondary: ["glutes", "hip_flexors"],
+    still: 1,
+    scene: o.block ? [{ draw: box(-13, 13, BLOCK_TOP, "frame"), layer: "front" }] : [],
+    props: o.kb
+      ? [
+          { id: "kbN", draw: kettlebell(), layer: "front" },
+          { id: "kbF", draw: kettlebell(), layer: "front" },
+        ]
+      : [],
+    motion: (p) => {
+      const sink = breathe(p);
+      let pose = base(v(0, -14), { torso: 0, head: lerp(0, 4, sink) });
+      const h = hips(pose, "front");
+      // Knee from the hip on the right of the picture: raised a little at
+      // rest, sinking toward the floor on the stretch. Feet meet in the middle.
+      const knee = lerpV(v(36, -4 - lift * 0.5), v(41, 5 - lift * 0.25), sink);
+      const ankle = v(-SQUARE.hipX + 5, 9 - lift);
+      const legAt = (hip: V, side: 1 | -1): Limb => {
+        const k = add(hip, v(knee.x * side, knee.y));
+        const a = add(hip, v(ankle.x * side, ankle.y));
+        const thigh = Math.hypot(k.x - hip.x, k.y - hip.y);
+        const shin = Math.hypot(a.x - k.x, a.y - k.y);
+        return {
+          ...limb(dirTo(hip, k), dirTo(k, a), 0),
+          ku: Math.min(1, thigh / LEN.thigh),
+          kl: Math.max(0.15, Math.min(1, shin / LEN.shin)),
+          // Soles together, toes toward the viewer: the feet are short.
+          ke: 0.45,
+        };
+      };
+      pose = { ...pose, legN: legAt(h.N, 1), legF: legAt(h.F, -1) };
+      if (!o.kb) {
+        // Hands resting on the floor out past the knees.
+        pose = palms(pose, "front", v(52, -1), v(-52, -1), 0, -1);
+        return { pose };
+      }
+      // Each bell sits on its thigh just inside the knee; the hand holds
+      // the handle, which is the bell's grip point.
+      const j = frontJoints(pose);
+      const on = (hip: V, k: V) => add(lerpV(hip, k, 0.9), v(0, -15.5));
+      const gN = on(h.N, j.kneeN);
+      const gF = on(h.F, j.kneeF);
+      // Arms hang nearly straight to the handles, the elbows soft and set
+      // back a touch, so each is drawn along the line to its grip and
+      // foreshortened to reach it.
+      const s = shoulders(pose, "front");
+      const reachTo = (sh: V, g: V): Limb => {
+        const a = dirTo(sh, g);
+        const k = (Math.hypot(g.x - sh.x, g.y - sh.y) - LEN.grip) / (LEN.upperArm + LEN.forearm);
+        const side = Math.sign(g.x - sh.x);
+        return { ...limb(a + 6 * side, a - 6 * side, a), ku: k, kl: k };
+      };
+      pose = { ...pose, armN: reachTo(s.N, gN), armF: reachTo(s.F, gF) };
+      return { pose, props: { kbN: turned(gN, 0), kbF: turned(gF, 0) } };
+    },
+  };
+}
+
+const butterflyStretch = butterfly({ name: "Butterfly Stretch", aka: ["Seated Butterfly Stretch", "Bound Angle Pose"] });
+const butterflyElevated = butterfly({ name: "Feet-Elevated Butterfly Stretch", block: true });
+const kbButterfly = butterfly({ name: "Kettlebell Butterfly Stretch", aka: ["Loaded Butterfly Stretch", "Weighted Butterfly Stretch"], kb: true });
+const kbButterflyElevated = butterfly({
+  name: "Feet-Elevated Kettlebell Butterfly Stretch",
+  aka: ["Elevated Kettlebell Butterfly Stretch"],
+  kb: true,
+  block: true,
+});
+
 const frogStretch: Spec = {
   name: "Frog Stretch",
   mode: "alternate",
@@ -1254,6 +1342,10 @@ export const MOBILITY: Spec[] = [
   saunaSpec,
   coldPlunge,
   ninetyNinety,
+  butterflyStretch,
+  butterflyElevated,
+  kbButterfly,
+  kbButterflyElevated,
   frogStretch,
 ];
 
