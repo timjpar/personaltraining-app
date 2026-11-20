@@ -1,7 +1,7 @@
 // Trunk and hip work: planks, hollows, hanging raises, rollouts, crunches,
 // rotations, levers, and the banded/cabled hip moves.
 
-import { box, cable, cableTower, column, flatBench, hyperBench, kettlebellFromAbove, matFromAbove, medBall, pullUpBar, pullUpBarAcross } from "./equipment";
+import { box, cable, cableTower, column, flatBench, hyperBench, kettlebellFromAbove, matFromAbove, medBall, pullUpBar, pullUpBarAcross, wall } from "./equipment";
 import {
   add,
   allFours,
@@ -9,6 +9,7 @@ import {
   base,
   dirAngle,
   frontJoints,
+  ankles,
   grips,
   hangSide,
   hold,
@@ -20,6 +21,7 @@ import {
   mirror,
   negative,
   onTrunk,
+  palms,
   plant,
   plantLeg,
   prone,
@@ -385,6 +387,105 @@ function lSit(o: { name: string; aka?: string[]; kind: "tuck" | "one" | "full" |
       const legF = o.kind === "full" || o.kind === "v" ? out(lift - 2) : tucked;
       pose = { ...pose, legN, legF };
       return { pose: hold(pose, "side", PARALLETTE, undefined, -1) };
+    },
+  };
+}
+
+// The V-sit ladder on the floor: hands flat beside the hips, the trunk
+// leaning back and the legs lifted towards it. Hips are lifted until the arms
+// are straight (`lift` = false keeps the seat on the floor).
+function floorSit(torso: number, palmX: number, lift = true): Pose {
+  const reach = LEN.upperArm + LEN.forearm + LEN.palm - 0.8;
+  let hip = v(0, -12);
+  if (lift) {
+    // Raise the hip until the shoulder is one straight arm above the palm.
+    let lo = -12;
+    let hi = -40;
+    for (let i = 0; i < 24; i++) {
+      const y = (lo + hi) / 2;
+      const s = shoulders(base(v(0, y), { torso })).N;
+      if (Math.hypot(s.x - palmX, s.y) < reach) lo = y;
+      else hi = y;
+    }
+    hip = v(0, lo);
+  }
+  const pose = base(hip, { torso, pelvis: torso, head: torso - 10 });
+  return palms(pose, "side", v(palmX, 0), v(palmX, 0), 90, -1);
+}
+const outLeg = (a: number): Limb => limb(a, a, a + 26);
+const tuckLeg = (torso: number): Limb => limb(torso + 150, torso + 14, torso + 40);
+
+// Long sitting, one knee bent: the straight leg lifts and lowers with no help
+// from leaning back — the first taste of active compression.
+const seatedLegLift: Spec = {
+  name: "Seated Leg Lift",
+  aka: ["Seated Straight-Leg Raise", "Seated Leg Raise"],
+  mode: "alternate",
+  seconds: 2.4,
+  primary: ["hip_flexors", "abs"],
+  secondary: ["quads"],
+  still: 1,
+  motion: (p) => {
+    const pose = floorSit(-6, 10, false);
+    const hip = pose.hip;
+    return {
+      pose: {
+        ...pose,
+        legN: outLeg(lerp(86, 132, p)),
+        legF: plantLeg(hip, v(hip.x + 40, -8), 0, 1),
+      },
+    };
+  },
+};
+
+// Leaning back on a wall takes balance out of it, so all the work is in
+// holding the legs up — one straight leg first, then both.
+const V_WALL = -40;
+function wallVSit(o: { name: string; aka?: string[]; one?: boolean }): Spec {
+  const torso = 30;
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 4,
+    primary: ["abs", "hip_flexors"],
+    secondary: ["triceps", "delts_front", "quads"],
+    still: 0.25,
+    scene: [{ draw: wall(V_WALL - 8, -120), layer: "back" }],
+    motion: (p) => {
+      const b = breathe(p, 2);
+      let pose = floorSit(torso, -14);
+      // Slide the body back until the upper back meets the wall.
+      const back = onTrunk(pose, v(-17, -34));
+      const dx = V_WALL - back.x;
+      pose = floorSit(torso, -14 + dx);
+      pose = { ...pose, hip: add(pose.hip, v(dx, 0)) };
+      pose = palms(pose, "side", v(-14 + dx, 0), v(-14 + dx, 0), 90, -1);
+      const up = 152 - b;
+      return { pose: { ...pose, legN: outLeg(up), legF: o.one ? tuckLeg(torso) : outLeg(up - 2) } };
+    },
+  };
+}
+
+// Free of the wall, a band from the feet round the upper back holds the legs
+// up while the hands carry the body.
+function bandedVSit(o: { name: string; aka?: string[] }): Spec {
+  const torso = 34;
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 4,
+    primary: ["abs", "hip_flexors"],
+    secondary: ["triceps", "delts_front", "quads", "hamstrings"],
+    still: 0.25,
+    props: [{ id: "band", draw: { svg: `<path class="band" d="M0 0H1" style="vector-effect:non-scaling-stroke"/>`, box: [0, -1, 1, 1] }, layer: "back" }],
+    motion: (p) => {
+      const b = breathe(p, 2);
+      const pose = floorSit(torso, -12);
+      const up = 150 - b;
+      const posed = { ...pose, legN: outLeg(up), legF: outLeg(up - 2) };
+      return { pose: posed, props: { band: line(onTrunk(posed, v(-10, -32)), ankles(posed).N) } };
     },
   };
 }
@@ -864,6 +965,10 @@ export const CORE: Spec[] = [
   lSit({ name: "Tuck L-Sit", kind: "tuck", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
   lSit({ name: "One-Leg L-Sit", kind: "one", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
   lSit({ name: "L-Sit", aka: ["L Sit"], kind: "full", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
+  seatedLegLift,
+  wallVSit({ name: "Wall One-Leg V-Sit", aka: ["Wall Single-Leg V-Sit"], one: true }),
+  wallVSit({ name: "Wall V-Sit", aka: ["Wall-Supported V-Sit"] }),
+  bandedVSit({ name: "Banded V-Sit", aka: ["Band-Assisted V-Sit"] }),
   lSit({ name: "V-Sit", aka: ["V Sit"], kind: "v", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads", "hamstrings"] }),
   dragonFlag({ name: "Tuck Dragon Flag", tuck: true }),
   negative(dragonFlag({ name: "Dragon Flag" }), "Dragon Flag Negative"),
