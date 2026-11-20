@@ -1,7 +1,7 @@
 // Browser-safe: which exercises also have a turnable 3D view, and how to stage
-// it. The motion itself comes from the same spec as the flat drawing (see
-// model3d.ts), lifted out of the picture plane: near-side limbs to one side of
-// the body, far-side limbs to the other.
+// it. The motion comes from the same spec as the flat drawing; model3d.ts
+// builds the body in 3D from it, with the across-the-body form the drawing
+// can't show.
 //
 // Only movements that turn the body over, where a fixed side view can't show
 // which way it's going, are worth one. Each lists its own phases, named by the
@@ -23,7 +23,7 @@ export type ThreeDStage = {
 
 const PULLOVER_PHASES: ThreeDStage["phases"] = [
   { below: 20, label: "Hang from the bar" },
-  { below: 100, label: "Pull and bring the knees up" },
+  { below: 100, label: "Lift straight legs up to the bar" },
   { below: 176, label: "Roll back, head going down" },
   { below: 200, label: "Hips on the bar, legs over it" },
   { below: 300, label: "Turn over the bar on the hips" },
@@ -32,16 +32,14 @@ const PULLOVER_PHASES: ThreeDStage["phases"] = [
 
 const SIDE_BAR = { x: 6, y: -236 };
 
-const STAGES: Record<string, ThreeDStage> = {
+export const STAGES: Record<string, ThreeDStage> = {
   "bar-pullover": { bar: SIDE_BAR, phases: PULLOVER_PHASES },
   "one-arm-pullover": { bar: SIDE_BAR, oneArm: true, phases: PULLOVER_PHASES },
   "one-arm-pullover-negative": { bar: SIDE_BAR, oneArm: true, phases: PULLOVER_PHASES },
 };
 
-export const THREE_D_SLUGS = Object.keys(STAGES);
-
 // Bump when the 3D frames change, as ANIMATION_VERSION is for the drawings.
-export const MODEL_VERSION = 2;
+export const MODEL_VERSION = 4;
 
 export function threeDFor(name: string): { slug: string; src: string; stage: ThreeDStage } | null {
   const asked = animationSlug(name);
@@ -51,14 +49,19 @@ export function threeDFor(name: string): { slug: string; src: string; stage: Thr
   return { slug, src: `/exercise-animations/${slug}.3d.json?v=${MODEL_VERSION}`, stage };
 }
 
-// The frames the server sends: each is the 2D joints of the side drawing, plus
-// the trunk angle that names the phase.
-export type ModelPoint = [number, number];
+// The frames the server sends: every joint already placed in 3D (see
+// model3d.ts), in drawing units: x forward, y down, z toward the person's
+// right. "N" is the arm that holds the bar; on a one-arm move "F" is the free
+// arm. Plus the trunk angle that names the phase.
+export type ModelPoint = [number, number, number];
 export type ModelFrame = {
   torso: number;
+  shoulderN: ModelPoint;
+  shoulderF: ModelPoint;
+  hipN: ModelPoint;
+  hipF: ModelPoint;
   hip: ModelPoint;
   lumbar: ModelPoint;
-  shoulder: ModelPoint;
   neck: ModelPoint;
   head: ModelPoint;
   // A point on the front of the head, so the viewer can tell which way the

@@ -32,6 +32,7 @@ import {
   negative,
   LEN,
   lerp,
+  lerpV,
   limb,
   line,
   mirror,
@@ -54,6 +55,7 @@ import {
   type V,
 } from "./kit";
 import type { Prop } from "./render";
+import { smooth } from "./rig";
 
 const barbell = (): Prop[] => [
   { id: "bar", draw: barbellFar(), layer: "back" },
@@ -350,9 +352,10 @@ const muscleUp: Spec = {
   },
 };
 
-// Side-on pullover, from the one-arm reel (DMD1DUDI4wk): pull and tuck, roll
-// backwards until the hips reach the bar with the legs over it, then pivot on
-// the hips until the trunk is upright in a support on top. Torso angles run
+// Side-on pullover, from the one-arm reel (DMD1DUDI4wk): from a nearly
+// straight-arm hang, pike straight legs up to the bar, roll backwards until
+// the hips reach the bar with the legs over it, then pivot on the hips until
+// the trunk is upright in a support on top. Torso angles run
 // past 180 on purpose: the body turns a full circle, and keeping the numbers
 // continuous keeps the interpolation from spinning the wrong way.
 function pullover(o: { name: string; aka?: string[]; oneArm?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
@@ -372,33 +375,46 @@ function pullover(o: { name: string; aka?: string[]; oneArm?: boolean; primary: 
       // The hips orbit the bar at this radius once they reach it.
       const R = 9;
       const pivot = (phi: number) => add(B, v(R * Math.cos((phi * Math.PI) / 180), -R * Math.sin((phi * Math.PI) / 180)));
-      const torso = kf(p, [[0, 2], [0.22, 50], [0.42, 150], [0.55, 180], [0.78, 270], [1, 352]]);
+      const torso = kf(p, [[0, 2], [0.15, 30], [0.28, 80], [0.42, 150], [0.55, 180], [0.78, 270], [1, 352]]);
+      // Lift-off: the hanging arm stays nearly straight while straight legs
+      // pike up to the bar, and only bends late to bring the hips in.
+      const shoulderAt = (q: number) =>
+        kfv(q, [[0, add(B, v(-2, 61.4))], [0.15, add(B, v(-4, 60))], [0.28, add(B, v(-10, 56))], [0.42, add(B, v(-24, 40))]]);
+      const hipFrom = (q: number) => {
+        const t = kf(q, [[0, 2], [0.15, 30], [0.28, 80], [0.42, 150]]);
+        const lumbar = sub(shoulderAt(q), rot(v(0, -41), t));
+        return sub(lumbar, rot(v(0, -11), t));
+      };
       let hip: V;
-      if (p < 0.55) {
-        const hang = add(B, v(-2, 113));
-        hip = kfv(p, [[0, hang], [0.22, add(B, v(18, 60))], [0.42, add(B, v(16, 18))], [0.55, pivot(0)]]);
-      } else {
+      if (p <= 0.42) hip = hipFrom(p);
+      else if (p < 0.55) hip = lerpV(hipFrom(0.42), pivot(0), smooth((p - 0.42) / 0.13));
+      else {
         // Pivot: torso 180 → 360 carries the hips from the near side of the
         // bar, over the top, to the far side.
         hip = pivot(torso - 180);
-        if (p > 0.85) hip = add(hip, v(0, -kf(p, [[0.85, 0], [1, 4]])));
+        // Pressing out: the hips rise until the support arm is locked, the bar
+        // at the top of the thighs.
+        if (p > 0.8) hip = add(hip, v(0, -kf(p, [[0.8, 0], [1, 9]])));
       }
-      let pose = base(hip, { torso, pelvis: torso, head: torso - kf(p, [[0, 6], [0.4, -20], [0.78, -20], [1, 4]]) });
-      const flex = kf(p, [[0, 4], [0.22, 128], [0.42, 100], [0.55, 88], [0.78, 22], [1, 8]]);
-      const knee = kf(p, [[0, 2], [0.22, 130], [0.42, 30], [0.55, 0], [1, 0]]);
+      let pose = base(hip, { torso, pelvis: torso, head: torso - kf(p, [[0, 6], [0.28, -10], [0.42, -20], [0.78, -20], [1, 10]]) });
+      // Straight legs together the whole way: a pike, never a tuck.
+      const flex = kf(p, [[0, 4], [0.15, 62], [0.28, 150], [0.42, 125], [0.55, 92], [0.78, 18], [1, 6]]);
+      const knee = kf(p, [[0, 2], [0.28, 4], [0.55, 0], [1, 2]]);
       const thigh = torso + flex;
       pose = {
         ...pose,
         legN: limb(thigh, thigh - knee, thigh - knee + 24),
-        legF: limb(thigh - 3, thigh - knee - 4, thigh - knee + 20),
+        legF: limb(thigh - 3, thigh - knee - 2, thigh - knee + 22),
       };
       // The grip turns over the bar as the body comes on top of it.
       pose = hold(pose, "side", B, undefined, p < 0.6 ? 1 : -1);
       if (o.oneArm) {
-        // The free arm hangs toward the floor while inverted and finishes raised
-        // overhead, as it does in the reel.
-        const a = kf(p, [[0, 14], [0.22, 40], [0.42, 10], [0.55, -10], [0.78, 20], [1, 165]]);
-        pose = { ...pose, armF: limb(a, a + 30, a + 30) };
+        // Flat stand-in for the free arm (the 3D view draws it properly): out
+        // and up at lift-off, toward the floor while inverted, then across the
+        // chest and up overhead at the finish.
+        const a = kf(p, [[0, 14], [0.15, 100], [0.28, 60], [0.42, 10], [0.55, -10], [0.78, 20], [0.9, 110], [1, 160]]);
+        const fore = kf(p, [[0, 14], [0.15, 170], [0.28, 90], [0.42, 10], [0.55, -10], [0.78, 20], [0.9, 190], [1, 165]]);
+        pose = { ...pose, armF: limb(a, fore, fore) };
       }
       return { pose };
     },
