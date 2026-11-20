@@ -2,7 +2,7 @@
 // rooms (sauna, cold plunge).
 
 import { FRONT } from "./body-front";
-import { box, column, doorFrame, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, wall } from "./equipment";
+import { box, column, doorFrame, dumbbellEnd, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, wall } from "./equipment";
 import {
   add,
   allFours,
@@ -103,6 +103,51 @@ const externalRotation: Spec = {
     const pose = { ...standSquare(), armN: arm, armF: mirror(arm) };
     const g = grips(pose, "front");
     return { pose, props: { band: line(g.F, g.N) } };
+  },
+};
+
+// Seated on a bench, near foot up on the pad and the elbow resting on top of
+// that knee, upper arm reaching forward and a little down. The forearm turns
+// about the upper arm: from hanging down, out toward the viewer, to straight
+// up. Seen from the side it only ever points along the line perpendicular to
+// the upper arm, so it shortens to nothing halfway and flips over. Four
+// seconds down, quick up, as the reel's caption says.
+const KNEE_ER_HIP = v(0, -56);
+const KNEE_ER_ANKLE = v(56, -52);
+const kneeExternalRotation: Spec = {
+  name: "Seated Dumbbell External Rotation",
+  aka: [
+    "Knee-Supported Dumbbell External Rotation",
+    "Elbow-on-Knee External Rotation",
+    "Seated External Rotation",
+    "Dumbbell External Rotation",
+  ],
+  mode: "loop",
+  seconds: 5.4,
+  samples: 48,
+  hands: { N: "fist", F: "hand" },
+  primary: ["delts_rear"],
+  secondary: ["upper_back", "forearms"],
+  still: 0.05,
+  depth: v(-3, -2),
+  scene: [{ draw: flatBench(-50, 84, -44), layer: "back" }],
+  props: [{ id: "db", draw: dumbbellEnd(6.5), layer: "front" }],
+  motion: (p) => {
+    // 180 = forearm straight up, 0 = hanging down.
+    const theta = kf(p, [[0, 180], [0.1, 180], [0.74, 0], [0.8, 0], [0.88, 180], [1, 180]]);
+    let pose = base(KNEE_ER_HIP, { torso: -12, pelvis: -6, head: -4 });
+    pose = { ...pose, legN: plantLeg(KNEE_ER_HIP, KNEE_ER_ANKLE, -2, 1), legF: plantLeg(KNEE_ER_HIP, v(34, -8), 0, 1) };
+    const j = joints(pose);
+    const rest = add(j.kneeN, v(-1, -7));
+    const upper = dirAngle(sub(rest, j.shoulder));
+    const k = Math.abs(Math.cos((theta * Math.PI) / 180));
+    const lower = theta > 90 ? upper + 90 : upper - 90;
+    const armN: Limb = { upper, lower, end: lower, kl: Math.max(k, 0.04), ke: Math.max(k, 0.3) };
+    const armF = palms(pose, "side", add(j.kneeF, v(-4, -5)), undefined, 70).armF;
+    pose = { ...pose, armN, armF };
+    const w = joints(pose).wristN;
+    const g = add(w, rot(v(0, LEN.grip * Math.max(k, 0.3)), lower));
+    return { pose, props: { db: at(g) } };
   },
 };
 
@@ -1127,6 +1172,7 @@ export const MOBILITY: Spec[] = [
   bandPullApart,
   bandFacePull,
   externalRotation,
+  kneeExternalRotation,
   wallSlide,
   armCircles,
   plateHalo,
