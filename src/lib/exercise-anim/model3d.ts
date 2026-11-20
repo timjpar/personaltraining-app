@@ -68,6 +68,28 @@ const FREE_FORE: [number, D3][] = [
   [352, [0.25, 0.8, 0.55]],
 ];
 
+// How far the body has turned about the hanging arm, in radians, by trunk
+// angle: none in the hang, half a turn by the time the hips reach the bar,
+// and it stays turned: the body finishes on top facing the other way.
+function twistAt(torso: number): number {
+  const keys: [number, number][] = [
+    [70, 0],
+    [110, 50],
+    [150, 140],
+    [185, 180],
+  ];
+  if (torso <= keys[0][0]) return 0;
+  for (let i = 1; i < keys.length; i++) {
+    const [t1, a1] = keys[i];
+    const [t0, a0] = keys[i - 1];
+    if (torso <= t1) {
+      const s = (torso - t0) / (t1 - t0);
+      return ((a0 + (a1 - a0) * s * s * (3 - 2 * s)) * Math.PI) / 180;
+    }
+  }
+  return Math.PI;
+}
+
 export function model3d(slug: string): Model | null {
   const stage = STAGES[slug];
   if (!stage) return null;
@@ -87,11 +109,12 @@ export function model3d(slug: string): Model | null {
     // How much of a one-arm hang this is: the body hangs under the hand and
     // the bar-side shoulder rides up. Gone once the hips reach the bar.
     const hang = oneArm ? clamp01((170 - t) / 60) : 0;
-    // Once on top, the bar hand sits beside the hip rather than over the head.
+    // Once on top, the bar hand sits beside the hip rather than over the head:
+    // the body moves away from the hand, which stays where it grips.
     const onTop = oneArm ? clamp01((t - 190) / 60) : 0;
-    const shift = bar * 4 * hang;
+    const shift = bar * (4 * hang - 9 * onTop);
 
-    const handZ = oneArm ? bar * (4 + 9 * onTop) : bar * (SHOULDER + 3);
+    const handZ = oneArm ? bar * 4 : bar * (SHOULDER + 3);
     const shoulderBarZ = bar * SHOULDER + shift;
     const handN = gripPoint(j, pose.armN, "N");
     // Lift the bar-side shoulder, drop the other: shoulders and trunk both
@@ -135,6 +158,27 @@ export function model3d(slug: string): Model | null {
       f.elbowF = elbow.map(r2) as ModelPoint;
       f.wristF = wrist.map(r2) as ModelPoint;
       f.handF = hand.map(r2) as ModelPoint;
+    }
+    if (oneArm) {
+      // The twist round the arm (1.5–2.5 s in the reel): while piked and
+      // rolling back, the whole body turns about the line of the hanging arm,
+      // so the straight legs sweep out sideways along the bar and past the
+      // arm, half a turn, before the hips come onto the bar from that side.
+      const turn = twistAt(t);
+      if (turn) {
+        const c = Math.cos(turn);
+        const sn = Math.sin(turn);
+        const ax = stage.bar.x;
+        const az = handZ;
+        for (const k of Object.keys(f) as (keyof ModelFrame)[]) {
+          if (k === "torso") continue;
+          const q = f[k];
+          const x = q[0] - ax;
+          const z = q[2] - az;
+          // Forward (+x) swings toward the bar-hand side first.
+          f[k] = [r2(ax + x * c + z * sn * -bar), q[1], r2(az + -x * sn * -bar + z * c)];
+        }
+      }
     }
     frames.push(f);
   }

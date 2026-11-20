@@ -24,7 +24,7 @@ export type ThreeDStage = {
 const PULLOVER_PHASES: ThreeDStage["phases"] = [
   { below: 20, label: "Hang from the bar" },
   { below: 100, label: "Lift straight legs up to the bar" },
-  { below: 176, label: "Roll back, head going down" },
+  { below: 176, label: "Swing the legs sideways, turning round the arm" },
   { below: 200, label: "Hips on the bar, legs over it" },
   { below: 300, label: "Turn over the bar on the hips" },
   { below: Infinity, label: "Push up into support on top" },
@@ -39,7 +39,7 @@ export const STAGES: Record<string, ThreeDStage> = {
 };
 
 // Bump when the 3D frames change, as ANIMATION_VERSION is for the drawings.
-export const MODEL_VERSION = 4;
+export const MODEL_VERSION = 5;
 
 export function threeDFor(name: string): { slug: string; src: string; stage: ThreeDStage } | null {
   const asked = animationSlug(name);

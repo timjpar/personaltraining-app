@@ -68,9 +68,9 @@ export function Exercise3D({ src, stage, name }: { src: string; stage: ThreeDSta
   const canvas = useRef<HTMLCanvasElement>(null);
   const [model, setModel] = useState<Model | null>(null);
   const [failed, setFailed] = useState(false);
-  // Opens from the bar-hand side and a little in front, where the reel's
-  // camera stands.
-  const [yaw, setYaw] = useState(-145);
+  // Opens where the reel's camera ends up: the legs' sideways swing reads
+  // along the bar, and the finish faces the viewer.
+  const [yaw, setYaw] = useState(40);
   const [pitch, setPitch] = useState(14);
   // Respect a reader who asked for less motion: start paused. Only ever
   // rendered in the browser (inside an opened dialog).
