@@ -140,6 +140,17 @@ export function kettlebell(): Drawing {
   };
 }
 
+// A kettlebell standing on the floor seen from above, centred on the middle of
+// its handle, which runs along y.
+export function kettlebellFromAbove(at: V): Drawing {
+  return {
+    svg:
+      `<circle class="iron" cx="${n(at.x)}" cy="${n(at.y)}" r="8.4"/>` +
+      `<path d="M${n(at.x)} ${n(at.y - 5.8)}V${n(at.y + 5.8)}" fill="none" stroke="#6d7673" stroke-width="2.6" stroke-linecap="round"/>`,
+    box: [at.x - 8.4, at.y - 8.4, at.x + 8.4, at.y + 8.4],
+  };
+}
+
 // A kettlebell held upside-down by the horns at the chest (goblet): the grip
 // point is the middle of the handle, bell up.
 export function kettlebellGoblet(): Drawing {
@@ -249,6 +260,14 @@ export function seat(x0: number, x1: number, top: number, backTop?: number): Dra
 
 export function mat(x0: number, x1: number): Drawing {
   return { svg: `<rect class="mat" x="${n(x0)}" y="-1.6" width="${n(x1 - x0)}" height="1.8" rx=".8"/>`, box: [x0, -2, x1, 0] };
+}
+
+// The same mat seen from above, for a body drawn lying on it.
+export function matFromAbove(x0: number, y0: number, x1: number, y1: number): Drawing {
+  return {
+    svg: `<rect class="mat" x="${n(x0)}" y="${n(y0)}" width="${n(x1 - x0)}" height="${n(y1 - y0)}" rx="4"/>`,
+    box: [x0, y0, x1, y1],
+  };
 }
 
 // --- Machines ---------------------------------------------------------------

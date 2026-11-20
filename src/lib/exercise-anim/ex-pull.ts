@@ -28,9 +28,11 @@ import {
   ik2,
   joints,
   kf,
+  kfv,
   negative,
   LEN,
   lerp,
+  lerpV,
   limb,
   line,
   mirror,
@@ -53,6 +55,7 @@ import {
   type V,
 } from "./kit";
 import type { Prop } from "./render";
+import { smooth } from "./rig";
 
 const barbell = (): Prop[] => [
   { id: "bar", draw: barbellFar(), layer: "back" },
@@ -348,6 +351,121 @@ const muscleUp: Spec = {
     return { pose };
   },
 };
+
+// Muscle-down: start in support on top of the bar and lower all the way to
+// a dead hang under control, with no jump up. It pauses at the bottom of the
+// dip and again in the transition, where the elbows flip under the bar,
+// because those are the two places people drop. The rise at the start of the
+// loop is only the reset; the lowering is the rep.
+const muscleDown: Spec = {
+  ...muscleUp,
+  name: "Muscle-Down",
+  aka: ["Muscle Down", "Muscle-Up Lowering", "Controlled Muscle-Down"],
+  mode: "loop",
+  seconds: 9,
+  samples: 60,
+  primary: ["lats", "chest", "triceps"],
+  secondary: ["biceps", "upper_back", "abs", "delts_front", "forearms"],
+  still: 0.4,
+  motion: (p) => {
+    const ease = (t: number) => (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t)))) / 2;
+    const span = (t: number, a: number, b: number) => (t - a) / (b - a);
+    // Phases of the muscle-up: 1 is the support on top, 0.72 the bottom of
+    // the dip, 0.55 the transition, 0 the dead hang.
+    const phase =
+      p < 0.08 ? ease(span(p, 0, 0.08))
+      : p < 0.18 ? 1
+      : p < 0.36 ? 1 - 0.28 * ease(span(p, 0.18, 0.36))
+      : p < 0.44 ? 0.72
+      : p < 0.56 ? 0.72 - 0.17 * ease(span(p, 0.44, 0.56))
+      : p < 0.64 ? 0.55
+      : p < 0.9 ? 0.55 * (1 - ease(span(p, 0.64, 0.9)))
+      : 0;
+    return muscleUp.motion(phase);
+  },
+};
+
+// Side-on pullover, from the one-arm reel (DMD1DUDI4wk): from a nearly
+// straight-arm hang, pike straight legs up to the bar, roll backwards until
+// the hips reach the bar with the legs over it, then pivot on the hips until
+// the trunk is upright in a support on top. Torso angles run
+// past 180 on purpose: the body turns a full circle, and keeping the numbers
+// continuous keeps the interpolation from spinning the wrong way.
+function pullover(o: { name: string; aka?: string[]; oneArm?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+  const B = SIDE_BAR;
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: 4,
+    samples: 40,
+    hands: o.oneArm ? { N: "fist", F: "hand" } : { N: "fist" },
+    primary: o.primary,
+    secondary: o.secondary,
+    still: 1,
+    scene: [{ draw: { svg: `<circle class="steel" cx="${B.x}" cy="${B.y}" r="2.8"/>`, box: [B.x - 3, B.y - 3, B.x + 3, B.y + 3] }, layer: "front" }],
+    motion: (p) => {
+      // The hips orbit the bar at this radius once they reach it.
+      const R = 9;
+      const pivot = (phi: number) => add(B, v(R * Math.cos((phi * Math.PI) / 180), -R * Math.sin((phi * Math.PI) / 180)));
+      const torso = kf(p, [[0, 2], [0.15, 30], [0.28, 80], [0.42, 150], [0.55, 180], [0.78, 270], [1, 352]]);
+      // Lift-off: the hanging arm stays nearly straight while straight legs
+      // pike up to the bar, and only bends late to bring the hips in.
+      const shoulderAt = (q: number) =>
+        kfv(q, [[0, add(B, v(-2, 61.4))], [0.15, add(B, v(-4, 60))], [0.28, add(B, v(-10, 56))], [0.42, add(B, v(-24, 40))]]);
+      const hipFrom = (q: number) => {
+        const t = kf(q, [[0, 2], [0.15, 30], [0.28, 80], [0.42, 150]]);
+        const lumbar = sub(shoulderAt(q), rot(v(0, -41), t));
+        return sub(lumbar, rot(v(0, -11), t));
+      };
+      let hip: V;
+      if (p <= 0.42) hip = hipFrom(p);
+      else if (p < 0.55) hip = lerpV(hipFrom(0.42), pivot(0), smooth((p - 0.42) / 0.13));
+      else {
+        // Pivot: torso 180 → 360 carries the hips from the near side of the
+        // bar, over the top, to the far side.
+        hip = pivot(torso - 180);
+        // Pressing out: the hips rise until the support arm is locked, the bar
+        // at the top of the thighs.
+        if (p > 0.8) hip = add(hip, v(0, -kf(p, [[0.8, 0], [1, 9]])));
+      }
+      let pose = base(hip, { torso, pelvis: torso, head: torso - kf(p, [[0, 6], [0.28, -10], [0.42, -20], [0.78, -20], [1, 10]]) });
+      // Straight legs together the whole way: a pike, never a tuck.
+      const flex = kf(p, [[0, 4], [0.15, 62], [0.28, 150], [0.42, 125], [0.55, 92], [0.78, 18], [1, 6]]);
+      const knee = kf(p, [[0, 2], [0.28, 4], [0.55, 0], [1, 2]]);
+      const thigh = torso + flex;
+      pose = {
+        ...pose,
+        legN: limb(thigh, thigh - knee, thigh - knee + 24),
+        legF: limb(thigh - 3, thigh - knee - 2, thigh - knee + 22),
+      };
+      // The grip turns over the bar as the body comes on top of it.
+      pose = hold(pose, "side", B, undefined, p < 0.6 ? 1 : -1);
+      if (o.oneArm) {
+        // Flat stand-in for the free arm (the 3D view draws it properly): out
+        // and up at lift-off, toward the floor while inverted, then across the
+        // chest and up overhead at the finish.
+        const a = kf(p, [[0, 14], [0.15, 100], [0.28, 60], [0.42, 10], [0.55, -10], [0.78, 20], [0.9, 110], [1, 160]]);
+        const fore = kf(p, [[0, 14], [0.15, 170], [0.28, 90], [0.42, 10], [0.55, -10], [0.78, 20], [0.9, 190], [1, 165]]);
+        pose = { ...pose, armF: limb(a, fore, fore) };
+      }
+      return { pose };
+    },
+  };
+}
+const barPullover = pullover({
+  name: "Bar Pullover",
+  aka: ["Pullover", "Hip Pullover", "Pull-Over"],
+  primary: ["lats", "abs"],
+  secondary: ["biceps", "hip_flexors", "forearms", "triceps"],
+});
+const oneArmPullover = pullover({
+  name: "One-Arm Pullover",
+  aka: ["One-Arm Bar Pullover", "Single-Arm Pullover", "One Arm Pull-Over"],
+  oneArm: true,
+  primary: ["lats", "abs", "obliques"],
+  secondary: ["biceps", "forearms", "hip_flexors", "triceps"],
+});
 
 const latPulldown: Spec = {
   name: "Lat Pulldown",
@@ -646,6 +764,10 @@ export const PULL: Spec[] = [
   negative(pullUpBack({ name: "Pull-Up", primary: ["lats", "upper_back"], secondary: ["biceps", "forearms"] }), "Negative Pull-Up", ["Pull-Up Negative"]),
   muscleUp,
   negative(muscleUp, "Negative Muscle-Up", ["Muscle-Up Negative"]),
+  muscleDown,
+  barPullover,
+  oneArmPullover,
+  negative(oneArmPullover, "One-Arm Pullover Negative", ["Negative One-Arm Pullover"]),
   pullUpSide({ name: "Neutral-Grip Pull-Up", primary: ["lats", "biceps"], secondary: ["upper_back", "forearms"] }),
   latPulldown,
   neutralPulldown,

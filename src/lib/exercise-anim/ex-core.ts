@@ -1,13 +1,15 @@
 // Trunk and hip work: planks, hollows, hanging raises, rollouts, crunches,
 // rotations, levers, and the banded/cabled hip moves.
 
-import { box, cable, cableTower, column, flatBench, hyperBench, medBall, pullUpBar, pullUpBarAcross } from "./equipment";
+import { box, cable, cableTower, column, flatBench, hyperBench, kettlebellFromAbove, matFromAbove, medBall, pullUpBar, pullUpBarAcross, ring, strap, wall } from "./equipment";
 import {
   add,
   allFours,
   at,
   base,
+  dirAngle,
   frontJoints,
+  ankles,
   grips,
   hangSide,
   hold,
@@ -19,6 +21,7 @@ import {
   mirror,
   negative,
   onTrunk,
+  palms,
   plant,
   plantLeg,
   prone,
@@ -34,6 +37,7 @@ import {
   type Spec,
   type V,
 } from "./kit";
+import type { Drawing } from "./render";
 
 const breathe = (p: number, amount = 1) => (wave(p) - 0.5) * amount;
 
@@ -325,6 +329,49 @@ const frontLeverRaise: Spec = {
   motion: (p) => ({ pose: leverPose(p, kf(p, [[0, 0], [0.5, 0.9], [1, 1]])) }),
 };
 
+// Skin the cat: from a dead hang, tuck the knees and roll backwards between
+// the arms, through an inverted tuck hang, and on round until the body hangs
+// face-down behind the hands in a German hang with the shoulders fully
+// extended. The hands never move; the body turns about the shoulders. Then
+// back the same way. Drawn on rings, where it is usually done; the straps
+// hang either side of the body, so it can pass between them.
+function skinPose(torso: number, arm: number, tuck: number): Pose {
+  const shoulder = sub(HANG_BAR, rot(v(0, LEN.upperArm + LEN.forearm + LEN.grip), arm));
+  const lumbar = sub(shoulder, rot(v(0, -41), torso));
+  const hip = sub(lumbar, rot(v(0, -11), torso));
+  const pose = base(hip, { torso, pelvis: torso, head: torso - 10 });
+  const thigh = lerp(torso, torso + 128, tuck);
+  const shin = lerp(torso, torso - 30, tuck);
+  return { ...pose, armN: limb(arm), armF: limb(arm), legN: limb(thigh, shin, shin + 30), legF: limb(thigh - 2, shin - 2, shin + 28) };
+}
+
+const SKIN_TORSO = 322;
+const SKIN_ARM_LEVER = 166;
+const SKIN_ARM_GERMAN = 206;
+const SKIN_TUCK = 0.2;
+
+const skinTheCat: Spec = {
+  name: "Skin the Cat",
+  aka: ["Skin The Cat", "Skin-the-Cat", "German Hang Skin the Cat"],
+  mode: "alternate",
+  seconds: 7,
+  samples: 60,
+  hands: { N: "fist" },
+  primary: ["lats", "abs", "delts_front"],
+  secondary: ["chest", "biceps", "upper_back", "hip_flexors", "forearms"],
+  still: 0.6,
+  props: [
+    { id: "sN", draw: strap(), layer: "back" },
+    { id: "rN", draw: ring(), layer: "front" },
+  ],
+  motion: (p) => {
+    const torso = kf(p, [[0, 0], [0.22, 18], [0.6, 180], [0.82, 262], [1, SKIN_TORSO]]);
+    const arm = kf(p, [[0, 180], [0.4, SKIN_ARM_LEVER], [0.6, 180], [1, SKIN_ARM_GERMAN]]);
+    const tuck = kf(p, [[0, 0], [0.22, 1], [0.7, 1], [1, SKIN_TUCK]]);
+    return { pose: skinPose(torso, arm, tuck), props: { rN: at(HANG_BAR), sN: line(v(HANG_BAR.x, HANG_BAR.y - 40), HANG_BAR) } };
+  },
+};
+
 // The rest of the lever ladder: hips opened from the tuck, legs out straddled,
 // then together.
 function lever(o: { name: string; aka?: string[]; tuck: number; straddle?: boolean }): Spec {
@@ -383,6 +430,105 @@ function lSit(o: { name: string; aka?: string[]; kind: "tuck" | "one" | "full" |
       const legF = o.kind === "full" || o.kind === "v" ? out(lift - 2) : tucked;
       pose = { ...pose, legN, legF };
       return { pose: hold(pose, "side", PARALLETTE, undefined, -1) };
+    },
+  };
+}
+
+// The V-sit ladder on the floor: hands flat beside the hips, the trunk
+// leaning back and the legs lifted towards it. Hips are lifted until the arms
+// are straight (`lift` = false keeps the seat on the floor).
+function floorSit(torso: number, palmX: number, lift = true): Pose {
+  const reach = LEN.upperArm + LEN.forearm + LEN.palm - 0.8;
+  let hip = v(0, -12);
+  if (lift) {
+    // Raise the hip until the shoulder is one straight arm above the palm.
+    let lo = -12;
+    let hi = -40;
+    for (let i = 0; i < 24; i++) {
+      const y = (lo + hi) / 2;
+      const s = shoulders(base(v(0, y), { torso })).N;
+      if (Math.hypot(s.x - palmX, s.y) < reach) lo = y;
+      else hi = y;
+    }
+    hip = v(0, lo);
+  }
+  const pose = base(hip, { torso, pelvis: torso, head: torso - 10 });
+  return palms(pose, "side", v(palmX, 0), v(palmX, 0), 90, -1);
+}
+const outLeg = (a: number): Limb => limb(a, a, a + 26);
+const tuckLeg = (torso: number): Limb => limb(torso + 150, torso + 14, torso + 40);
+
+// Long sitting, one knee bent: the straight leg lifts and lowers with no help
+// from leaning back — the first taste of active compression.
+const seatedLegLift: Spec = {
+  name: "Seated Leg Lift",
+  aka: ["Seated Straight-Leg Raise", "Seated Leg Raise"],
+  mode: "alternate",
+  seconds: 2.4,
+  primary: ["hip_flexors", "abs"],
+  secondary: ["quads"],
+  still: 1,
+  motion: (p) => {
+    const pose = floorSit(-6, 10, false);
+    const hip = pose.hip;
+    return {
+      pose: {
+        ...pose,
+        legN: outLeg(lerp(86, 132, p)),
+        legF: plantLeg(hip, v(hip.x + 40, -8), 0, 1),
+      },
+    };
+  },
+};
+
+// Leaning back on a wall takes balance out of it, so all the work is in
+// holding the legs up — one straight leg first, then both.
+const V_WALL = -40;
+function wallVSit(o: { name: string; aka?: string[]; one?: boolean }): Spec {
+  const torso = 30;
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 4,
+    primary: ["abs", "hip_flexors"],
+    secondary: ["triceps", "delts_front", "quads"],
+    still: 0.25,
+    scene: [{ draw: wall(V_WALL - 8, -120), layer: "back" }],
+    motion: (p) => {
+      const b = breathe(p, 2);
+      let pose = floorSit(torso, -14);
+      // Slide the body back until the upper back meets the wall.
+      const back = onTrunk(pose, v(-17, -34));
+      const dx = V_WALL - back.x;
+      pose = floorSit(torso, -14 + dx);
+      pose = { ...pose, hip: add(pose.hip, v(dx, 0)) };
+      pose = palms(pose, "side", v(-14 + dx, 0), v(-14 + dx, 0), 90, -1);
+      const up = 152 - b;
+      return { pose: { ...pose, legN: outLeg(up), legF: o.one ? tuckLeg(torso) : outLeg(up - 2) } };
+    },
+  };
+}
+
+// Free of the wall, a band from the feet round the upper back holds the legs
+// up while the hands carry the body.
+function bandedVSit(o: { name: string; aka?: string[] }): Spec {
+  const torso = 34;
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 4,
+    primary: ["abs", "hip_flexors"],
+    secondary: ["triceps", "delts_front", "quads", "hamstrings"],
+    still: 0.25,
+    props: [{ id: "band", draw: { svg: `<path class="band" d="M0 0H1" style="vector-effect:non-scaling-stroke"/>`, box: [0, -1, 1, 1] }, layer: "back" }],
+    motion: (p) => {
+      const b = breathe(p, 2);
+      const pose = floorSit(torso, -12);
+      const up = 150 - b;
+      const posed = { ...pose, legN: outLeg(up), legF: outLeg(up - 2) };
+      return { pose: posed, props: { band: line(onTrunk(posed, v(-10, -32)), ankles(posed).N) } };
     },
   };
 }
@@ -620,6 +766,97 @@ const russianTwist: Spec = {
   },
 };
 
+// Seen from above, lying on a mat with the head to the right, each hand
+// gripping a kettlebell's handle beside the head for an anchor, elbows out.
+// The legs start straight and raised, hips up off the mat; both knees tuck in
+// toward one shoulder, the hips turning with them, drive back out straight,
+// and tuck in toward the other shoulder. From above, height shows only as
+// shortening and as the shadow the legs throw on the mat, so each leg segment
+// is aimed in three dimensions — along the body toward the head, across it
+// toward the bottom of the picture, and up off the mat — and drawn as its
+// projection, its shadow sliding further from it the higher it is.
+type Dir3 = [along: number, across: number, up: number];
+const unit3 = (d: Dir3): Dir3 => {
+  const n = Math.hypot(...d);
+  return [d[0] / n, d[1] / n, d[2] / n];
+};
+const toward3 = (a: Dir3, b: Dir3, t: number): Dir3 => unit3([lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]);
+const fromAbove = (d: Dir3) => ({ angle: dirAngle(v(d[0], d[1])), k: Math.max(0.05, Math.hypot(d[0], d[1])) });
+
+const TUCK_HIP = v(0, -60);
+const TUCK_BODY = -90; // head to the right
+const TUCK_NECK = frontJoints(base(TUCK_HIP, { torso: TUCK_BODY, pelvis: TUCK_BODY })).neck;
+// The handles sit level with the crown, a forearm and a bit out to each side.
+const TUCK_GRIP = { N: add(TUCK_NECK, v(20, 27)), F: add(TUCK_NECK, v(20, -27)) };
+// Legs straight, raised about 55° and pointing away from the head.
+const TUCK_OUT: Dir3 = unit3([-0.6, 0, 0.8]);
+// Where a point's shadow falls on the mat, per unit of height above it.
+const TUCK_LIGHT = v(-0.2, 0.42);
+// A soft shadow along a unit line, stretched to each leg segment.
+const LEG_SHADOW: Drawing = {
+  svg: `<ellipse cx=".5" rx=".55" ry="5.5" fill="#1f2a27" fill-opacity=".18"/>`,
+  box: [-0.05, -5.5, 1.05, 5.5],
+};
+
+const twistingTuck: Spec = {
+  name: "Twisting Alternating Tuck",
+  aka: ["Twisting Alternating Tucks", "Twisting Tuck", "Kettlebell Twisting Tuck"],
+  view: "front",
+  mode: "alternate",
+  seconds: 3.6,
+  samples: 16,
+  floor: false,
+  backdrop: "#dfe4e2",
+  legsInFront: true,
+  hands: { N: "fist" },
+  primary: ["abs", "obliques"],
+  secondary: ["hip_flexors", "lats", "forearms"],
+  still: 0,
+  scene: [
+    { draw: matFromAbove(TUCK_HIP.x - 80, TUCK_HIP.y - 48, TUCK_GRIP.N.x + 14, TUCK_HIP.y + 48), layer: "back" },
+    { draw: kettlebellFromAbove(TUCK_GRIP.N), layer: "back" },
+    { draw: kettlebellFromAbove(TUCK_GRIP.F), layer: "back" },
+  ],
+  props: ["thighN", "shinN", "thighF", "shinF"].map((id) => ({ id, draw: LEG_SHADOW, layer: "back" as const })),
+  motion: (p) => {
+    // -1 tucked toward the top of the picture, 0 legs out, +1 toward the bottom.
+    const side = kf(p, [[0, -1], [0.5, 0], [1, 1]]);
+    const t = Math.abs(side);
+    const s = side < 0 ? -1 : 1;
+    // Knees by the shoulder and out past the ribs; heels pulled in to the seat.
+    const thighIn: Dir3 = unit3([0.5, 0.72 * s, 0.48]);
+    const shinIn: Dir3 = unit3([-42, -5.7 * s, -11.1]);
+    const aim = (spread: number) => ({
+      thigh: toward3(TUCK_OUT, [thighIn[0], thighIn[1] + spread * t, thighIn[2]], t),
+      shin: toward3(TUCK_OUT, shinIn, t),
+    });
+    const leg = (a: ReturnType<typeof aim>): Limb => {
+      const thigh = fromAbove(a.thigh);
+      const shin = fromAbove(a.shin);
+      return { upper: thigh.angle, lower: shin.angle, end: shin.angle, ku: thigh.k, kl: shin.k, ke: lerp(0.75, 0.9, t) };
+    };
+    const aimN = aim(0.06 * s);
+    const aimF = aim(-0.06 * s);
+    let pose = base(TUCK_HIP, { pelvis: TUCK_BODY - side * 5, torso: TUCK_BODY - side * 2, head: TUCK_BODY });
+    pose = hold({ ...pose, legN: leg(aimN), legF: leg(aimF) }, "front", TUCK_GRIP.N, TUCK_GRIP.F, -1, 1);
+    // Shadows: the hips ride a little off the mat, the legs above them.
+    const j = frontJoints(pose);
+    const hipUp = lerp(14, 10, t);
+    const onMat = (q: V, up: number) => add(q, v(TUCK_LIGHT.x * up, TUCK_LIGHT.y * up));
+    const shadows = (hip: V, knee: V, ankle: V, a: ReturnType<typeof aim>) => {
+      const kneeUp = hipUp + LEN.thigh * a.thigh[2];
+      const ankleUp = kneeUp + LEN.shin * a.shin[2];
+      return {
+        thigh: line(onMat(hip, hipUp), onMat(knee, kneeUp)),
+        shin: line(onMat(knee, kneeUp), onMat(ankle, ankleUp)),
+      };
+    };
+    const n = shadows(j.hip, j.kneeN, j.ankleN, aimN);
+    const f = shadows(j.hipF, j.kneeF, j.ankleF, aimF);
+    return { pose, props: { thighN: n.thigh, shinN: n.shin, thighF: f.thigh, shinF: f.shin } };
+  },
+};
+
 const SIDE_PULLEY = v(84, -128);
 const pallofPress: Spec = {
   name: "Pallof Press",
@@ -768,9 +1005,14 @@ export const CORE: Spec[] = [
   lever({ name: "Straddle Front Lever", tuck: 0, straddle: true }),
   lever({ name: "Front Lever", aka: ["Full Front Lever"], tuck: 0 }),
   frontLeverRaise,
+  skinTheCat,
   lSit({ name: "Tuck L-Sit", kind: "tuck", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
   lSit({ name: "One-Leg L-Sit", kind: "one", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
   lSit({ name: "L-Sit", aka: ["L Sit"], kind: "full", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
+  seatedLegLift,
+  wallVSit({ name: "Wall One-Leg V-Sit", aka: ["Wall Single-Leg V-Sit"], one: true }),
+  wallVSit({ name: "Wall V-Sit", aka: ["Wall-Supported V-Sit"] }),
+  bandedVSit({ name: "Banded V-Sit", aka: ["Band-Assisted V-Sit"] }),
   lSit({ name: "V-Sit", aka: ["V Sit"], kind: "v", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads", "hamstrings"] }),
   dragonFlag({ name: "Tuck Dragon Flag", tuck: true }),
   negative(dragonFlag({ name: "Dragon Flag" }), "Dragon Flag Negative"),
@@ -792,6 +1034,7 @@ export const CORE: Spec[] = [
   standingAbWheel,
   cableCrunch,
   russianTwist,
+  twistingTuck,
   pallofPress,
   woodchop,
   cableHip({ name: "Hip Abduction", abduct: true }),

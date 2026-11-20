@@ -7,7 +7,8 @@ import { LEGS } from "./ex-legs";
 import { MOBILITY } from "./ex-mobility";
 import { OLYMPIC } from "./ex-olympic";
 import { PULL } from "./ex-pull";
+import { PRESS_DRILLS } from "./ex-press";
 import { PUSH } from "./ex-push";
 import type { Spec } from "./render";
 
-export const SPECS: Spec[] = [...LEGS, ...PUSH, ...PULL, ...CARDIO, ...OLYMPIC, ...CORE, ...MOBILITY, ...CLIMB];
+export const SPECS: Spec[] = [...LEGS, ...PUSH, ...PULL, ...CARDIO, ...OLYMPIC, ...CORE, ...PRESS_DRILLS, ...MOBILITY, ...CLIMB];
