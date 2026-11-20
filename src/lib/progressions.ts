@@ -274,6 +274,43 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "muscle-down",
+    goal: "Muscle-Down",
+    family: "bodyweight",
+    blurb:
+      "Lower from the top of the bar to a dead hang without dropping. It builds the transition from the strong end and lets you link muscle-ups instead of jumping back up each rep.",
+    steps: [
+      {
+        name: "Straight-Bar Support Hold",
+        aka: ["Bar Support Hold", "Straight Bar Support"],
+        how: "Jump or step to support on top of the bar, arms locked, shoulders pushed down, hips touching the bar. 3 × 20–30s.",
+        when: "3 × 30s with locked arms and no shrugging.",
+        target: hold(3, 30),
+        weeks: "1–3 weeks",
+      },
+      {
+        name: "Straight-Bar Dip",
+        how: "From the support, lean over the bar, lower the chest to it and press out. 3 × 5–10.",
+        when: "3 × 10 with the chest touching the bar.",
+        target: reps(3, 10),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Negative Muscle-Up",
+        aka: ["Muscle-Up Negative"],
+        how: "Jump to the top, then lower through the dip and the transition into a hang. 3 × 3, about 5s each.",
+        when: "3 × 3 with no drop at the transition.",
+        target: reps(3, 3),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Muscle-Down",
+        aka: ["Muscle Down", "Muscle-Up Lowering", "Controlled Muscle-Down"],
+        how: "Start in support on top. Lower to the bottom of the dip and pause 2s, roll the elbows under the bar and pause 2s in the transition, then lower to a dead hang. 3 × 3, 8–10s each.",
+      },
+    ],
+  },
+  {
     id: "pistol-squat",
     goal: "Pistol Squat",
     family: "bodyweight",

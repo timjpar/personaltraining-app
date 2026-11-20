@@ -352,6 +352,39 @@ const muscleUp: Spec = {
   },
 };
 
+// Muscle-down: start in support on top of the bar and lower all the way to
+// a dead hang under control, with no jump up. It pauses at the bottom of the
+// dip and again in the transition, where the elbows flip under the bar,
+// because those are the two places people drop. The rise at the start of the
+// loop is only the reset; the lowering is the rep.
+const muscleDown: Spec = {
+  ...muscleUp,
+  name: "Muscle-Down",
+  aka: ["Muscle Down", "Muscle-Up Lowering", "Controlled Muscle-Down"],
+  mode: "loop",
+  seconds: 9,
+  samples: 60,
+  primary: ["lats", "chest", "triceps"],
+  secondary: ["biceps", "upper_back", "abs", "delts_front", "forearms"],
+  still: 0.4,
+  motion: (p) => {
+    const ease = (t: number) => (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t)))) / 2;
+    const span = (t: number, a: number, b: number) => (t - a) / (b - a);
+    // Phases of the muscle-up: 1 is the support on top, 0.72 the bottom of
+    // the dip, 0.55 the transition, 0 the dead hang.
+    const phase =
+      p < 0.08 ? ease(span(p, 0, 0.08))
+      : p < 0.18 ? 1
+      : p < 0.36 ? 1 - 0.28 * ease(span(p, 0.18, 0.36))
+      : p < 0.44 ? 0.72
+      : p < 0.56 ? 0.72 - 0.17 * ease(span(p, 0.44, 0.56))
+      : p < 0.64 ? 0.55
+      : p < 0.9 ? 0.55 * (1 - ease(span(p, 0.64, 0.9)))
+      : 0;
+    return muscleUp.motion(phase);
+  },
+};
+
 // Side-on pullover, from the one-arm reel (DMD1DUDI4wk): from a nearly
 // straight-arm hang, pike straight legs up to the bar, roll backwards until
 // the hips reach the bar with the legs over it, then pivot on the hips until
@@ -731,6 +764,7 @@ export const PULL: Spec[] = [
   negative(pullUpBack({ name: "Pull-Up", primary: ["lats", "upper_back"], secondary: ["biceps", "forearms"] }), "Negative Pull-Up", ["Pull-Up Negative"]),
   muscleUp,
   negative(muscleUp, "Negative Muscle-Up", ["Muscle-Up Negative"]),
+  muscleDown,
   barPullover,
   oneArmPullover,
   negative(oneArmPullover, "One-Arm Pullover Negative", ["Negative One-Arm Pullover"]),
