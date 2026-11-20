@@ -92,6 +92,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Cable Fly",
       "Cable Lateral Raise",
       "Face Pull",
+      "Seated Dumbbell External Rotation",
       "Triceps Pushdown",
       "Cable Curl",
       "Leg Press",
