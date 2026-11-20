@@ -1,7 +1,7 @@
 // Trunk and hip work: planks, hollows, hanging raises, rollouts, crunches,
 // rotations, levers, and the banded/cabled hip moves.
 
-import { box, cable, cableTower, column, flatBench, hyperBench, kettlebellFromAbove, matFromAbove, medBall, pullUpBar, pullUpBarAcross, ring, strap, wall } from "./equipment";
+import { barbellAcross, barLine, box, cable, cableTower, column, flatBench, hyperBench, kettlebellFromAbove, landmineBase, matFromAbove, medBall, plateFace, pullUpBar, pullUpBarAcross, ring, stabilityBall, strap, wall } from "./equipment";
 import {
   add,
   allFours,
@@ -30,6 +30,7 @@ import {
   standSquare,
   sub,
   supine,
+  turned,
   v,
   wave,
   type Limb,
@@ -638,30 +639,131 @@ const flagSweep: Spec = {
   motion: (p) => ({ pose: flagPose(lerp(0, 90, p), "together") }),
 };
 
+type Frame = ReturnType<Spec["motion"]>;
+
+const WHEEL: NonNullable<Spec["props"]>[number] = {
+  id: "wheel",
+  draw: { svg: `<circle class="iron" r="9"/><circle class="steel" r="2.4"/>`, box: [-9, -9, 9, 9] },
+  layer: "front",
+};
+const ROLLOUT_MUSCLES: Pick<Spec, "primary" | "secondary"> = {
+  primary: ["abs"],
+  secondary: ["lats", "obliques", "hip_flexors", "triceps", "delts_front"],
+};
+
+// Arms straight from the shoulders down to the wheel on the floor.
+function onWheel(pose: Pose): Frame {
+  const s = shoulders(pose).N;
+  const reach = LEN.upperArm + LEN.forearm + LEN.grip;
+  const a = (Math.acos(Math.max(-1, Math.min(1, (-9 - s.y) / reach))) * 180) / Math.PI;
+  pose = { ...pose, armN: limb(a), armF: limb(a) };
+  return { pose, props: { wheel: at(grips(pose).N) } };
+}
+
 // The rollout from the feet: from a pike over the wheel out to a body near
 // level with the floor, legs straight throughout.
+function standingRollout(p: number): Frame {
+  const ankle = v(-70, -8);
+  const legAngle = lerp(-14, -74, p);
+  const hip = sub(ankle, rot(v(0, LEN.thigh + LEN.shin - 1), legAngle));
+  const torso = lerp(-150, -96, p);
+  let pose = base(hip, { torso, pelvis: lerp(-120, -92, p), head: torso + 20 });
+  pose = { ...pose, legN: limb(legAngle, legAngle, legAngle - 30), legF: limb(legAngle, legAngle, legAngle - 30) };
+  return onWheel(pose);
+}
+
+// From the knees: hips tucked, the trunk lowering as the wheel goes out.
+function kneelingRollout(p: number): Frame {
+  const knee = v(0, -6);
+  const thigh = lerp(-20, -72, p);
+  const torso = lerp(-58, -98, p);
+  const hip = sub(knee, rot(v(0, LEN.thigh), thigh));
+  let pose = base(hip, { torso, pelvis: lerp(-30, -84, p), head: torso + 16 });
+  pose = { ...pose, legN: limb(thigh, -90, -180), legF: limb(thigh, -90, -180) };
+  return onWheel(pose);
+}
+
 const standingAbWheel: Spec = {
   name: "Standing Ab Wheel Rollout",
   mode: "alternate",
   seconds: 3.6,
   hands: { N: "fist" },
-  primary: ["abs"],
-  secondary: ["lats", "obliques", "hip_flexors", "triceps", "delts_front"],
+  ...ROLLOUT_MUSCLES,
   still: 1,
-  props: [{ id: "wheel", draw: { svg: `<circle class="iron" r="9"/><circle class="steel" r="2.4"/>`, box: [-9, -9, 9, 9] }, layer: "front" }],
+  props: [WHEEL],
+  motion: standingRollout,
+};
+
+// The same rollouts cut short by a wall in front of the wheel, which stops it
+// at `stop` of the full range: the athlete moves the wall back as they get
+// stronger.
+function wallStop(o: { name: string; aka?: string[]; stop: number; seconds: number; roll: (p: number) => Frame }): Spec {
+  const wheelAt = o.roll(o.stop).props?.wheel?.at ?? v(0, 0);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: o.seconds,
+    hands: { N: "fist" },
+    ...ROLLOUT_MUSCLES,
+    still: 1,
+    scene: [{ draw: wall(wheelAt.x + 9, -96), layer: "back" }],
+    props: [WHEEL],
+    motion: (p) => o.roll(p * o.stop),
+  };
+}
+
+// Only the way out, from the feet: a slow roll until the body is near the
+// floor, then back in quickly (in practice, on the knees). The reverse of
+// kit's negative(), whose slow half is the return.
+const standingAbWheelNegative: Spec = {
+  ...standingAbWheel,
+  name: "Standing Ab Wheel Negative",
+  aka: ["Ab Wheel Negative", "Standing Rollout Negative"],
+  mode: "loop",
+  seconds: 6,
+  samples: 40,
+  still: 0.5,
   motion: (p) => {
-    const ankle = v(-70, -8);
-    const legAngle = lerp(-14, -74, p);
-    const hip = sub(ankle, rot(v(0, LEN.thigh + LEN.shin - 1), legAngle));
-    const torso = lerp(-150, -96, p);
-    let pose = base(hip, { torso, pelvis: lerp(-120, -92, p), head: torso + 20 });
-    pose = { ...pose, legN: limb(legAngle, legAngle, legAngle - 30), legF: limb(legAngle, legAngle, legAngle - 30) };
-    const s = shoulders(pose).N;
-    const reach = LEN.upperArm + LEN.forearm + LEN.grip;
-    const a = (Math.acos(Math.max(-1, Math.min(1, (-9 - s.y) / reach))) * 180) / Math.PI;
-    pose = { ...pose, armN: limb(a), armF: limb(a) };
-    return { pose, props: { wheel: at(grips(pose).N) } };
+    const back = (t: number) => (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t)))) / 2;
+    return standingRollout(p < 0.7 ? p / 0.7 : p < 0.8 ? 1 : 1 - back((p - 0.8) / 0.2));
   },
+};
+
+// Kneeling with the forearms on a big ball: the arms carry less of the body
+// than on a wheel, and the ball only rolls as far as the forearms can reach.
+// The elbows stay at the ball's height, so the upper arms swing up overhead as
+// the body lowers.
+const BALL_R = 25;
+function ballRollout(p: number): Frame {
+  const knee = v(0, -6);
+  const thigh = lerp(-16, -58, p);
+  const torso = lerp(-52, -80, p);
+  const hip = sub(knee, rot(v(0, LEN.thigh), thigh));
+  let pose = base(hip, { torso, pelvis: lerp(-26, -66, p), head: torso + 14 });
+  pose = { ...pose, legN: limb(thigh, -90, -180), legF: limb(thigh, -90, -180) };
+  const s = shoulders(pose).N;
+  const elbowY = -2 * BALL_R - 3.5;
+  const upper = (Math.acos(Math.max(-1, Math.min(1, (elbowY - s.y) / LEN.upperArm))) * 180) / Math.PI;
+  const arm = limb(upper, 92, 92);
+  pose = { ...pose, armN: arm, armF: { ...arm } };
+  const elbow = add(s, rot(v(0, LEN.upperArm), upper));
+  const centre = v(elbow.x + LEN.forearm * 0.55, -BALL_R);
+  // Rolling, not sliding: the seam turns with the distance travelled.
+  return { pose, props: { ball: turned(centre, -((centre.x / BALL_R) * 180) / Math.PI) } };
+}
+
+const stabilityBallRollout: Spec = {
+  name: "Stability Ball Rollout",
+  aka: ["Swiss Ball Rollout", "Ball Rollout", "Exercise Ball Rollout"],
+  mode: "alternate",
+  seconds: 3.2,
+  hands: { N: "fist" },
+  primary: ["abs"],
+  secondary: ["lats", "obliques", "hip_flexors", "delts_front"],
+  still: 1,
+  props: [{ id: "ball", draw: stabilityBall(BALL_R), layer: "mid" }],
+  motion: ballRollout,
 };
 
 const ACROSS = -238;
@@ -689,27 +791,15 @@ const windshieldWiper: Spec = {
 
 const abWheel: Spec = {
   name: "Ab Wheel Rollout",
-  aka: ["Ab Rollout"],
+  aka: ["Ab Rollout", "Kneeling Ab Wheel Rollout", "Ab Roller", "Ab Rollers"],
   mode: "alternate",
   seconds: 3.2,
   hands: { N: "fist" },
   primary: ["abs"],
   secondary: ["lats", "obliques", "hip_flexors", "triceps"],
   still: 1,
-  props: [{ id: "wheel", draw: { svg: `<circle class="iron" r="9"/><circle class="steel" r="2.4"/>`, box: [-9, -9, 9, 9] }, layer: "front" }],
-  motion: (p) => {
-    const knee = v(0, -6);
-    const thigh = lerp(-20, -72, p);
-    const torso = lerp(-58, -98, p);
-    const hip = sub(knee, rot(v(0, LEN.thigh), thigh));
-    let pose = base(hip, { torso, pelvis: lerp(-30, -84, p), head: torso + 16 });
-    pose = { ...pose, legN: limb(thigh, -90, -180), legF: limb(thigh, -90, -180) };
-    const s = shoulders(pose).N;
-    const reach = LEN.upperArm + LEN.forearm + LEN.grip;
-    const a = (Math.acos(Math.max(-1, Math.min(1, (-9 - s.y) / reach))) * 180) / Math.PI;
-    pose = { ...pose, armN: limb(a), armF: limb(a) };
-    return { pose, props: { wheel: at(grips(pose).N) } };
-  },
+  props: [WHEEL],
+  motion: kneelingRollout,
 };
 
 const CRUNCH_PULLEY = v(64, -206);
@@ -902,6 +992,156 @@ const woodchop: Spec = {
   },
 };
 
+// --- From a rugby core circuit -------------------------------------------------
+//
+// Four rotation and side-bend moves, all square-on: what they train happens
+// side to side, which a side view would hide.
+
+// A bar across the upper back, hands wide, driving one end down and the other
+// up by bending side to side, the hips shifting the other way to stay over the
+// feet. The bar tilts further than the trunk: the high shoulder shrugs up.
+const barbellSeesaw: Spec = {
+  name: "Barbell Seesaw",
+  aka: ["Seesaw", "Barbell See-Saw", "Seesaws"],
+  view: "front",
+  mode: "alternate",
+  seconds: 1.6,
+  hands: { N: "fist" },
+  primary: ["obliques"],
+  secondary: ["abs", "lower_back", "traps", "glutes"],
+  still: 1,
+  props: [{ id: "bar", draw: barbellAcross(), layer: "back" }],
+  motion: (p) => {
+    const s = lerp(-1, 1, p);
+    const torso = s * 14;
+    let pose = base(v(-s * 4, -92.6), { torso, pelvis: s * 3, head: s * 5 });
+    pose = plant(pose, "front", v(17, -8), v(-17, -8), {}, 1);
+    const tilt = s * 24;
+    const centre = add(frontJoints(pose).lumbar, rot(v(0, -40), torso));
+    pose = hold(pose, "front", add(centre, rot(v(46, 0), tilt)), add(centre, rot(v(-46, 0), tilt)));
+    return { pose, props: { bar: turned(centre, tilt) } };
+  },
+};
+
+// Sitting on the floor, knees up, feet down: thighs point up at the viewer and
+// the shins drop back to the floor. Drawn over the trunk.
+function seatedKneesUp(): Pose {
+  const pose = base(v(0, -16));
+  const leg = { ...limb(160, -8, 0), ku: 0.55, kl: 0.72, ke: 0.4 };
+  return { ...pose, legN: leg, legF: mirror(leg) };
+}
+
+// Catch the ball overhead, swing it down beside one hip with the trunk
+// turning after it, swing it back up and throw it from overhead. Thrown
+// toward a partner, which from the front reads as up and away; it drops back
+// into the hands for the next rep.
+const mul2 = (q: V, k: number) => v(q.x * k, q.y * k);
+const BALL_TOP = v(0, -126);
+const BALL_HIP = v(-34, -26);
+const seatedBallThrow: Spec = {
+  name: "Seated Medicine Ball Throw",
+  aka: ["Ball Throws", "Seated Med Ball Throw", "Seated Rotational Med Ball Throw"],
+  view: "front",
+  legsInFront: true,
+  mode: "loop",
+  seconds: 2.4,
+  samples: 36,
+  hands: { N: "hand" },
+  primary: ["obliques", "abs"],
+  secondary: ["delts_front", "lats", "hip_flexors"],
+  still: 0.4,
+  props: [{ id: "ball", draw: medBall(10), layer: "front" }],
+  motion: (p) => {
+    const t = kf(p, [[0, 0], [0.38, 1], [0.64, 0]]);
+    const torso = t * 14;
+    let pose = { ...seatedKneesUp(), torso, pelvis: t * 3, head: t * 7 };
+    const held = add(BALL_TOP, mul2(sub(BALL_HIP, BALL_TOP), t));
+    // Elbows fold down and out as the ball comes across to the hip; overhead
+    // the arms are straight, so which way they would fold never shows.
+    pose = hold(pose, "front", add(held, v(8.5, 0)), add(held, v(-8.5, 0)), 1, 1);
+    // Released at the top, up and away, and caught again.
+    const flight = p > 0.64 ? Math.sin(((p - 0.64) / 0.36) * Math.PI) : 0;
+    return { pose, props: { ball: at(add(held, v(0, -flight * 44))) } };
+  },
+};
+// A plate held at its rim in both hands, chopped from over one shoulder down
+// across to the opposite hip, swept across low to the other hip, and lifted
+// over the far shoulder to chop down the other way: a figure of eight.
+const CHOP_HIGH = v(40, -196);
+const CHOP_LOW = v(42, -78);
+const plateWoodchop: Spec = {
+  name: "Plate Woodchop",
+  aka: ["Plate Woodchopper", "Woodchoppers", "Woodchopper"],
+  view: "front",
+  mode: "loop",
+  seconds: 4,
+  samples: 48,
+  hands: { N: "fist" },
+  primary: ["obliques"],
+  secondary: ["abs", "delts_front", "glutes", "quads"],
+  still: 1 / 12,
+  props: [{ id: "plate", draw: plateFace(14), layer: "front" }],
+  motion: (p) => {
+    const T = [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6, 1];
+    // high left → low right → low left → high right → low left → low right → high left
+    const xs = [-CHOP_HIGH.x, CHOP_LOW.x, -CHOP_LOW.x, CHOP_HIGH.x, -CHOP_LOW.x, CHOP_LOW.x, -CHOP_HIGH.x];
+    const high = [1, 0, 0, 1, 0, 0, 1];
+    const x = kf(p, T.map((q, i) => [q, xs[i]]));
+    const h = kf(p, T.map((q, i) => [q, high[i]]));
+    const target = v(x, lerp(CHOP_LOW.y, CHOP_HIGH.y, h));
+    // The trunk leans toward the plate, bending more when it is low.
+    const tilt = -(x / CHOP_HIGH.x) * lerp(16, 12, h);
+    let pose = base(v(-tilt * 0.3, lerp(-86, -92.5, h)), { torso: tilt, pelvis: tilt * 0.3, head: tilt * 0.5 });
+    pose = plant(pose, "front", v(22, -8), v(-22, -8), {}, 1);
+    pose = hold(pose, "front", add(target, v(10, 0)), add(target, v(-10, 0)));
+    return { pose, props: { plate: at(target) } };
+  },
+};
+
+// The end of a landmine bar (a plate loaded on it) held in both hands, swung
+// in an arc from beside one hip, up past the face and down beside the other,
+// the trunk bending and turning after it over wide, bent knees. The pivot is
+// on the floor in front, toward the viewer, so the bar runs down to it.
+const RAINBOW_PIVOT = v(0, -3);
+const rainbowEnd = (phi: number) => v(42 * Math.sin(phi), -74 - 116 * Math.cos(phi));
+const landmineRainbow: Spec = {
+  name: "Landmine Rainbow",
+  aka: ["Pendulum Swing", "Landmine Pendulum Swing", "Landmine Swing", "Pendulum Swings"],
+  view: "front",
+  mode: "alternate",
+  seconds: 2.2,
+  samples: 36,
+  hands: { N: "fist" },
+  primary: ["obliques"],
+  secondary: ["abs", "delts_front", "glutes", "quads"],
+  still: 0.25,
+  scene: [{ draw: landmineBase(RAINBOW_PIVOT), layer: "front" }],
+  props: [
+    { id: "bar", draw: barLine(), layer: "front" },
+    { id: "plate", draw: plateFace(11), layer: "front" },
+  ],
+  motion: (p) => {
+    const phi = lerp(-Math.PI / 2, Math.PI / 2, p);
+    const side = Math.sin(phi);
+    const end = rainbowEnd(phi);
+    const tilt = -20 * side;
+    let pose = base(v(8 * side, -86 - 5 * Math.cos(phi)), { torso: tilt, pelvis: tilt * 0.3, head: tilt * 0.4 });
+    pose = plant(pose, "front", v(27, -8), v(-27, -8), {}, 1);
+    const d = sub(end, RAINBOW_PIVOT);
+    const L = Math.hypot(d.x, d.y);
+    const dir = v(d.x / L, d.y / L);
+    const across = v(-dir.y, dir.x);
+    pose = hold(pose, "front", add(end, mul2(across, 4.5)), add(end, mul2(across, -4.5)));
+    return {
+      pose,
+      props: {
+        bar: line(RAINBOW_PIVOT, add(end, mul2(dir, 4))),
+        plate: at(add(end, mul2(dir, -13))),
+      },
+    };
+  },
+};
+
 // --- Hips, square-on --------------------------------------------------------------
 
 const LOW_LEFT = v(-74, -14);
@@ -1030,13 +1270,21 @@ export const CORE: Spec[] = [
   flagHold({ name: "Straddle Flag", aka: ["Straddle Human Flag"], tilt: 2, legs: "straddle", ...FLAG_MUSCLES }),
   flagHold({ name: "Human Flag", aka: ["Full Human Flag", "Full Flag"], tilt: 0, legs: "together", ...FLAG_MUSCLES }),
   windshieldWiper,
+  stabilityBallRollout,
+  wallStop({ name: "Wall-Stop Ab Wheel Rollout", aka: ["Partial Ab Wheel Rollout", "Kneeling Wall-Stop Rollout"], stop: 0.55, seconds: 2.6, roll: kneelingRollout }),
   abWheel,
+  wallStop({ name: "Standing Wall-Stop Ab Wheel Rollout", aka: ["Standing Ab Wheel Rollout to Wall", "Standing Wall-Stop Rollout"], stop: 0.5, seconds: 3, roll: standingRollout }),
+  standingAbWheelNegative,
   standingAbWheel,
   cableCrunch,
   russianTwist,
   twistingTuck,
   pallofPress,
   woodchop,
+  plateWoodchop,
+  barbellSeesaw,
+  landmineRainbow,
+  seatedBallThrow,
   cableHip({ name: "Hip Abduction", abduct: true }),
   cableHip({ name: "Hip Adduction", abduct: false }),
   monsterWalk,
