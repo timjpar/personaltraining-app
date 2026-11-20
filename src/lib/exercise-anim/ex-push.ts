@@ -26,15 +26,19 @@ import {
   add,
   at,
   base,
+  dirAngle,
+  FOOT,
   gripArm,
   grips,
   hold,
+  joints,
   kf,
   LEN,
   lerp,
   limb,
   line,
   mirror,
+  negative,
   onTrunk,
   palms,
   plant,
@@ -42,6 +46,7 @@ import {
   prone,
   rot,
   seated,
+  seq,
   shoulders,
   stand,
   standSquare,
@@ -50,9 +55,11 @@ import {
   turned,
   v,
   wave,
+  type Limb,
   type Pose,
   type PropState,
   type Spec,
+  type V,
 } from "./kit";
 import type { Prop } from "./render";
 
@@ -774,6 +781,361 @@ function handstand(o: {
   };
 }
 
+// --- Planche and the tuck press ----------------------------------------------------
+//
+// Hands planted at the origin, head to the right as in the push-ups. Each
+// position is solved from where the shoulder is: `lean` is how far it sits
+// ahead of the wrist on straight arms, and the trunk hangs off it.
+
+const REACH = LEN.upperArm + LEN.forearm - 0.4;
+const WRIST = v(0, -LEN.palm);
+const PALM = v(0, 0);
+
+const straightShoulder = (lean: number) => v(WRIST.x + lean, WRIST.y - Math.sqrt(REACH ** 2 - lean ** 2));
+
+// The trunk hung from a shoulder point at `torso` degrees, pelvis in line.
+function fromShoulder(shoulder: V, torso: number, head = torso + 8): Pose {
+  const lumbar = sub(shoulder, rot(v(0, -41), torso));
+  const hip = sub(lumbar, rot(v(0, -11), torso));
+  return base(hip, { torso, pelvis: torso, head });
+}
+
+// Legs folded by joint angle rather than world angle, so a tuck keeps its
+// shape while the trunk turns under it: `hip` and `knee` are flexion in
+// degrees, `point` how far the toes point past neutral.
+const folded = (torso: number, hip: number, knee: number, point = 40): Limb => {
+  const thigh = torso + hip;
+  const shin = thigh - knee;
+  return limb(thigh, shin, shin - point);
+};
+
+// Face down on the toes at `toe`, the shoulder at `shoulder`, body straight
+// between them. The feet roll over the toes to make up the distance, as they
+// do when a plank leans forward into a planche lean.
+const SHOULDER_TO_ANKLE = 41 + 11 + LEN.thigh + LEN.shin;
+const FOOT_LEN = Math.hypot(FOOT.toe.x, FOOT.toe.y);
+const screenAngle = (d: V) => (Math.atan2(-d.y, d.x) * 180) / Math.PI;
+function onToes(toe: V, shoulder: V): Pose {
+  const d = sub(toe, shoulder);
+  const dist = Math.hypot(d.x, d.y);
+  const cos = (SHOULDER_TO_ANKLE ** 2 + dist ** 2 - FOOT_LEN ** 2) / (2 * SHOULDER_TO_ANKLE * dist);
+  const phi = (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
+  // Of the two ankle positions, the one above the line to the toes.
+  const options = [dirAngle(d) + phi, dirAngle(d) - phi];
+  const ankleAt = (a: number) => add(shoulder, rot(v(0, SHOULDER_TO_ANKLE), a));
+  const body = options.sort((a, b) => ankleAt(a).y - ankleAt(b).y)[0];
+  const ankle = ankleAt(body);
+  const foot = screenAngle(sub(toe, ankle)) - screenAngle(FOOT.toe);
+  const pose = fromShoulder(shoulder, body, body + 6);
+  const leg = limb(body, body, foot);
+  return { ...pose, legN: leg, legF: { ...leg } };
+}
+
+const PLANCHE_TOE = v(-125, 0);
+
+// Plank on straight arms, rocking the shoulders forward past the hands and
+// holding there. The toes stay put; the feet roll toward pointed.
+const planchLean: Spec = {
+  name: "Planche Lean",
+  aka: ["Planche Lean Hold", "Pseudo Planche Lean"],
+  mode: "loop",
+  seconds: 4.4,
+  hands: { N: "palm" },
+  primary: ["delts_front"],
+  secondary: ["chest", "biceps", "abs", "forearms"],
+  still: 0.55,
+  motion: (p) => {
+    const lean = kf(p, [[0, 2], [0.32, 18], [0.78, 18], [1, 2]]);
+    const pose = onToes(PLANCHE_TOE, straightShoulder(lean));
+    return { pose: palms(pose, "side", PALM, PALM, 90, -1) };
+  },
+};
+
+// The lean held all the way down: the shoulders stay ahead of the hands, so
+// at the bottom the hands are back by the waist and the elbows point at the
+// feet.
+const pseudoPlanchePushUp: Spec = {
+  name: "Pseudo Planche Push-Up",
+  aka: ["Planche Lean Push-Up", "PPPU", "Pseudo Planche Push Up"],
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "palm" },
+  primary: ["chest", "delts_front", "triceps"],
+  secondary: ["biceps", "abs", "forearms"],
+  still: 0.85,
+  motion: (p) => {
+    const top = straightShoulder(16);
+    const bottom = v(29, -35);
+    const pose = onToes(PLANCHE_TOE, v(lerp(top.x, bottom.x, p), lerp(top.y, bottom.y, p)));
+    return { pose: palms(pose, "side", PALM, PALM, 90, -1) };
+  },
+};
+
+// Squatting on the toes behind the hands, knees against the backs of the
+// arms: where the tuck planche and the tuck press start from.
+function crouch(lean: number, heel = 0): Pose {
+  const pose = fromShoulder(straightShoulder(lean), -66 - lean * 0.6, -50);
+  return plant(pose, "side", v(-34 + lean * 0.4, -15 - heel), undefined, { N: -38 - heel, F: -38 - heel });
+}
+
+// The tuck planche: hips about level with the shoulders, back rounded, knees
+// pulled to the chest and the feet off the floor.
+function tuckPlanche(lean: number, torso = -112): Pose {
+  const pose = fromShoulder(straightShoulder(lean), torso, torso + 22);
+  const leg = folded(torso, 145, 160, 20);
+  return { ...pose, legN: leg, legF: { ...leg } };
+}
+
+// From the crouch, lean until the feet float, hold the tuck, set them down.
+const tuckPlancheHold: Spec = {
+  name: "Tuck Planche",
+  aka: ["Tuck Planche Hold"],
+  mode: "loop",
+  seconds: 5,
+  samples: 40,
+  hands: { N: "palm" },
+  primary: ["delts_front"],
+  secondary: ["chest", "triceps", "biceps", "abs"],
+  still: 0.6,
+  motion: (p) => {
+    const keys: [number, Pose][] = [
+      [0, crouch(2)],
+      [0.16, crouch(10, 4)],
+      [0.36, tuckPlanche(18)],
+      [0.8, tuckPlanche(18, -109)],
+      [1, crouch(2)],
+    ];
+    const pose = seq(p, keys);
+    return { pose: palms(pose, "side", PALM, PALM, 90, -1) };
+  },
+};
+
+// Bend the arms out of the tuck planche until the head is near the floor,
+// keeping the knees off the arms and the hips up, then press back.
+const tuckPlanchePushUp: Spec = {
+  name: "Tuck Planche Push-Up",
+  aka: ["Tuck Planche Push Up"],
+  mode: "alternate",
+  seconds: 3.2,
+  hands: { N: "palm" },
+  primary: ["delts_front", "triceps", "chest"],
+  secondary: ["abs", "biceps"],
+  still: 0,
+  motion: (p) => {
+    const top = straightShoulder(18);
+    const shoulder = v(lerp(top.x, 27, p), lerp(top.y, -30, p));
+    const torso = lerp(-112, -122, p);
+    let pose = fromShoulder(shoulder, torso, torso + lerp(22, 28, p));
+    const leg = folded(torso, lerp(145, 148, p), 160, 20);
+    pose = { ...pose, legN: leg, legF: { ...leg } };
+    return { pose: palms(pose, "side", PALM, PALM, 90, -1) };
+  },
+};
+
+// The press: crouch, lean into the tuck planche, then let the hips rise over
+// the hands as the shoulders come back above them, open into a tuck
+// handstand and straighten the legs. Phase 1 is the handstand, so played
+// back it is the lowering too.
+function tuckPressPose(p: number): Pose {
+  const keys: [number, Pose][] = [
+    [0, crouch(3)],
+    [0.16, crouch(11, 4)],
+    [0.34, tuckPlanche(17)],
+    [0.58, (() => {
+      const torso = -142;
+      const pose = fromShoulder(straightShoulder(9), torso, torso + 16);
+      const leg = folded(torso, 145, 158, 20);
+      return { ...pose, legN: leg, legF: { ...leg } };
+    })()],
+    [0.8, (() => {
+      const torso = -178;
+      const pose = fromShoulder(straightShoulder(-1), torso, torso + 12);
+      const leg = folded(torso, 100, 132);
+      return { ...pose, legN: leg, legF: { ...leg } };
+    })()],
+    [1, (() => {
+      const torso = -180;
+      const pose = fromShoulder(straightShoulder(-2), torso, torso + 12);
+      const leg = folded(torso, 0, 0, 62);
+      return { ...pose, legN: leg, legF: { ...leg, upper: leg.upper - 2, lower: leg.lower - 2, end: leg.end - 2 } };
+    })()],
+  ];
+  return palms(seq(p, keys), "side", PALM, PALM, 90, -1);
+}
+
+const tuckPress: Spec = {
+  name: "Tuck Press to Handstand",
+  aka: ["Tuck Press", "Tuck Press Handstand", "Tuck Handstand Press", "Press to Handstand"],
+  mode: "alternate",
+  seconds: 6,
+  samples: 48,
+  hands: { N: "palm" },
+  primary: ["delts_front", "triceps"],
+  secondary: ["traps", "abs", "hip_flexors", "chest"],
+  still: 0.58,
+  motion: (p) => ({ pose: tuckPressPose(p) }),
+};
+
+// --- Handstand balance drills -------------------------------------------------------
+//
+// Upside down, chest to a wall on the left. `lean` moves the shoulders off
+// the wrists (+ toward the back, away from the wall), `tilt` leans the trunk
+// with the hips toward the wall, and each leg is set by how far it leans
+// toward the wall from straight up.
+
+const upLeg = (toWall: number, point = 62): Limb => limb(-180 + toWall, -180 + toWall, -180 + toWall - point);
+
+function inverted(lean: number, tilt: number, legN: Limb, legF: Limb = legN): Pose {
+  const torso = -180 + tilt;
+  const pose = fromShoulder(straightShoulder(lean), torso, torso + 12);
+  return palms({ ...pose, legN, legF }, "side", PALM, PALM, 90, 1);
+}
+
+// The leftmost point of a pointed foot, to stand the wall against.
+const toeLine = (pose: Pose) => {
+  const j = joints(pose);
+  const tipN = add(j.ankleN, rot(FOOT.toe, pose.legN.end));
+  return Math.min(j.ankleN.x - 5, tipN.x - 2);
+};
+
+// Level 1: feet on a box, hips up in a pike. The shoulders start closed — the
+// trunk tilted further than the arms — and push over the hands until hands,
+// shoulders and hips make one line toward the box.
+const PIKE_BOX_TOP = -60;
+const boxPikeStack = (() => {
+  const at = (p: number) => {
+    const arm = lerp(3, 24, p);
+    const tilt = lerp(42, 24, p);
+    const s = v(WRIST.x - Math.sin((arm * Math.PI) / 180) * REACH, WRIST.y - Math.cos((arm * Math.PI) / 180) * REACH);
+    return fromShoulder(s, -180 + tilt, -180 + tilt + 14);
+  };
+  // Feet set where the legs are straight once stacked.
+  const h1 = at(1).hip;
+  const ankleY = PIKE_BOX_TOP - 8;
+  const ankle = v(h1.x - Math.sqrt((LEN.thigh + LEN.shin - 0.6) ** 2 - (ankleY - h1.y) ** 2), ankleY);
+  const spec: Spec = {
+    name: "Box Pike Shoulder Stack",
+    aka: ["Elevated Pike Shoulder Stack", "Box Pike Stack", "Pike Stack on Box"],
+    mode: "alternate",
+    seconds: 2.6,
+    hands: { N: "palm" },
+    primary: ["delts_front", "triceps"],
+    secondary: ["traps", "abs"],
+    still: 1,
+    scene: [{ draw: box(ankle.x - 30, ankle.x + 16, PIKE_BOX_TOP), layer: "back" }],
+    motion: (p) => {
+      let pose = at(p);
+      pose = plant(pose, "side", ankle, ankle, { N: 40, F: 40 }, -1);
+      return { pose: palms(pose, "side", PALM, PALM, 90, 1) };
+    },
+  };
+  return spec;
+})();
+
+// Chest-to-wall stance shared by levels 2 and 5: hands a short reach from the
+// wall, body leaning in just enough for the toes to touch it.
+const WALL_STANCE = { lean: 1, tilt: 4, legs: 7 };
+const wallStance = () => inverted(WALL_STANCE.lean, WALL_STANCE.tilt, upLeg(WALL_STANCE.legs));
+const NEAR_WALL = toeLine(wallStance());
+
+// Level 2: one foot at a time peels off the wall toward the back and returns,
+// the other foot keeping its place.
+const wallSingleLegPull: Spec = {
+  name: "Wall Handstand Single-Leg Pull",
+  aka: ["Chest-to-Wall Single-Leg Pull", "Single-Leg Toe Pull", "Wall Handstand Leg Lift"],
+  mode: "loop",
+  seconds: 4.4,
+  samples: 40,
+  hands: { N: "palm" },
+  primary: ["delts_front", "triceps"],
+  secondary: ["glutes", "abs", "forearms", "traps"],
+  still: 0.2,
+  scene: [{ draw: wall(NEAR_WALL - 8, -230), layer: "back" }],
+  motion: (p) => {
+    const off = (a: number, b: number) => kf(p, [[a, 0], [a + 0.12, 1], [b - 0.12, 1], [b, 0]]);
+    const n = off(0.02, 0.48);
+    const f = off(0.52, 0.98);
+    const legs = WALL_STANCE.legs;
+    const tilt = WALL_STANCE.tilt - (n + f) * 1.5;
+    return { pose: inverted(WALL_STANCE.lean - (n + f) * 1.5, tilt, upLeg(legs - n * 26), upLeg(legs - f * 26)) };
+  },
+};
+
+// Level 3: the shoulders start closed — pushed back past the hands, the body
+// one straight line leaning into the wall — and open until the trunk stands
+// straight over the hands, the legs still reaching back to the wall.
+const SHIFT_CLOSED = inverted(18, 26, upLeg(26));
+const SHIFT_WALL = toeLine(SHIFT_CLOSED);
+const wallShoulderStack: Spec = {
+  name: "Wall Handstand Shoulder Stack",
+  aka: ["Chest-to-Wall Shoulder Stack", "Wall Handstand Shoulder Opener", "Wall Handstand Lean and Stack"],
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "palm" },
+  primary: ["delts_front", "traps"],
+  secondary: ["triceps", "abs"],
+  still: 1,
+  scene: [{ draw: wall(SHIFT_WALL - 8, -230), layer: "back" }],
+  motion: (p) => {
+    const lean = lerp(18, -1, p);
+    const tilt = lerp(26, 3, p);
+    // Solve the leg lean that keeps the feet on the same line of wall.
+    let lo = 0;
+    let hi = 40;
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      if (toeLine(inverted(lean, tilt, upLeg(mid))) > SHIFT_WALL) lo = mid;
+      else hi = mid;
+    }
+    return { pose: inverted(lean, tilt, upLeg(lo)) };
+  },
+};
+
+// Level 4: hands a leg's length from the wall, one foot flat on it with the
+// leg level, the other leg sweeping from toward the wall to past vertical.
+const L_SWEEP = (() => {
+  const stand = inverted(-1, 0, upLeg(0));
+  const hip = stand.hip;
+  const wallX = hip.x - (LEN.thigh + LEN.shin) - 8;
+  return { wallX };
+})();
+const wallLSweep: Spec = {
+  name: "Wall L-Handstand Leg Sweep",
+  aka: ["Single-Leg Wall L-Handstand", "Wall L-Handstand Leg Lift", "Half Wall Handstand Leg Sweep"],
+  mode: "alternate",
+  seconds: 2.4,
+  hands: { N: "palm" },
+  primary: ["delts_front", "triceps"],
+  secondary: ["hip_flexors", "glutes", "abs", "traps"],
+  still: 0.4,
+  scene: [{ draw: wall(L_SWEEP.wallX - 8, -230), layer: "back" }],
+  motion: (p) => {
+    const sweep = lerp(48, -22, p);
+    const flat = limb(-90, -90, -90);
+    return { pose: inverted(-1 + sweep * 0.03, -sweep * 0.04, upLeg(sweep), flat) };
+  },
+};
+
+// Level 5: from the wall stance, press into the fingers so the shoulders
+// drift toward the wall and both feet float off it; hold, then touch back.
+const wallToePull: Spec = {
+  name: "Chest-to-Wall Toe Pull",
+  aka: ["Wall Handstand Toe Pull", "Handstand Toe Pull", "Toe Pulls"],
+  mode: "loop",
+  seconds: 4,
+  samples: 40,
+  hands: { N: "palm" },
+  primary: ["delts_front", "forearms"],
+  secondary: ["triceps", "abs", "traps"],
+  still: 0.5,
+  scene: [{ draw: wall(NEAR_WALL - 8, -230), layer: "back" }],
+  motion: (p) => {
+    const off = kf(p, [[0, 0], [0.3, 1], [0.75, 1], [1, 0]]);
+    const legs = lerp(WALL_STANCE.legs, -6, off);
+    return { pose: inverted(lerp(WALL_STANCE.lean, -6, off), lerp(WALL_STANCE.tilt, -5, off), upLeg(legs), upLeg(legs - 1)) };
+  },
+};
+
 export const PUSH: Spec[] = [
   benchPress({ name: "Bench Press", load: "barbell", primary: ["chest"], secondary: ["triceps", "delts_front"] }),
   benchPress({ name: "Incline Bench Press", load: "barbell", incline: 32, primary: ["chest", "delts_front"], secondary: ["triceps"] }),
@@ -797,6 +1159,7 @@ export const PUSH: Spec[] = [
   scapularPushUp,
   dip({ name: "Dip", primary: ["chest", "triceps"], secondary: ["delts_front"] }),
   dip({ name: "Straight-Bar Dip", straightBar: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
+  dip({ name: "Straight-Bar Support Hold", straightBar: true, support: true, primary: ["triceps", "chest"], secondary: ["delts_front", "abs", "forearms"] }),
   dip({ name: "Ring Support Hold", rings: true, support: true, primary: ["triceps", "chest"], secondary: ["delts_front", "abs", "forearms"] }),
   dip({ name: "Ring Dip", rings: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   overheadPress({ name: "Overhead Press", primary: ["delts_front", "delts_side"], secondary: ["triceps", "traps", "abs"] }),
@@ -814,5 +1177,16 @@ export const PUSH: Spec[] = [
   handstand({ name: "Freestanding Handstand", free: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs", "forearms"] }),
   handstand({ name: "Deficit Handstand Push-Up", push: true, deficit: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "traps", "abs"] }),
   handstand({ name: "Handstand Push-Up", push: true, primary: ["delts_front", "triceps"], secondary: ["traps", "chest"] }),
+  planchLean,
+  pseudoPlanchePushUp,
+  tuckPlancheHold,
+  tuckPlanchePushUp,
+  tuckPress,
+  negative(tuckPress, "Tuck Press Negative", ["Tuck Press Lowering", "Handstand to Tuck Planche Negative"]),
+  boxPikeStack,
+  wallSingleLegPull,
+  wallShoulderStack,
+  wallLSweep,
+  wallToePull,
 ];
 
