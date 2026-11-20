@@ -112,6 +112,7 @@ const RULES: Rule[] = [
     match: [
       "overhead press", "shoulder press", "push press", "overhead triceps",
       "handstand", "arnold", "lateral raise", "landmine",
+      "tuck press", "shoulder stack", "toe pull",
     ],
   },
 
@@ -120,6 +121,7 @@ const RULES: Rule[] = [
     match: [
       "bench", "floor press", "chest press", "dip", "fly", "pec deck",
       "pushdown", "skullcrusher", "triceps", "press",
+      "planche",
     ],
   },
 
