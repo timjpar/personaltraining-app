@@ -439,6 +439,29 @@ const oneArmPullUp: Spec = {
   },
 };
 
+// Archer: a very wide overhand grip; the body pulls up beside one hand while
+// the other arm straightens along the bar, then lowers to a dead hang and
+// goes to the other side. The legs drift toward the straight arm.
+const ARCHER_GRIP = 52;
+const archerPullUp: Spec = {
+  name: "Archer Pull-Up",
+  view: "back",
+  mode: "loop",
+  seconds: 6,
+  samples: 36,
+  hands: { N: "fist" },
+  primary: ["lats", "biceps"],
+  secondary: ["upper_back", "forearms", "delts_rear", "obliques"],
+  still: 0.25,
+  scene: [{ draw: pullUpBarAcross(ACROSS, 60), layer: "back" }],
+  motion: (p) => {
+    const y = kf(p, [[0, HANG_Y], [0.25, TOP_Y + 18], [0.35, TOP_Y + 18], [0.5, HANG_Y], [0.75, TOP_Y + 18], [0.85, TOP_Y + 18], [1, HANG_Y]]);
+    const x = kf(p, [[0, 0], [0.25, 22], [0.35, 22], [0.5, 0], [0.75, -22], [0.85, -22], [1, 0]]);
+    const shrug = kf(p, [[0, 4], [0.25, -2], [0.35, -2], [0.5, 4], [0.75, -2], [0.85, -2], [1, 4]]);
+    return { pose: backHang(y, shrug, v(ARCHER_GRIP, ACROSS), v(-ARCHER_GRIP, ACROSS), x) };
+  },
+};
+
 const typewriter: Spec = {
   name: "Typewriter Pull-Up",
   view: "back",
@@ -654,6 +677,7 @@ export const CLIMB: Spec[] = [
   offsetPullUp,
   assistedOneArm,
   oneArmPullUp,
+  archerPullUp,
   typewriter,
   lockOff({ name: "Lock-Off Hold", aka: ["Lock Off"] }),
   lockOff({ name: "Frenchies", frenchies: true }),
