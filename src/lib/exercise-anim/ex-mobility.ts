@@ -3,12 +3,13 @@
 
 import { FRONT } from "./body-front";
 import { SQUARE } from "./rig";
-import { box, column, doorFrame, dumbbellEnd, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, uprightRoller, wall } from "./equipment";
+import { box, column, doorFrame, dumbbellEnd, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateEdge, plateFace, sauna, tubBack, tubFront, uprightRoller, wall } from "./equipment";
 import {
   add,
   allFours,
   at,
   base,
+  both,
   dirAngle,
   frontJoints,
   grips,
@@ -483,6 +484,63 @@ const thoracicRoller: Spec = {
     return { pose, props: { roller: at(add(onTrunk(pose, v(-21, -22)), v(0, 0))) } };
   },
 };
+
+// Feet-on-wall overhead plate reach (reel DUoSpOtiRuS, @twstraining): lying
+// on the back with the feet flat on a wall above the knees, so the pelvis
+// tucks under and the low back stays down. A light plate goes from over the
+// chest back behind the head, arms straight, and holds where the lats stop
+// it. The roller version adds a foam roller across the mid-back.
+const REACH_WALL = 36;
+const REACH_ANKLE = v(31, -67);
+const REACH_ROLLER_ON_BACK = v(-20, -26);
+function overheadReach(o: { name: string; aka: string[]; roller?: boolean }): Spec {
+  const reach = (p: number) => kf(p, [[0, 0], [0.38, 1], [0.72, 1], [1, 0]]);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 5,
+    hands: { N: "fist" },
+    primary: ["lats", "upper_back"],
+    secondary: o.roller ? ["abs", "chest"] : ["abs"],
+    still: 0.55,
+    scene: [{ draw: wall(REACH_WALL, -110, 10), layer: "back" }],
+    props: [
+      ...(o.roller ? [{ id: "roller", draw: foamRoller(), layer: "back" as const }] : []),
+      { id: "plate", draw: plateEdge(13), layer: "front" },
+    ],
+    motion: (p) => {
+      const r = reach(p);
+      // Over the roller the hips stay down and the trunk rises onto it, then
+      // the upper back extends round it as the plate goes back.
+      let pose = supine(0, 0, { pelvis: 96, torso: 90, head: 92 });
+      if (o.roller) {
+        // Lift the hips just enough that the roller, under the bottom of the
+        // shoulder blades, rests on the floor.
+        pose = supine(0, 0, { pelvis: 96, torso: lerp(72, 84, r), head: lerp(80, 104, r) });
+        const lift = onTrunk(pose, REACH_ROLLER_ON_BACK).y + 7.5;
+        pose = { ...pose, hip: v(pose.hip.x, pose.hip.y - lift) };
+      }
+      pose = plant(pose, "side", REACH_ANKLE, undefined, { N: 90, F: 90 }, 1);
+      const a = lerp(180, o.roller ? 264 : 258, r);
+      pose = { ...pose, ...both(limb(a, a + 4, a + 4)) };
+      // Held by the rim at both sides, the plate stays about flat all the way.
+      const props: Record<string, ReturnType<typeof at>> = { plate: turned(grips(pose).N, 90 + (a - 180) * 0.15) };
+      if (o.roller) props.roller = at(onTrunk(pose, REACH_ROLLER_ON_BACK));
+      return { pose, props };
+    },
+  };
+}
+
+const feetOnWallOverheadReach = overheadReach({
+  name: "Feet-on-Wall Overhead Plate Reach",
+  aka: ["Feet-on-Wall Overhead Reach", "Feet-Up Lat Test", "Supine Overhead Plate Reach", "Feet on Wall Lat Stretch"],
+});
+const feetOnWallRollerReach = overheadReach({
+  name: "Feet-on-Wall Overhead Reach over Foam Roller",
+  aka: ["Foam Roller Overhead Plate Reach", "Feet-on-Wall Thoracic Extension"],
+  roller: true,
+});
 
 function rollerSlide(o: { name: string; part: "quads" | "glutes" | "lats" }): Spec {
   const muscles: Record<typeof o.part, Spec["primary"]> = { quads: ["quads"], glutes: ["glutes"], lats: ["lats"] };
@@ -1586,6 +1644,8 @@ export const MOBILITY: Spec[] = [
   forearmStretch,
   doorwayPecStretch,
   thoracicRoller,
+  feetOnWallOverheadReach,
+  feetOnWallRollerReach,
   rollerSlide({ name: "Foam Roll Quads", part: "quads" }),
   rollerSlide({ name: "Foam Roll Glutes", part: "glutes" }),
   rollerSlide({ name: "Foam Roll Lats", part: "lats" }),
