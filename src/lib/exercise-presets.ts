@@ -100,6 +100,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Seated Dumbbell External Rotation",
       "Side-Lying Dumbbell Internal Rotation",
       "Triceps Pushdown",
+      "Cable Overhead Triceps Extension",
       "Cable Curl",
       "Leg Press",
       "Hack Squat",
