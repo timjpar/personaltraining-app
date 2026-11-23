@@ -359,6 +359,8 @@ const WARMUP_AND_MOBILITY: PresetCategory[] = [
       "Feet-Elevated Butterfly Stretch",
       "Kettlebell Butterfly Stretch",
       "Feet-Elevated Kettlebell Butterfly Stretch",
+      "Kettlebell Half-Butterfly Knee Lift",
+      "Half-Butterfly Straight-Leg Lift",
       "Frog Stretch",
       "Pancake Stretch",
       "Half Split",
