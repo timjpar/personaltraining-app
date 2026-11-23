@@ -97,7 +97,7 @@ const RULES: Rule[] = [
     match: [
       "rack pull", "pull-through", "good morning", "deadlift", "hinge",
       "swing", "hip thrust", "glute bridge", "back extension", "nordic",
-      "leg curl", "hamstring",
+      "leg curl", "hamstring", " rdl",
     ],
   },
 

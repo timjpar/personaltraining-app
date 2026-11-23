@@ -11,6 +11,7 @@ import {
   base,
   dirAngle,
   frontJoints,
+  gripArm,
   grips,
   hips,
   hold,
@@ -1133,6 +1134,37 @@ const hipAirplane: Spec = {
   },
 };
 
+// Hip airplane with a hand on a rack upright and a kettlebell held on the
+// hip, from reel DW62fqBjhmi. Hinged on one leg, trunk near level, the
+// pelvis turns open about the standing hip and then closes again. From the
+// side the turn shows as the free leg swinging out toward the camera
+// (foreshortened) and the bell riding up from under the belly to the top of
+// the hip.
+const SHA_RAIL = v(70, -74);
+const supportedHipAirplane: Spec = {
+  name: "Supported Kettlebell Hip Airplane",
+  aka: ["Kettlebell Hip Airplane", "Supported Hip Airplane", "Loaded Hip Airplane", "Weighted Hip Airplane"],
+  mode: "alternate",
+  seconds: 3.6,
+  hands: { N: "fist", F: "fist" },
+  primary: ["glutes", "abductors"],
+  secondary: ["hamstrings", "obliques", "adductors"],
+  still: 0.6,
+  scene: [{ draw: column(SHA_RAIL.x - 2, SHA_RAIL.y + 2, 8), layer: "back" }],
+  props: [{ id: "kb", draw: kettlebell(), layer: "front" }],
+  motion: (p) => {
+    const torso = lerp(-80, -74, p);
+    let pose = stand(-90, { torso, pelvis: torso * 0.95, head: torso * 0.85 }, { hipX: -4 });
+    const open = kf(p, [[0, 0], [1, 1]]);
+    pose = { ...pose, legN: { ...limb(lerp(-84, -76, open), lerp(-86, -70, open), lerp(-60, -40, open)), ku: lerp(1, 0.62, open), kl: lerp(1, 0.62, open) } };
+    // Bell from the belly side of the near hip to the top of it.
+    const kb = onTrunk(pose, kfv(p, [[0, v(14, 14)], [0.5, v(4, 4)], [1, v(-10, 2)]]));
+    const s = shoulders(pose);
+    pose = { ...pose, armN: gripArm(s.N, kb, 1), armF: gripArm(s.F, SHA_RAIL, -1) };
+    return { pose, props: { kb: at(kb) } };
+  },
+};
+
 // --- Recovery rooms -------------------------------------------------------------
 
 const saunaSpec: Spec = {
@@ -1617,6 +1649,7 @@ export const MOBILITY: Spec[] = [
   inchworm,
   worldsGreatest,
   hipAirplane,
+  supportedHipAirplane,
   saunaSpec,
   coldPlunge,
   ninetyNinety,
