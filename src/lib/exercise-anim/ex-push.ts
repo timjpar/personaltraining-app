@@ -321,33 +321,145 @@ function pikePushUp(o: { name: string; elevated?: boolean; primary: Spec["primar
   };
 }
 
-// Plank with straight arms, the trunk rising and sinking between the shoulder
-// blades. Solved for the tilt that keeps the arms straight.
-const scapularPushUp: Spec = {
-  name: "Scapular Push-Up",
-  mode: "alternate",
-  seconds: 2.4,
-  hands: { N: "palm" },
-  primary: ["upper_back"],
-  secondary: ["chest", "abs"],
-  still: 1,
-  motion: (p) => {
-    const toe = v(-62, 0);
-    const protract = lerp(-3.5, 4.5, p);
-    const palm = v(shoulders(prone(toe, 21)).N.x + 1, 0);
-    let lo = 5;
-    let hi = 35;
-    for (let i = 0; i < 30; i++) {
-      const mid = (lo + hi) / 2;
-      const s = shoulders({ ...prone(toe, mid), protract }).N;
-      if (Math.hypot(s.x - palm.x, s.y - palm.y) > 55.6) hi = mid;
-      else lo = mid;
-    }
-    let pose: Pose = { ...prone(toe, lo), protract };
-    pose = palms(pose, "side", palm, palm, 90, -1);
-    return { pose };
-  },
+// --- Scapular push-ups ---------------------------------------------------------------
+//
+// Straight arms, a rigid body, and only the shoulder blades move: they pinch
+// together and the chest sinks between them, then they spread and push the
+// chest away. The rig shows that as the shoulder joint sliding across the
+// trunk (`protract`). Since the hands are fixed and the arms locked, the body
+// is solved for the tilt that keeps them locked, so the whole trunk rises as
+// the blades spread.
+
+const RETRACT = -3.5;
+const PROTRACT = 4.5;
+// A hair short of the full arm, so the elbows read as locked, not hyperextended.
+const LOCKED = LEN.upperArm + LEN.forearm - 0.15;
+
+// A straight body at `tilt` degrees above horizontal, head to the right, pivoting
+// on a fixed contact.
+type Lean = (tilt: number) => Pose;
+
+const leanToes = (toe: V): Lean => (tilt) => prone(toe, tilt);
+
+// Knees on the floor at `x`, thighs in line with the trunk, shins flat behind.
+const leanKnees = (x: number): Lean => (tilt) => {
+  const body = -90 + tilt;
+  const hip = sub(v(x, -5), rot(v(0, LEN.thigh), body));
+  const leg: Limb = { upper: body, lower: -90, end: -178 };
+  return { ...base(hip, { pelvis: body, torso: body, head: body + 6 }), legN: leg, legF: { ...leg } };
 };
+
+// Standing with the feet flat at ankle `x`, leaning on straight legs.
+const leanFeet = (x: number): Lean => (tilt) => {
+  const body = -90 + tilt;
+  const hip = sub(v(x, -8), rot(v(0, LEN.thigh + LEN.shin), body));
+  const leg: Limb = { upper: body, lower: body, end: 0 };
+  return { ...base(hip, { pelvis: body, torso: body, head: body + 4 }), legN: leg, legF: { ...leg } };
+};
+
+// The tilt at which the shoulder sits exactly a locked arm from the wrist.
+function lockedTilt(lean: Lean, protract: number, wrist: V, lo: number, hi: number): number {
+  const gap = (t: number) => {
+    const s = shoulders({ ...lean(t), protract }).N;
+    return Math.hypot(s.x - wrist.x, s.y - wrist.y) - LOCKED;
+  };
+  const rising = gap(hi) > gap(lo);
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (gap(mid) > 0 === rising) hi = mid;
+    else lo = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+// The tilt at which locked arms stand straight down onto a surface at `surface`.
+function armsVertical(lean: Lean, surface: number, lo: number, hi: number): number {
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (shoulders(lean(mid)).N.y < surface - LEN.palm - LOCKED) hi = mid;
+    else lo = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+const SCAP_BENCH = -44;
+
+function scapPushUp(o: {
+  name: string;
+  aka?: string[];
+  // floor: a plank on the toes. bench: hands on a bench. knees: a plank on
+  // the knees. decline: feet up on a bench. wall: standing, hands on a wall.
+  on?: "floor" | "bench" | "knees" | "decline" | "wall";
+  // A plate lying across the upper back.
+  plate?: boolean;
+  // A full push-up first, with the extra spread of the blades at the top.
+  plus?: boolean;
+  primary: Spec["primary"];
+  secondary?: Spec["secondary"];
+}): Spec {
+  const on = o.on ?? "floor";
+  const setup = {
+    floor: { lean: leanToes(v(-62, 0)), surface: 0, range: [-5, 45] },
+    bench: { lean: leanToes(v(-96, 0)), surface: SCAP_BENCH, range: [10, 70] },
+    knees: { lean: leanKnees(-22), surface: 0, range: [0, 60] },
+    decline: { lean: leanToes(v(-86, SCAP_BENCH)), surface: 0, range: [-30, 30] },
+    wall: { lean: leanFeet(-44), surface: 0, range: [45, 89] },
+  }[on];
+  const { lean } = setup;
+  const [lo, hi] = setup.range;
+
+  // Palms planted where the arms are straight halfway through the rep: under
+  // the shoulders, or for the wall, out in front and a little below them.
+  let palm: V;
+  let fingers = 90;
+  if (on === "wall") {
+    const s = shoulders(lean(68)).N;
+    const down = (8 * Math.PI) / 180;
+    palm = v(s.x + LOCKED * Math.cos(down) + LEN.palm, s.y + LOCKED * Math.sin(down));
+    fingers = 180;
+  } else {
+    palm = v(shoulders(lean(armsVertical(lean, setup.surface, lo, hi))).N.x + 1, setup.surface);
+  }
+  const wrist = add(palm, rot(v(0, -LEN.palm), fingers - 90));
+
+  const scene: Spec["scene"] = [];
+  if (on === "bench") scene.push({ draw: box(palm.x - 30, palm.x + 26, SCAP_BENCH, "pad"), layer: "back" });
+  if (on === "decline") scene.push({ draw: box(-86 - 28, -86 + 16, SCAP_BENCH), layer: "back" });
+  if (on === "wall") scene.push({ draw: wall(palm.x, -196), layer: "back" });
+
+  // The plus: a push-up from the floor to straight arms (blades still
+  // pinched), then the spread. `TOP` is where the arms finish straightening.
+  const TOP = 0.6;
+  const bottom = 7;
+  const topTilt = lockedTilt(lean, RETRACT, wrist, lo, hi);
+
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: o.plus ? 3.2 : 2.4,
+    hands: { N: "palm" },
+    primary: o.primary,
+    secondary: o.secondary,
+    still: 1,
+    scene,
+    props: o.plate ? [{ id: "plate", draw: plateEdge(13), layer: "front" }] : [],
+    motion: (p) => {
+      let pose: Pose;
+      if (o.plus && p < TOP) {
+        pose = { ...lean(lerp(bottom, topTilt, p / TOP)), protract: RETRACT };
+      } else {
+        const spread = o.plus ? (p - TOP) / (1 - TOP) : p;
+        const protract = lerp(RETRACT, PROTRACT, spread);
+        pose = { ...lean(lockedTilt(lean, protract, wrist, lo, hi)), protract };
+      }
+      pose = palms(pose, "side", palm, palm, fingers, -1);
+      const props: Record<string, PropState> = {};
+      if (o.plate) props.plate = turned(onTrunk(pose, v(-14.5, -23)), pose.torso);
+      return { pose, props };
+    },
+  };
+}
 
 const DIP_BAR = -118;
 
@@ -1156,7 +1268,13 @@ export const PUSH: Spec[] = [
   pikePushUp({ name: "Pike Push-Up", primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs"] }),
   pikePushUp({ name: "Elevated Pike Push-Up", elevated: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs"] }),
   pushUpSpec({ name: "Deficit Push-Up", deficit: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
-  scapularPushUp,
+  scapPushUp({ name: "Wall Scapular Push-Up", aka: ["Wall Scap Push-Up", "Wall Scapula Push-Up", "Wall Push-Up Plus"], on: "wall", primary: ["upper_back"], secondary: ["chest"] }),
+  scapPushUp({ name: "Incline Scapular Push-Up", aka: ["Incline Scap Push-Up", "Bench Scapular Push-Up"], on: "bench", primary: ["upper_back"], secondary: ["chest", "abs"] }),
+  scapPushUp({ name: "Kneeling Scapular Push-Up", aka: ["Kneeling Scap Push-Up", "Knee Scapular Push-Up"], on: "knees", primary: ["upper_back"], secondary: ["chest", "abs"] }),
+  scapPushUp({ name: "Scapular Push-Up", aka: ["Scap Push-Up", "Scapula Push-Up", "Scapular Push Up", "Plank Scapular Push-Up"], primary: ["upper_back"], secondary: ["chest", "abs"] }),
+  scapPushUp({ name: "Decline Scapular Push-Up", aka: ["Decline Scap Push-Up", "Feet-Elevated Scapular Push-Up"], on: "decline", primary: ["upper_back"], secondary: ["chest", "delts_front", "abs"] }),
+  scapPushUp({ name: "Weighted Scapular Push-Up", aka: ["Weighted Scap Push-Up", "Plate Scapular Push-Up"], plate: true, primary: ["upper_back"], secondary: ["chest", "abs"] }),
+  scapPushUp({ name: "Push-Up Plus", aka: ["Push Up Plus", "Push-Up with Protraction", "Serratus Push-Up"], plus: true, primary: ["chest", "upper_back"], secondary: ["triceps", "delts_front", "abs"] }),
   dip({ name: "Dip", primary: ["chest", "triceps"], secondary: ["delts_front"] }),
   dip({ name: "Straight-Bar Dip", straightBar: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   dip({ name: "Straight-Bar Support Hold", straightBar: true, support: true, primary: ["triceps", "chest"], secondary: ["delts_front", "abs", "forearms"] }),
