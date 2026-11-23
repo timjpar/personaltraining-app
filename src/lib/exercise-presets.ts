@@ -218,6 +218,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Kettlebell Swing",
       "American Kettlebell Swing",
       "Kettlebell Goblet Squat",
+      "Kettlebell Deficit Sumo Squat",
       "Kettlebell Clean",
       "Kettlebell Snatch",
       "Turkish Get-Up",

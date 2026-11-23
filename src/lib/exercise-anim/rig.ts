@@ -91,6 +91,11 @@ export type Pose = {
   // across the trunk: protraction and retraction of the shoulder blades.
   protract?: number;
   torso: number;
+  // Square views only: how far the trunk tips toward the viewer, in degrees.
+  // The picture can't show a forward lean as an angle, so the trunk
+  // foreshortens instead (cos of this) and the shoulders and neck come down
+  // with it, as when bending over in a sumo squat.
+  bow?: number;
   head: number;
   armN: Limb; // near (to the viewer) arm: upper arm, forearm, hand
   armF: Limb;
@@ -220,11 +225,17 @@ export const SQUARE = { shoulderX: 19, hipX: 9 } as const;
 
 export type FrontJoints = Joints & { shoulderF: V; hipF: V };
 
+// The trunk's drawn height as a fraction of its real one, from `bow`.
+export const trunkK = (p: Pose) => Math.cos(((p.bow ?? 0) * Math.PI) / 180);
+
 export function frontJoints(p: Pose): FrontJoints {
-  const lumbar = add(p.hip, rot(v(0, -11), p.pelvis));
-  const neck = add(lumbar, rot(v(0, -45), p.torso));
+  // A bowed trunk folds from the hips, so the lumbar joint comes down too and
+  // the shortened trunk still meets the pelvis.
+  const kt = trunkK(p);
+  const lumbar = add(p.hip, rot(v(0, -11 * kt), p.pelvis));
+  const neck = add(lumbar, rot(v(0, -45 * kt), p.torso));
   const shoulderAt = (s: 1 | -1) =>
-    add(lumbar, rot(v(SQUARE.shoulderX * s, -38 - (p.shrug ?? 0)), p.torso));
+    add(lumbar, rot(v(SQUARE.shoulderX * s, (-38 - (p.shrug ?? 0)) * kt), p.torso));
   const hipAt = (s: 1 | -1) => add(p.hip, rot(v(SQUARE.hipX * s, 0), p.pelvis));
   const shoulderN = shoulderAt(1);
   const shoulderF = shoulderAt(-1);
