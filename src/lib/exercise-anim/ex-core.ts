@@ -115,6 +115,51 @@ const copenhagenPlank: Spec = {
   },
 };
 
+// Forearm plank with the feet up on a bench: the near knee leaves the bench
+// and drives in under the hips to the chest, holds, and goes back. The hip
+// flexors lift the thigh against gravity while the trunk stays a plank.
+const HFP_BENCH = -40;
+const HFP_TOE = v(-70, HFP_BENCH);
+
+function benchPlank(shoulderY: number): Pose {
+  let lo = -40;
+  let hi = 40;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (shoulders(prone(HFP_TOE, mid)).N.y > shoulderY) lo = mid;
+    else hi = mid;
+  }
+  const pose = prone(HFP_TOE, (lo + hi) / 2);
+  return { ...pose, armN: limb(0, 90, 90), armF: limb(0, 90, 90) };
+}
+
+const hipFlexorPlank: Spec = {
+  name: "Bench Hip Flexor Plank",
+  aka: ["Hip Flexor Plank", "Hip Flexer Plank", "Feet-Elevated Knee Drive Plank"],
+  mode: "alternate",
+  seconds: 2.6,
+  hands: { N: "fist" },
+  primary: ["hip_flexors", "abs"],
+  secondary: ["obliques", "quads", "delts_front", "glutes"],
+  still: 0.5,
+  scene: [{ draw: flatBench(-118, -54, HFP_BENCH), layer: "back" }],
+  motion: (p) => {
+    const pose = benchPlank(-36 - p * 2);
+    const body = pose.torso;
+    // Thigh swings from along the body up under the chest, the knee staying
+    // clear of the floor; the shin folds back under it, foot off the bench.
+    // The thigh can't swing straight down past the floor, so the knee comes
+    // a little out toward the viewer on the way (shorter drawn thigh).
+    const out = 1 - 0.5 * Math.sin(Math.PI * p);
+    const legN: Limb = {
+      ...limb(lerp(body, 58, p), kf(p, [[0, body], [0.4, -128], [1, -112]]), kf(p, [[0, body + 10], [0.4, -100], [1, -88]])),
+      ku: out,
+      kl: out,
+    };
+    return { pose: { ...pose, legN } };
+  },
+};
+
 // Lying on the near hip across a 45° hyperextension bench, seen from the
 // front: the bench in profile, the athlete side-on in it. The pelvis stays on
 // the pad and the trunk side-bends down toward the floor and back up past
@@ -787,6 +832,66 @@ const windshieldWiper: Spec = {
   },
 };
 
+// Hanging from two handles, square-on, low enough that the feet nearly brush
+// the floor: from a long body leaning out to one side (feet out, head under
+// the far hand), the knees fold to the chest as the hips swing under the
+// hands, and the legs reach long out to the other side. The head-side arm
+// hangs nearly straight; the feet-side shoulder rides high and that elbow
+// bends. Human flag groundwork (reel DR2DVVZkcpt).
+const SWEEP_H = -150;
+const SWEEP_HAND = 25;
+const SWEEP_LEAN = 54;
+
+function tuckSweepPose(s: number): Pose {
+  const side = s < 0 ? -1 : 1;
+  const e = Math.abs(s);
+  const reach = Math.pow(e, 1.4); // legs stay folded until late in the swing
+  const torso = SWEEP_LEAN * s;
+  // Shoulder-line centre: pulled up between the hands in the tuck, dropped
+  // and shifted toward the head side when long.
+  const centre = v(-side * lerp(0, 13, e), SWEEP_H + lerp(30, 46, e));
+  const lumbar = sub(centre, rot(v(0, -38), torso));
+  const hip = add(lumbar, rot(v(0, 11), torso));
+  let pose = base(hip, { torso, pelvis: torso, head: torso - side * 6 * e });
+  // Thigh: up to the chest (toward the viewer, short) in the tuck, then out
+  // toward the feet side, then long along the body. Angles run continuously
+  // from one side to the other (58 → 180 → 302), so the drawing sweeps
+  // through the tuck instead of spinning.
+  const thighOut = lerp(180, SWEEP_LEAN, reach);
+  const thigh = side > 0 ? thighOut : 360 - thighOut;
+  const shinOut = lerp(0, SWEEP_LEAN, reach);
+  const shin = side > 0 ? shinOut : -shinOut;
+  const ku = lerp(0.6, 1, reach);
+  // Knees a little apart in the tuck, together once long.
+  const spread = lerp(9, 1.5, reach);
+  const leg = (d: number): Limb => ({ ...limb(thigh - d, shin + d * 0.3, shin + d * 0.3 + side * 10), ku, kl: lerp(0.9, 1, reach) });
+  pose = { ...pose, legN: leg(spread), legF: leg(-spread) };
+  return hold(pose, "front", v(SWEEP_HAND, SWEEP_H), v(-SWEEP_HAND, SWEEP_H), -1);
+}
+
+function sweepHandles(): Drawing {
+  const post = (x: number) => `<rect class="frame" x="${x - 2}" y="${SWEEP_H - 40}" width="4" height="${-SWEEP_H + 40}"/>`;
+  const grip = (x: number) => `<rect class="steel" x="${x - 6}" y="${SWEEP_H - 1.6}" width="12" height="3.2" rx="1.6"/>`;
+  return {
+    svg: post(-SWEEP_HAND - 8) + post(SWEEP_HAND + 8) + grip(-SWEEP_HAND) + grip(SWEEP_HAND),
+    box: [-SWEEP_HAND - 10, SWEEP_H - 40, SWEEP_HAND + 10, 0],
+  };
+}
+
+const hangingTuckSweep: Spec = {
+  name: "Hanging Tuck Sweep",
+  aka: ["Hanging Side Sweep", "Hanging Pendulum Tuck", "Side-to-Side Hanging Tuck"],
+  view: "front",
+  mode: "alternate",
+  seconds: 2.4,
+  hands: { N: "fist" },
+  primary: ["obliques", "abs", "lats"],
+  secondary: ["hip_flexors", "forearms", "biceps", "delts_side"],
+  still: 0.5,
+  scene: [{ draw: sweepHandles(), layer: "back" }],
+  motion: (p) => ({ pose: tuckSweepPose(lerp(-1, 1, p)) }),
+};
+
 // --- Rollouts and crunches -------------------------------------------------------
 
 const abWheel: Spec = {
@@ -1231,6 +1336,7 @@ export const CORE: Spec[] = [
   plank,
   sidePlank,
   copenhagenPlank,
+  hipFlexorPlank,
   sideHyperextension,
   hollowHold,
   deadBug,
@@ -1270,6 +1376,7 @@ export const CORE: Spec[] = [
   flagHold({ name: "Straddle Flag", aka: ["Straddle Human Flag"], tilt: 2, legs: "straddle", ...FLAG_MUSCLES }),
   flagHold({ name: "Human Flag", aka: ["Full Human Flag", "Full Flag"], tilt: 0, legs: "together", ...FLAG_MUSCLES }),
   windshieldWiper,
+  hangingTuckSweep,
   stabilityBallRollout,
   wallStop({ name: "Wall-Stop Ab Wheel Rollout", aka: ["Partial Ab Wheel Rollout", "Kneeling Wall-Stop Rollout"], stop: 0.55, seconds: 2.6, roll: kneelingRollout }),
   abWheel,
