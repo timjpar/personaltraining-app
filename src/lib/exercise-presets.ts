@@ -66,6 +66,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Dumbbell Row",
       "Chest-Supported Row",
       "Dumbbell Lateral Raise",
+      "Incline Dumbbell Y Raise",
       "Rear Delt Fly",
       "Weighted Prone Y Raise",
       "Dumbbell Fly",
