@@ -22,6 +22,7 @@ import {
   roller,
   seat,
   step,
+  wall,
 } from "./equipment";
 import {
   add,
@@ -427,6 +428,54 @@ function rdl(o: { name: string; aka?: string[]; load: "barbell" | "dumbbells"; p
     },
   };
 }
+
+// Barbell single-leg RDL from reel DW62fqBjhmi: bar in both hands, standing
+// on the far leg, the free knee bent about 90 degrees so the foot rides up
+// behind as the trunk tips toward level and the bar slides down the shin.
+const barbellSingleLegRdl: Spec = {
+  name: "Barbell Single-Leg RDL",
+  aka: ["Barbell Single Leg RDL", "Barbell Single-Leg Romanian Deadlift", "Barbell Single-Leg Deadlift"],
+  mode: "alternate",
+  seconds: 3.8,
+  hands: { N: "fist" },
+  primary: ["hamstrings", "glutes"],
+  secondary: ["abductors", "lower_back", "forearms"],
+  still: 0.8,
+  props: barbell(),
+  motion: (p) => {
+    const torso = lerp(-4, -76, p);
+    const arm = lerp(6, 1, p);
+    const probe = (pose: Pose) => add(shoulders(pose).N, rot(v(0, 61.6), arm));
+    let pose = stand(lerp(-94.2, -88, p), { torso, pelvis: lerp(-2, -70, p), head: torso * 0.7 }, { probe, over: lerp(15, 12, p) });
+    const thigh = kf(p, [[0, -8], [1, torso + 2]]);
+    pose = { ...pose, legN: limb(thigh, thigh - 92, thigh - 70), armN: limb(arm), armF: limb(arm) };
+    return { pose, props: { bar: at(grips(pose).N) } };
+  },
+};
+
+// Kettlebell single-leg RDL with the back to a wall, from reel DW62fqBjhmi:
+// the hips reach back until the glutes touch the wall, the free knee stays
+// bent with the foot low behind, and the bell in the opposite hand drops to
+// the floor beside the standing foot. The wall says how far back to sit.
+const SLW_WALL = -40;
+const wallSingleLegRdl: Spec = {
+  name: "Wall Single-Leg RDL",
+  aka: ["Kettlebell Wall Single-Leg RDL", "Single-Leg RDL to Wall", "Wall-Assisted Single-Leg RDL", "Single-Leg RDL with Wall Touch"],
+  mode: "alternate",
+  seconds: 3.8,
+  hands: { N: "fist", F: "hand" },
+  primary: ["hamstrings", "glutes"],
+  secondary: ["abductors", "lower_back", "forearms"],
+  still: 0.8,
+  scene: [{ draw: wall(SLW_WALL - 8, -170), layer: "back" }],
+  props: [{ id: "kb", draw: kettlebell(), layer: "front" }],
+  motion: (p) => {
+    const torso = lerp(-4, -80, p);
+    let pose = stand(lerp(-94.4, -80, p), { torso, pelvis: torso * 0.9, head: torso * 0.75 }, { hipX: lerp(-6, -22, p) });
+    pose = { ...pose, legN: limb(lerp(-2, 8, p), lerp(-36, -34, p), lerp(-20, -10, p)), armN: limb(0), armF: limb(4, 10, 10) };
+    return { pose, props: { kb: at(grips(pose).N) } };
+  },
+};
 
 const goodMorning: Spec = {
   name: "Good Morning",
@@ -1264,6 +1313,8 @@ export const LEGS: Spec[] = [
   }),
   rdl({ name: "Romanian Deadlift", load: "barbell", primary: ["hamstrings", "glutes"], secondary: ["lower_back", "forearms"] }),
   rdl({ name: "Dumbbell Romanian Deadlift", load: "dumbbells", primary: ["hamstrings", "glutes"], secondary: ["lower_back", "forearms"] }),
+  barbellSingleLegRdl,
+  wallSingleLegRdl,
   goodMorning,
   seatedGoodMorning,
   swing({ name: "Kettlebell Swing", top: 88 }),

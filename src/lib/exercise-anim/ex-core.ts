@@ -115,6 +115,29 @@ const copenhagenPlank: Spec = {
   },
 };
 
+// Copenhagen plank, long lever (top foot on the bench), with the bottom knee
+// pulled up toward the chest and held there instead of hanging to the floor:
+// the top adductor holds the body up while the bottom hip flexors hold the
+// knee in. From reel DW62fqBjhmi. Seen from the front, the tucked thigh
+// points at the camera, so it is drawn foreshortened.
+const copenhagenKneeTuck: Spec = {
+  name: "Copenhagen Plank Knee Tuck",
+  aka: ["Copenhagen Plank with Knee Tuck", "Copenhagen Knee Tuck Hold", "Copenhagen Plank Bottom Knee Tuck"],
+  view: "front",
+  mode: "loop",
+  seconds: 4,
+  hands: { N: "fist" },
+  primary: ["adductors", "obliques"],
+  secondary: ["hip_flexors", "abs", "abductors"],
+  still: 0.25,
+  scene: [{ draw: box(-112, -64, -40, "pad"), layer: "back" }],
+  motion: (p) => {
+    const b = breathe(p, 2);
+    const pose = sidePlankPose(v(46, -40), 18 + b, 10);
+    return { pose: { ...pose, legN: { ...limb(30 + b, -100, -94), ku: 0.72 } } };
+  },
+};
+
 // Forearm plank with the feet up on a bench: the near knee leaves the bench
 // and drives in under the hips to the chest, holds, and goes back. The hip
 // flexors lift the thigh against gravity while the trunk stays a plank.
@@ -1336,6 +1359,7 @@ export const CORE: Spec[] = [
   plank,
   sidePlank,
   copenhagenPlank,
+  copenhagenKneeTuck,
   hipFlexorPlank,
   sideHyperextension,
   hollowHold,
