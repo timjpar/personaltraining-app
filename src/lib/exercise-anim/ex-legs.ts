@@ -3,6 +3,7 @@
 import {
   barbellFar,
   barbellNear,
+  barLine,
   box,
   cable,
   cableTower,
@@ -13,9 +14,11 @@ import {
   hyperBench,
   kettlebell,
   kettlebellGoblet,
+  landmineBase,
   legPressFrame,
   legPressSled,
   mat,
+  plateEdge,
   roller,
   seat,
   step,
@@ -783,7 +786,7 @@ function nordic(o: { name: string; aka?: string[]; band?: boolean }): Spec {
 // One leg, the other held out in front. `box` sits down onto a box behind
 // and stands back up; `assisted` holds a post in front, the hands sliding
 // down it, so the arms can help.
-function pistol(o: { name: string; box?: boolean; assisted?: boolean }): Spec {
+function pistol(o: { name: string; aka?: string[]; box?: boolean; assisted?: boolean; landmine?: boolean }): Spec {
   const depth = o.box ? -58 : -42;
   const at1 = (p: number) => {
     const torso = lerp(-4, o.assisted ? -22 : -36, p);
@@ -794,20 +797,27 @@ function pistol(o: { name: string; box?: boolean; assisted?: boolean }): Spec {
   const post = v(54, -150);
   return {
     name: o.name,
+    aka: o.aka,
     mode: "alternate",
     seconds: 3.4,
-    hands: { N: o.assisted ? "fist" : "hand" },
+    hands: { N: o.assisted || o.landmine ? "fist" : "hand" },
     primary: ["quads", "glutes"],
-    secondary: ["adductors", "hip_flexors", "abs"],
+    secondary: o.landmine ? ["adductors", "hip_flexors", "abs", "obliques"] : ["adductors", "hip_flexors", "abs"],
     still: 0.85,
     scene: [
       ...(o.box ? [{ draw: box(bottom.x - 26, bottom.x + 12, bottom.y + 14), layer: "back" as const }] : []),
       ...(o.assisted ? [{ draw: column(post.x, post.y, 6), layer: "back" as const }] : []),
+      ...(o.landmine ? [{ draw: landmineBase(BAZOOKA_PIVOT), layer: "back" as const }] : []),
     ],
+    props: o.landmine ? bazookaProps : [],
     motion: (p) => {
       let pose = at1(p);
       const lift = lerp(10, o.box ? 70 : 82, p);
       pose = { ...pose, legF: limb(lift, lift, 10) };
+      if (o.landmine) {
+        pose = { ...pose, armF: limb(lerp(16, 84, p)) };
+        return shoulderLoad(pose, "landmine");
+      }
       if (o.assisted) {
         const s = shoulders(pose).N;
         pose = hold(pose, "side", v(post.x + 1, s.y + 14), undefined, -1);
@@ -886,6 +896,79 @@ function shrimp(o: { name: string; aka?: string[]; held?: boolean; assisted?: bo
         const toes = add(joints(pose).ankleF, rot(v(8, 4), shin - 55));
         pose = { ...pose, armF: gripArm(shoulders(pose).F, toes, 1) };
       }
+      return { pose };
+    },
+  };
+}
+
+// The load for a "bazooka" squat: the sleeve end of a landmine bar (a plate
+// on it) held on the front of the near shoulder, the bar running down and
+// back to its pivot on the floor behind. The banded version swaps the bar
+// for a band anchored low behind and pulled up across to the same shoulder.
+// Both sit on the near side of the body, so they draw over the trunk.
+const BAZOOKA_PIVOT = v(-92, -3);
+const BAND_ANCHOR = v(-78, -10);
+const bazookaProps: Prop[] = [
+  { id: "bar", draw: barLine(), layer: "mid" },
+  { id: "plate", draw: plateEdge(19), layer: "mid" },
+];
+const bandProps: Prop[] = [{ id: "band", draw: { svg: `<path class="band" d="M0 0H1" style="vector-effect:non-scaling-stroke"/>`, box: [0, -1, 1, 1] }, layer: "mid" }];
+
+function shoulderLoad(pose: Pose, load: "band" | "landmine"): { pose: Pose; props: Record<string, PropState> } {
+  const s = shoulders(pose).N;
+  // Hand by the chin, elbow down in front of the chest.
+  const grip = add(s, v(13, -9));
+  pose = { ...pose, armN: gripArm(s, grip, -1, 0) };
+  if (load === "band") return { pose, props: { band: line(BAND_ANCHOR, grip) } };
+  const d = sub(grip, BAZOOKA_PIVOT);
+  const len = Math.hypot(d.x, d.y);
+  const unit = v(d.x / len, d.y / len);
+  const bar = line(BAZOOKA_PIVOT, add(grip, v(unit.x * 4, unit.y * 4)));
+  return { pose, props: { bar, plate: turned(sub(grip, v(unit.x * 22, unit.y * 22)), bar.angle ?? 0) } };
+}
+
+// One leg, the other knee bent with its foot lifted behind, then sitting down
+// until the back knee touches the floor just behind the standing heel. The
+// trunk stays taller than in a shrimp squat and the back shin angles up off
+// the floor rather than lying along it. `load` holds a band or the end of a
+// landmine bar (a "bazooka") on the near shoulder.
+function skater(o: { name: string; aka?: string[]; load?: "band" | "landmine" }): Spec {
+  const KNEE_ON_FLOOR = -6;
+  const bottom = v(-10, -48);
+  const thighDown = (-Math.acos((KNEE_ON_FLOOR - bottom.y) / LEN.thigh) * 180) / Math.PI;
+  const lean = o.load ? -24 : -34;
+  const kneeX = bottom.x + LEN.thigh * Math.sin((thighDown * Math.PI) / 180);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: 3.4,
+    hands: { N: o.load ? "fist" : "hand", F: "hand" },
+    primary: ["quads", "glutes"],
+    secondary: o.load ? ["hip_flexors", "adductors", "abs", "obliques"] : ["hip_flexors", "adductors", "abs"],
+    still: 0.85,
+    scene: [
+      { draw: mat(kneeX - 16, kneeX + 14), layer: "back" },
+      ...(o.load === "landmine" ? [{ draw: landmineBase(BAZOOKA_PIVOT), layer: "back" as const }] : []),
+      ...(o.load === "band"
+        ? [{ draw: { svg: `<rect class="frame" x="${BAND_ANCHOR.x - 3}" y="${BAND_ANCHOR.y - 6}" width="6" height="${-BAND_ANCHOR.y + 6}"/>`, box: [BAND_ANCHOR.x - 3, BAND_ANCHOR.y - 6, BAND_ANCHOR.x + 3, 0] as [number, number, number, number] }, layer: "back" as const }]
+        : []),
+    ],
+    props: o.load === "landmine" ? bazookaProps : o.load === "band" ? bandProps : [],
+    motion: (p) => {
+      const hip = lerpV(v(0.5, -94.4), bottom, p);
+      const torso = lerp(-4, lean, p);
+      let pose = base(hip, { torso, pelvis: torso * 0.85, head: torso * 0.45 });
+      const thigh = lerp(-2, thighDown, p);
+      const shin = lerp(-100, -128, p);
+      pose = { ...pose, legN: plantLeg(hip, v(0, -8), 0, 1), legF: limb(thigh, shin, shin - 50) };
+      if (o.load) {
+        // The free hand swings forward for balance as the hips sink.
+        pose = { ...pose, armF: limb(lerp(-14, 62, p), lerp(-4, 80, p)) };
+        return shoulderLoad(pose, o.load);
+      }
+      // Arms swing like a skater's: the far one forward, the near one back.
+      pose = { ...pose, armN: limb(lerp(-6, -34, p), lerp(4, -10, p)), armF: limb(lerp(10, 78, p), lerp(20, 90, p)) };
       return { pose };
     },
   };
@@ -1154,6 +1237,10 @@ export const LEGS: Spec[] = [
   shrimp({ name: "Advanced Shrimp Squat", held: true }),
   dragon({ name: "Dragon Squat", aka: ["Dragon Pistol Squat", "Dragon Pistol"] }),
   dragon({ name: "Assisted Dragon Squat", assisted: true }),
+  skater({ name: "Skater Squat", aka: ["Skater Squats"] }),
+  skater({ name: "Banded Skater Squat", aka: ["Band-Resisted Skater Squat", "Band Skater Squat"], load: "band" }),
+  skater({ name: "Bazooka Squat", aka: ["Landmine Skater Squat", "Bazooka Skater Squat", "Bazooka Squats"], load: "landmine" }),
+  pistol({ name: "Bazooka Pistol Squat", aka: ["Bazooka Pistol", "Bazooka Pistols", "Landmine Pistol Squat"], landmine: true }),
   figure4({ name: "Figure-4 Squat", aka: ["Figure-4 Single-Leg Squat", "Figure Four Squat", "Crossed-Leg Squat"] }),
   figure4({ name: "Box Figure-4 Squat", box: true }),
   boxSumoSquat,
