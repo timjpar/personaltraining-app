@@ -161,6 +161,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Skin the Cat",
       "Ring Row",
       "Single-Arm Ring Row with Dumbbell Press",
+      "Lateral Australian Pull-Up",
       "Inverted Row",
       "Air Squat",
       "Sissy Squat",

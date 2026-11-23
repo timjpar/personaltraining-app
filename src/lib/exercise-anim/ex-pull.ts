@@ -23,6 +23,7 @@ import {
   add,
   at,
   base,
+  frontJoints,
   gripArm,
   grips,
   hold,
@@ -851,6 +852,80 @@ function wristWork(o: { name: string; band?: boolean; twist?: boolean; primary: 
   };
 }
 
+// Lateral Australian pull-up (reel DYdSfPhO1ol): one ring overhead, the body
+// side-on to it and leaning away with the feet stacked out on the floor, the
+// free hand on the hip. At the bottom the arm is long and the hips sag away
+// from the ring, a stretch from the hip to the hand down the ring side; the
+// pull drives the elbow down to the ribs and lifts the hips into a straight,
+// side-plank line. Square-on, the ring on the left of the picture: with the
+// trunk tipped that way the near arm is the top one.
+const LAT_AUS_ANKLE = v(66, -8);
+// Top: a straight line from the feet, the hand by the side of the head.
+const LAT_AUS_TOP_TILT = 22;
+// Bottom: hips sagged this far below the line.
+const LAT_AUS_SAG = 20;
+
+function latAusBody(legs: number, torso: number): Pose {
+  const pose: Pose = {
+    ...base(v(0, 0), { torso, pelvis: lerp(legs, torso, 0.5), head: torso - 8 }),
+    legN: limb(legs - 2.5, legs - 2.5, legs + 80),
+    legF: limb(legs + 2.5, legs + 2.5, legs + 80),
+  };
+  const j = frontJoints(pose);
+  const feet = lerpV(j.ankleN, j.ankleF, 0.5);
+  return { ...pose, hip: add(pose.hip, sub(LAT_AUS_ANKLE, feet)) };
+}
+
+function shouldersFront(pose: Pose) {
+  const j = frontJoints(pose);
+  return { N: j.shoulder, F: j.shoulderF };
+}
+
+// The ring hangs just above and outside the top shoulder at the top of the
+// rep, the fist beside the head.
+const LAT_AUS_RING = add(shouldersFront(latAusBody(LAT_AUS_TOP_TILT, LAT_AUS_TOP_TILT)).N, v(-2, -32));
+
+// The bottom: the lean, with the hips sagged, at which the arm just reaches
+// the ring straight.
+const LAT_AUS_BOTTOM_TILT = (() => {
+  const reach = LEN.upperArm + LEN.forearm + LEN.grip - 0.4;
+  let lo = LAT_AUS_TOP_TILT;
+  let hi = 80;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    const s = shouldersFront(latAusBody(mid + LAT_AUS_SAG / 2, mid - LAT_AUS_SAG / 2)).N;
+    if (Math.hypot(LAT_AUS_RING.x - s.x, LAT_AUS_RING.y - s.y) < reach) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+})();
+
+const lateralAustralianPullUp: Spec = {
+  name: "Lateral Australian Pull-Up",
+  aka: ["Lateral Ring Row", "Side-Lying Ring Pull-Up", "Lateral Inverted Row", "Single-Arm Lateral Ring Row"],
+  view: "front",
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist", F: "fist" },
+  primary: ["lats", "obliques"],
+  secondary: ["biceps", "upper_back", "delts_rear", "abs", "forearms"],
+  still: 0.9,
+  props: [
+    { id: "sN", draw: strap(), layer: "back" },
+    { id: "rN", draw: ring(), layer: "front" },
+  ],
+  motion: (p) => {
+    const t = smooth(p);
+    const tilt = lerp(LAT_AUS_BOTTOM_TILT, LAT_AUS_TOP_TILT, t);
+    const sag = lerp(LAT_AUS_SAG, 0, t);
+    let pose = latAusBody(tilt + sag / 2, tilt - sag / 2);
+    const j = frontJoints(pose);
+    const onHip = add(j.hipF, rot(v(-2, -9), pose.pelvis));
+    pose = hold(pose, "front", LAT_AUS_RING, onHip, -1, -1);
+    return { pose, props: { rN: at(LAT_AUS_RING), sN: line(v(LAT_AUS_RING.x, -250), LAT_AUS_RING) } };
+  },
+};
+
 export const PULL: Spec[] = [
   barbellRow({ name: "Barbell Row", aka: ["Bent-Over Row"], torso: -52, primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "lower_back"] }),
   barbellRow({ name: "Pendlay Row", torso: -82, fromFloor: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "lower_back"] }),
@@ -859,6 +934,7 @@ export const PULL: Spec[] = [
   seatedCableRow,
   invertedRow({ name: "Inverted Row", primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear"] }),
   invertedRow({ name: "Ring Row", rings: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "abs"] }),
+  lateralAustralianPullUp,
   ringRowPress,
   pullUpBack({ name: "Pull-Up", aka: ["Pull Up"], primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
   pullUpBack({ name: "Weighted Pull-Up", plate: true, primary: ["lats", "upper_back"], secondary: ["biceps", "forearms", "abs"] }),
