@@ -489,23 +489,131 @@ const childsPose: Spec = {
   secondary: ["glutes", "delts_rear"],
   still: 0.5,
   motion: (p) => {
-    const b = breathe(p);
-    // Knees on the floor, shins flat behind them, the hip joint resting just
-    // above the heels and solved to sit a thigh-length from the knee.
-    const knee = v(10, -5);
-    const ankle = v(knee.x - LEN.shin, -5);
-    const hipY = -24 - b * 1.5;
-    const hip = v(knee.x - Math.sqrt(LEN.thigh ** 2 - (knee.y - hipY) ** 2), hipY);
-    let pose = base(hip, { pelvis: -96, torso: -101 + b * 3, head: -118 + b * 2 });
-    const leg: Limb = { ...limb(dirTo(hip, knee), dirTo(knee, ankle), -175) };
-    pose = { ...pose, legN: leg, legF: { ...leg } };
+    let pose = childsPoseBody(breathe(p));
     const s = shoulders(pose).N;
     pose = palms(pose, "side", v(s.x + 50, 0), v(s.x + 50, 0), 90, -1);
     return { pose };
   },
 };
 
+// Knees on the floor, shins flat behind them, the hip joint resting just
+// above the heels and solved to sit a thigh-length from the knee. `b` is how
+// far into a breath (0–1), which lifts the back a little. Arms not posed.
+function childsPoseBody(b = 0): Pose {
+  const knee = v(10, -5);
+  const ankle = v(knee.x - LEN.shin, -5);
+  const hipY = -24 - b * 1.5;
+  const hip = v(knee.x - Math.sqrt(LEN.thigh ** 2 - (knee.y - hipY) ** 2), hipY);
+  const pose = base(hip, { pelvis: -96, torso: -101 + b * 3, head: -118 + b * 2 });
+  const leg: Limb = { ...limb(dirTo(hip, knee), dirTo(knee, ankle), -175) };
+  return { ...pose, legN: leg, legF: { ...leg } };
+}
+
 const dirTo = (a: V, b: V) => (Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI;
+
+// --- Lower trapezius: the child's pose lift-off and the prone Y ---------------
+//
+// From Squat University's reel DScuJl2AHZz, the fix for a weightlifter's
+// shoulder pain: a prone Y for the lower trapezius, paired with an arm lift
+// from child's pose for control of the shoulder blade. A Y-position arm
+// reaches forward and out about 30° from the line of the body, so from the
+// side it is drawn a little short.
+const Y_SPREAD = Math.cos((30 * Math.PI) / 180);
+// Shoulder to the centre of the fist, arm straight.
+const ARM_TO_GRIP = LEN.upperArm + LEN.forearm + LEN.grip;
+
+// A straight arm at `angle` (0 hanging, 90 reaching forward level), in a Y.
+// `k` foreshortens it: the arm hangs plumb at the bottom of a bench Y, where
+// nothing points out of the picture, and spreads as it rises.
+const straightArm = (angle: number, k = Y_SPREAD): Limb => ({ ...limb(angle), ku: k, kl: k, ke: Math.max(k, 0.6) });
+
+// Child's pose, then the near arm floats straight up off the floor, thumb up,
+// holds, and sets back down. The far hand stays flat. In the reel the lift is
+// small, a hand's height, and the side that couldn't lift at first is the
+// one that hurt.
+const childsPoseLiftOff: Spec = {
+  name: "Child's Pose Lift-Off",
+  aka: ["Childs Pose Lift-Off", "Child's Pose Lift Off", "Child's Pose Arm Lift", "Backward-Rocking Arm Lift"],
+  mode: "loop",
+  seconds: 4.4,
+  samples: 40,
+  hands: { N: "fist", F: "palm" },
+  primary: ["traps", "upper_back"],
+  secondary: ["delts_rear", "delts_side"],
+  still: 0.5,
+  motion: (p) => {
+    let pose = childsPoseBody();
+    const s = shoulders(pose).N;
+    pose = palms(pose, "side", v(s.x + 48, 0), v(s.x + 48, 0), 90, -1);
+    // The arm along the floor: the fist resting on it, thumb up.
+    const reach = ARM_TO_GRIP * Y_SPREAD;
+    const rest = (Math.acos((-4.5 - s.y) / reach) * 180) / Math.PI;
+    const lift = kf(p, [[0, 0], [0.12, 0], [0.32, 1], [0.62, 1], [0.84, 0], [1, 0]]);
+    return { pose: { ...pose, armN: straightArm(rest + lift * 20) } };
+  },
+};
+
+// Face down on the floor, or along a flat bench with the head and arms past
+// its end, arms in a Y with the thumbs up. On the floor the fists start on
+// the floor ahead and float a few inches; off a bench they start hanging and
+// rise until in line with the ears, which is the bigger range. `plates` puts
+// a small change plate in each hand, as in the reel.
+const Y_BENCH_TOP = -54;
+const Y_PLATE_R = 8;
+function proneY(o: { name: string; aka?: string[]; bench?: boolean; plates?: boolean }): Spec {
+  const surface = o.bench ? Y_BENCH_TOP : 0;
+  // Prone, the spine runs about 13 above whatever the chest rests on.
+  const hip = v(-56, surface - 11);
+  const body = base(hip, { pelvis: -90, torso: -90, head: -94 });
+  const flat = { ...body, legN: limb(-90, -90, -172), legF: limb(-90, -90, -172) };
+  const s = shoulders(flat).N;
+  const ankle = joints(flat).ankleN;
+  // On the floor, the fist rests on it ahead of the head.
+  const floorRest = (Math.acos((-4.5 - s.y) / (ARM_TO_GRIP * Y_SPREAD)) * 180) / Math.PI;
+  const [low, high] = o.bench ? [28, 98] : [floorRest, 102];
+  const plate = (): Prop["draw"] => plateFace(Y_PLATE_R);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 4.6,
+    samples: 40,
+    hands: { N: "fist" },
+    primary: ["traps", "upper_back"],
+    secondary: ["delts_rear", "delts_side"],
+    still: 0.5,
+    depth: v(-3, -2),
+    scene: o.bench ? [{ draw: flatBench(ankle.x + 6, s.x + 3, Y_BENCH_TOP), layer: "back" }] : [],
+    props: o.plates
+      ? [
+          { id: "plF", draw: plate(), layer: "back" },
+          { id: "plN", draw: plate(), layer: "mid" },
+        ]
+      : [],
+    motion: (p) => {
+      // Up in about a second, a two-second hold at the top, slower down.
+      const t = kf(p, [[0, 0], [0.08, 0], [0.3, 1], [0.62, 1], [0.92, 0], [1, 0]]);
+      const angle = lerp(low, high, t);
+      const k = o.bench ? lerp(1, Y_SPREAD, Math.sin((Math.min(angle, 90) * Math.PI) / 180)) : Y_SPREAD;
+      const arm = straightArm(angle, k);
+      const pose: Pose = { ...flat, armN: arm, armF: { ...arm } };
+      if (!o.plates) return { pose };
+      // The fist pinches the rim; the plate sits on past it, along the arm.
+      const g = grips(pose);
+      const on = rot(v(0, Y_PLATE_R - 2.5), angle);
+      return { pose, props: { plN: at(add(g.N, on)), plF: at(add(add(g.F, on), v(-3, -2))) } };
+    },
+  };
+}
+
+const proneYRaise = proneY({ name: "Prone Y Raise", aka: ["Prone Y", "Pronated Y Raise", "Floor Y Raise", "Lying Y Raise"] });
+const benchProneYRaise = proneY({ name: "Bench Prone Y Raise", aka: ["Prone Y Raise on Bench", "Bench Y Raise"], bench: true });
+const weightedProneYRaise = proneY({
+  name: "Weighted Prone Y Raise",
+  aka: ["Weighted Bench Y Raise", "Weighted Pronated Y Raise", "Prone Y Raise with Plates", "Dumbbell Prone Y Raise"],
+  bench: true,
+  plates: true,
+});
 
 const threadTheNeedle: Spec = {
   name: "Thread the Needle",
@@ -1378,6 +1486,9 @@ export const MOBILITY: Spec[] = [
   bandFacePull,
   externalRotation,
   kneeExternalRotation,
+  proneYRaise,
+  benchProneYRaise,
+  weightedProneYRaise,
   wallSlide,
   armCircles,
   plateHalo,
@@ -1391,6 +1502,7 @@ export const MOBILITY: Spec[] = [
   rollerSlide({ name: "Foam Roll Glutes", part: "glutes" }),
   rollerSlide({ name: "Foam Roll Lats", part: "lats" }),
   childsPose,
+  childsPoseLiftOff,
   threadTheNeedle,
   catCow,
   rollerHurdle,

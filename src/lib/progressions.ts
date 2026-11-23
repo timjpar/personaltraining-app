@@ -1369,6 +1369,44 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "prone-y-raise",
+    goal: "Weighted Prone Y Raise",
+    family: "strength",
+    blurb:
+      "Lower-trap strength and shoulder-blade control for pressing and lifting overhead. Start with an arm lift from child's pose, then a Y on the floor, then off a bench, then a Y holding small plates.",
+    steps: [
+      {
+        name: "Child's Pose Lift-Off",
+        aka: ["Childs Pose Lift-Off", "Child's Pose Lift Off", "Child's Pose Arm Lift", "Backward-Rocking Arm Lift"],
+        how: "Sit back on your heels with your arms long on the floor in a Y. Lift one straight arm off the floor, thumb up, and hold 2–3s, then lower it. Keep your hips on your heels and your neck relaxed. 2–3 × 8–10 per side.",
+        when: "3 × 10 per side, each arm lifting to in line with your ears, both sides the same height.",
+        target: reps(3, 10),
+        weeks: "1–3 weeks",
+      },
+      {
+        name: "Prone Y Raise",
+        aka: ["Prone Y", "Pronated Y Raise", "Floor Y Raise", "Lying Y Raise"],
+        how: "Lie face down on the floor, forehead on a folded towel, arms in a Y with the thumbs up. Set your shoulder blades down and back, then lift both arms a few inches and hold 2s. Don't shrug and don't arch your lower back. 3 × 10–12.",
+        when: "3 × 12 with a 2s hold, and your shoulders stay away from your ears.",
+        target: reps(3, 12),
+        weeks: "2–3 weeks",
+      },
+      {
+        name: "Bench Prone Y Raise",
+        aka: ["Prone Y Raise on Bench", "Bench Y Raise"],
+        how: "Lie chest-down on a flat bench with your head and shoulders past the end and your arms hanging. Raise straight arms forward and out into a Y, thumbs up, until they're in line with your ears. Hold 2s at the top and lower over 2–3s. 3 × 10–12.",
+        when: "3 × 12 reaching ear height with a 2s hold.",
+        target: reps(3, 12),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Weighted Prone Y Raise",
+        aka: ["Weighted Bench Y Raise", "Weighted Pronated Y Raise", "Prone Y Raise with Plates", "Dumbbell Prone Y Raise"],
+        how: "Same as the bench version, holding a small plate or dumbbell in each hand. Start at 0.5–1.5 kg: the arms are a long lever, so a little weight goes a long way. Add weight only when every rep still reaches ear height with the 2s hold. 3 × 8–12.",
+      },
+    ],
+  },
+  {
     id: "clean",
     goal: "Clean & Jerk",
     family: "strength",
