@@ -748,6 +748,41 @@ const couchStretch: Spec = {
   },
 };
 
+// Standing couch stretch (reel DQ5cHDcDCJA): rear instep on a bench, front
+// foot flat, both hands on an upright post ahead. It rocks between the
+// bottom, rear knee bent ~70° (quad / rectus femoris), and a drive forward
+// that straightens the rear knee to ~135° and opens the rear hip.
+const RFE_REAR = v(-44, -43);
+const RFE_FRONT = v(46, -8);
+const RFE_POST = 84;
+const rfeAt = (p: number): Pose => {
+  const hip = lerpV(v(5, -60.5), v(28, -77), p);
+  const torso = lerp(-32, -10, p);
+  const pose = base(hip, { torso, pelvis: torso * 0.6, head: torso * 0.5 });
+  return {
+    ...pose,
+    legN: plantLeg(hip, RFE_FRONT, 0, 1),
+    legF: plantLeg(hip, RFE_REAR, -186, 1),
+  };
+};
+const RFE_GRIP = v(RFE_POST - 2, -122);
+
+const rearFootElevatedHipFlexor: Spec = {
+  name: "Rear-Foot-Elevated Hip Flexor Stretch",
+  aka: ["Standing Couch Stretch", "Elevated Couch Stretch", "RFE Hip Flexor Stretch"],
+  mode: "alternate",
+  seconds: 2.4,
+  hands: { N: "fist" },
+  primary: ["hip_flexors", "quads"],
+  secondary: ["glutes", "adductors"],
+  still: 0,
+  scene: [
+    { draw: flatBench(-96, -40, -44), layer: "back" },
+    { draw: column(RFE_POST, -170, 6), layer: "back" },
+  ],
+  motion: (p) => ({ pose: hold(rfeAt(p), "side", RFE_GRIP, undefined, -1) }),
+};
+
 // The near knee, for resting a hand on it.
 const frontJointsSide = (pose: Pose) => {
   const knee = add(pose.hip, rot(v(0, 44), pose.legN.upper));
@@ -1507,6 +1542,7 @@ export const MOBILITY: Spec[] = [
   catCow,
   rollerHurdle,
   couchStretch,
+  rearFootElevatedHipFlexor,
   eccentricThomas,
   halfKneel({ name: "Hip Flexor Stretch", aka: ["Half-Kneeling Hip Flexor Stretch"], primary: ["hip_flexors", "quads"], secondary: ["abs"] }),
   halfKneel({ name: "Ankle Rock", aka: ["Ankle Rocks"], ankleRock: true, primary: ["calves"], secondary: ["tibialis"] }),
