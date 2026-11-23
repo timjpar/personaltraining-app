@@ -67,7 +67,9 @@ const RULES: Rule[] = [
   { archetype: "stretch", match: ["stretch", "leg swing", "foam roll"] },
 
   // guard: "Rear Delt Fly" is a pull; "fly" would otherwise send it to press.
-  { archetype: "pull-horizontal", match: ["rear delt"] },
+  // A prone Y is shoulder-blade work of the same kind, and "Bench Prone Y
+  // Raise" would otherwise be read as a bench press.
+  { archetype: "pull-horizontal", match: ["rear delt", "y raise"] },
 
   // guard: "Pallof Press" is anti-rotation core, not a press.
   { archetype: "core", match: ["pallof"] },
