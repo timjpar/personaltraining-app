@@ -682,6 +682,43 @@ function curl(o: {
   };
 }
 
+// Back on an incline bench, dumbbells rising out in the scapular plane (about
+// 30° in front of the sides) to a Y. From the side the arms swing toward the
+// viewer, so they shorten as they rise; the top lands well past perpendicular
+// to the reclined trunk.
+const inclineYRaise: Spec = {
+  name: "Incline Dumbbell Y Raise",
+  aka: ["Incline Y Raise", "Seated Incline Y Raise"],
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist" },
+  primary: ["delts_side"],
+  secondary: ["delts_front", "traps"],
+  still: 0.85,
+  scene: [{ draw: seat(-30, 6, -50), layer: "back" }],
+  props: [
+    { id: "back", draw: { svg: `<rect class="pad" x="-4" y="-46" width="8" height="84" rx="3.5"/>`, box: [-4, -46, 4, 38] }, layer: "back" },
+    { id: "dbF", draw: dumbbellEnd(6.5), layer: "back" },
+    { id: "dbN", draw: dumbbellEnd(6.5), layer: "front" },
+  ],
+  motion: (p) => {
+    let pose = seated(-50, 46, { torso: 40, pelvis: 30, head: 20 });
+    const upper = kf(p, [[0, 8], [0.5, 70], [1, 146]]);
+    const ku = kf(p, [[0, 1], [0.5, 0.72], [1, 0.52]]);
+    const arm = { ...limb(upper, upper - 6, upper - 6), ku, kl: ku };
+    pose = { ...pose, armN: arm, armF: { ...arm } };
+    const g = grips(pose);
+    return {
+      pose,
+      props: {
+        back: turned(onTrunk(pose, v(-19.5, -18)), pose.torso),
+        dbN: at(g.N),
+        dbF: at(add(g.F, v(-2.2, -1))),
+      },
+    };
+  },
+};
+
 const skullcrusher: Spec = {
   name: "Dumbbell Skullcrusher",
   aka: ["Skullcrusher", "Barbell Lying Triceps Extension"],
@@ -814,6 +851,7 @@ export const PULL: Spec[] = [
   curl({ name: "Dumbbell Curl", aka: ["Bicep Curl", "Biceps Curl"], load: "dumbbells", primary: ["biceps"], secondary: ["forearms"] }),
   curl({ name: "Hammer Curl", load: "hammer", primary: ["biceps", "forearms"] }),
   curl({ name: "Incline Curl", aka: ["Incline Dumbbell Curl"], load: "dumbbells", incline: true, primary: ["biceps"], secondary: ["forearms"] }),
+  inclineYRaise,
   curl({ name: "Cable Curl", load: "cable", primary: ["biceps"], secondary: ["forearms"] }),
   skullcrusher,
   overheadTricepsExtension,

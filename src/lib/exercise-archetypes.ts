@@ -66,6 +66,10 @@ const RULES: Rule[] = [
   // hinge and "swings" claims Leg Swings.
   { archetype: "stretch", match: ["stretch", "leg swing", "foam roll"] },
 
+  // guard: the incline Y raise is a lateral raise lying back on a bench (side
+  // delts), not the prone Y below.
+  { archetype: "press-overhead", match: ["incline dumbbell y raise", "incline y raise"] },
+
   // guard: "Rear Delt Fly" is a pull; "fly" would otherwise send it to press.
   // A prone Y is shoulder-blade work of the same kind, and "Bench Prone Y
   // Raise" would otherwise be read as a bench press. The ring row press is
