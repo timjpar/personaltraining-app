@@ -397,6 +397,62 @@ const plateHalo: Spec = {
   },
 };
 
+// Kettlebell archer swing, from reel DUrP-HOEgeZ. One bell in one hand, the
+// other hand behind the back. The bell goes round the shoulder in one loop:
+// from beside the hip, straight-armed out to the side and up overhead; the
+// elbow bends and the bell drops behind the head; the elbow comes forward to
+// shoulder height with the forearm upright and the bell above the fist, like
+// drawing a bow; then the arm opens and the bell swings down to the hip. Drawn
+// square-on. The bell always points along the forearm, as a swung bell does.
+const ARCHER: [number, { up: number; lo: number; ku: number; kl: number }][] = [
+  [0, { up: 12, lo: 10, ku: 1, kl: 1 }],
+  [0.22, { up: 92, lo: 94, ku: 1, kl: 1 }],
+  [0.4, { up: 168, lo: 172, ku: 1, kl: 1 }],
+  [0.54, { up: 158, lo: 312, ku: 0.95, kl: 0.9 }],
+  [0.62, { up: 132, lo: 268, ku: 0.6, kl: 0.25 }],
+  [0.72, { up: 100, lo: 186, ku: 0.35, kl: 1 }],
+  [0.8, { up: 96, lo: 184, ku: 0.35, kl: 1 }],
+  [0.92, { up: 40, lo: 36, ku: 0.85, kl: 0.9 }],
+  [1, { up: 12, lo: 10, ku: 1, kl: 1 }],
+];
+
+const archerSwing: Spec = {
+  name: "Kettlebell Archer Swing",
+  aka: ["Archer Swing"],
+  view: "front",
+  mode: "loop",
+  seconds: 2.4,
+  samples: 36,
+  hands: { N: "fist", F: "fist" },
+  primary: ["delts_front", "delts_side", "delts_rear"],
+  secondary: ["traps", "triceps", "forearms", "abs"],
+  still: 0.76,
+  props: [
+    { id: "kbBack", draw: kettlebell(), layer: "back" },
+    { id: "kbFront", draw: kettlebell(), layer: "front" },
+    { id: "head", draw: HEAD_COVER, layer: "front" },
+  ],
+  motion: (p) => {
+    const key = (f: (k: (typeof ARCHER)[number][1]) => number) => kf(p, ARCHER.map(([t, k]) => [t, f(k)]));
+    const lo = key((k) => k.lo);
+    const armN: Limb = { upper: key((k) => k.up), lower: lo, end: lo, ku: key((k) => k.ku), kl: key((k) => k.kl) };
+    // Free hand on the hip (in the reel it sits on the small of the back).
+    const armF = mirror({ ...limb(28, -52, -60), kl: 0.8 });
+    const pose: Pose = { ...standSquare(-94.6, { head: kf(p, [[0, 0], [0.55, -4], [0.75, 3], [1, 0]]) }, 11), armN, armF };
+    // Behind the head from when the elbow folds until it comes forward again.
+    const behind = p > 0.46 && p < 0.68;
+    const kb = turned(grips(pose, "front").N, lo);
+    return {
+      pose,
+      props: {
+        kbBack: kb,
+        kbFront: { ...kb, scaleX: behind ? 0.001 : 1 },
+        head: shown(frontJoints(pose).neck, pose.head, behind),
+      },
+    };
+  },
+};
+
 // Forearms out in front, elbows bent at the sides.
 function forearmsForward(pose: Pose, hand: number, ke = 1): Pose {
   const arm: Limb = { ...limb(8, 90, hand), ke };
@@ -1580,6 +1636,7 @@ export const MOBILITY: Spec[] = [
   wallSlide,
   armCircles,
   plateHalo,
+  archerSwing,
   shoulderCars,
   wristCircles,
   fingerRolls,

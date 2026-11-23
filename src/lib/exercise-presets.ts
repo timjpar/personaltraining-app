@@ -230,6 +230,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Turkish Get-Up",
       "Kettlebell Front Rack Carry",
       "Kettlebell Windmill",
+      "Kettlebell Archer Swing",
       "Suitcase Carry",
     ],
   },

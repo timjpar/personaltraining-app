@@ -63,8 +63,9 @@ const RULES: Rule[] = [
   },
 
   // guard: anything explicitly a stretch, before "hamstring" claims it for
-  // hinge and "swings" claims Leg Swings.
-  { archetype: "stretch", match: ["stretch", "leg swing", "foam roll"] },
+  // hinge and "swings" claims Leg Swings. The archer swing circles the bell
+  // round the shoulder, so it is shoulder mobility, not a hip hinge.
+  { archetype: "stretch", match: ["stretch", "leg swing", "foam roll", "archer swing"] },
 
   // guard: "Rear Delt Fly" is a pull; "fly" would otherwise send it to press.
   // A prone Y is shoulder-blade work of the same kind, and "Bench Prone Y
