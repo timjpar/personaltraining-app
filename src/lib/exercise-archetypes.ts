@@ -148,7 +148,7 @@ const RULES: Rule[] = [
       "plank", "hollow", "dead bug", "bird dog", "crunch", "sit-up", "v-up",
       "knee raise", "leg raise", "rollout", "twist", "woodchop",
       "toes-to-bar", "ab wheel", "ab roller",
-      "human flag", "vertical flag", "tuck flag", "straddle flag",
+      "human flag", "vertical flag", "tuck flag", "straddle flag", "tuck sweep",
     ],
   },
 
