@@ -23,6 +23,7 @@ import {
   add,
   at,
   base,
+  gripArm,
   grips,
   hold,
   ik2,
@@ -232,6 +233,41 @@ function invertedRow(o: { name: string; rings?: boolean; primary: Spec["primary"
     },
   };
 }
+
+// One ring in the far hand, a dumbbell in the near one: the far arm rows the
+// body up to the ring while the near arm presses the dumbbell away from the
+// chest, so the pull and the push finish together (judo / thrower push-pull).
+const RING_PRESS_GRIP = v(-40, -112);
+const ringRowPress: Spec = {
+  name: "Single-Arm Ring Row with Dumbbell Press",
+  aka: ["Ring Row Press", "Push-Pull Ring Row", "One-Arm Ring Row and Press"],
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "fist" },
+  primary: ["upper_back", "lats", "chest"],
+  secondary: ["biceps", "triceps", "delts_front", "obliques", "abs"],
+  still: 0.9,
+  props: [
+    { id: "sF", draw: strap(), layer: "back" },
+    { id: "rF", draw: ring(), layer: "back" },
+    { id: "db", draw: dumbbellEnd(8), layer: "front" },
+  ],
+  motion: (p) => {
+    const grip = RING_PRESS_GRIP;
+    let pose = underBar(v(62, -8), grip, lerp(61, 22, p));
+    pose = hold(pose, "side", grip, undefined, -1);
+    // Dumbbell from the chest to arm's length, square to the trunk.
+    const s = shoulders(pose).N;
+    const chest = onTrunk(pose, v(20.5, -28));
+    const top = add(s, rot(v(1.5, -59.5), pose.torso - 88));
+    const d = lerpV(chest, top, p);
+    pose = { ...pose, armN: gripArm(s, d, -1) };
+    return {
+      pose,
+      props: { rF: at(grip), sF: line(v(grip.x, -250), grip), db: at(grips(pose).N) },
+    };
+  },
+};
 
 // --- Vertical pulls -------------------------------------------------------------
 
@@ -756,6 +792,7 @@ export const PULL: Spec[] = [
   seatedCableRow,
   invertedRow({ name: "Inverted Row", primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear"] }),
   invertedRow({ name: "Ring Row", rings: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "abs"] }),
+  ringRowPress,
   pullUpBack({ name: "Pull-Up", aka: ["Pull Up"], primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
   pullUpBack({ name: "Weighted Pull-Up", plate: true, primary: ["lats", "upper_back"], secondary: ["biceps", "forearms", "abs"] }),
   pullUpSide({ name: "Chin-Up", aka: ["Chin Up"], primary: ["lats", "biceps"], secondary: ["upper_back", "forearms"] }),
