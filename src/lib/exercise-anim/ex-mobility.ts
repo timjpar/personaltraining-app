@@ -3,7 +3,7 @@
 
 import { FRONT } from "./body-front";
 import { SQUARE } from "./rig";
-import { box, column, doorFrame, dumbbellEnd, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, uprightRoller, wall } from "./equipment";
+import { box, column, doorFrame, dumbbellEnd, dumbbellSide, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateFace, sauna, tubBack, tubFront, uprightRoller, wall } from "./equipment";
 import {
   add,
   allFours,
@@ -205,6 +205,57 @@ const sideLyingInternalRotation: Spec = {
     const w = frontJoints(posed).wristN;
     const g = add(w, rot(v(0, LEN.grip), theta));
     return { pose: posed, props: { db: at(g) } };
+  },
+};
+
+// Side-lying supraspinatus raise. Lie on one side along a flat bench, head on
+// the bottom hand. Set the top shoulder back and down, then lift the straight
+// top arm from the hip to vertical with the thumb leading, turn the thumb down
+// at the top and lower slowly. Light, 10–15 reps, as in reel DYYOLwfAmdu.
+// Front view, head to the right; the dumbbell's handle stays in the plane of
+// the drawing, so the turn shows as the bells swinging end-on and back.
+const SUPRA_BENCH = -26;
+const sideLyingSupraspinatusRaise: Spec = {
+  name: "Side-Lying Supraspinatus Raise",
+  aka: ["Side-Lying Dumbbell Raise", "Side-Lying Full Can Raise", "Supraspinatus Raise", "Side-Lying Lateral Raise"],
+  view: "front",
+  mode: "loop",
+  seconds: 5.2,
+  samples: 56,
+  hands: { N: "hand", F: "fist" },
+  primary: ["delts_side"],
+  secondary: ["delts_front", "traps"],
+  still: 0.4,
+  scene: [{ draw: flatBench(-96, 40, SUPRA_BENCH), layer: "back" }],
+  props: [{ id: "db", draw: dumbbellSide(), layer: "front" }],
+  motion: (p) => {
+    // Top arm: 262 = along the trunk toward the feet, 180 = straight up.
+    // About 1.4 s up, a beat at the top to turn the thumb down, 2.6 s down.
+    const theta = kf(p, [[0, 262], [0.06, 262], [0.32, 180], [0.44, 180], [0.94, 262], [1, 262]]);
+    // Thumb up (0) on the way up, thumb down (180) from the top to the hip.
+    const turn = kf(p, [[0, 0], [0.33, 0], [0.43, 180], [0.94, 180], [1, 0]]);
+    const pose = base(v(-8, SUPRA_BENCH - 18.5), { torso: -90, pelvis: -90, head: -84 });
+    const straight = { ...limb(-90, -90, -180) };
+    let posed: Pose = { ...pose, legN: straight, legF: { ...straight } };
+    const j = frontJoints({ ...posed, armN: limb(0), armF: limb(0) });
+    // Bottom arm reaches along the bench past the head, hand back under the ear.
+    const ear = add(add(j.neck, rot(v(0, -11), -90)), v(0, 6));
+    const elbow = v(j.shoulder.x + LEN.upperArm * 0.95, SUPRA_BENCH - 3);
+    const up = sub(elbow, j.shoulder);
+    const fore = sub(ear, elbow);
+    const armN: Limb = {
+      upper: dirAngle(up),
+      lower: dirAngle(fore),
+      end: dirAngle(fore),
+      ku: Math.hypot(up.x, up.y) / LEN.upperArm,
+      kl: Math.min(1, Math.hypot(fore.x, fore.y) / LEN.forearm),
+    };
+    const armF = limb(theta, theta, theta);
+    posed = { ...posed, armN, armF };
+    const w = frontJoints(posed).wristF;
+    const g = add(w, rot(v(0, LEN.grip), theta));
+    const scaleX = Math.max(0.18, Math.abs(Math.cos((turn * Math.PI) / 180)));
+    return { pose: posed, props: { db: { at: g, angle: 180 - theta, scaleX } } };
   },
 };
 
@@ -1606,6 +1657,7 @@ export const MOBILITY: Spec[] = [
   externalRotation,
   kneeExternalRotation,
   sideLyingInternalRotation,
+  sideLyingSupraspinatusRaise,
   proneYRaise,
   benchProneYRaise,
   weightedProneYRaise,
