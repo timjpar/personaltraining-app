@@ -155,6 +155,58 @@ const kneeExternalRotation: Spec = {
   },
 };
 
+// Side-lying dumbbell internal rotation, from reel DUD1UFajiQO (move 3 of 5).
+// Lying on one side with the knees bent and the head on a pad, the bottom
+// elbow on the floor in front of the chest, bent to a right angle. The bottom
+// forearm turns about the upper arm: from flat on the floor toward the head,
+// up through vertical, and over until the dumbbell rests near the belly.
+// Square-on, head to the right like Clamshell: the upper arm points at the
+// viewer, so the forearm sweeps in the picture plane. The near arm is the
+// bottom one.
+const sideLyingInternalRotation: Spec = {
+  name: "Side-Lying Dumbbell Internal Rotation",
+  aka: [
+    "Side-Lying Internal Rotation",
+    "Dumbbell Internal Rotation",
+    "Shoulder Internal Rotation",
+  ],
+  view: "front",
+  mode: "loop",
+  seconds: 4.4,
+  samples: 48,
+  hands: { N: "fist", F: "hand" },
+  primary: ["delts_front"],
+  secondary: ["chest", "lats"],
+  still: 0.3,
+  scene: [{ draw: box(46, 76, -10, "pad"), layer: "back" }],
+  props: [{ id: "db", draw: dumbbellEnd(6.5), layer: "front" }],
+  motion: (p) => {
+    // Forearm direction: 90 = along the floor toward the head, 180 = straight
+    // up, 250 = over the trunk toward the feet.
+    const theta = kf(p, [[0, 96], [0.08, 96], [0.5, 248], [0.6, 248], [0.94, 96], [1, 96]]);
+    // Raised so the bottom shoulder, not the trunk's centre line, is on the floor.
+    const pose = base(v(0, -22), { torso: -90, pelvis: -90, head: -86 });
+    // Knees bent toward the viewer, angled down a touch so the feet reach the floor.
+    const bent = { ...limb(-80, -80, -72), ku: 0.45, kl: 0.85 };
+    let posed: Pose = { ...pose, legN: bent, legF: { ...bent } };
+    const j = frontJoints({ ...posed, armN: limb(0), armF: limb(0) });
+    // Bottom elbow on the floor just in front of (below) the shoulder.
+    const elbow = v(j.shoulder.x - 6, -3);
+    const up = sub(elbow, j.shoulder);
+    const armN: Limb = { upper: dirAngle(up), lower: theta, end: theta, ku: Math.hypot(up.x, up.y) / LEN.upperArm };
+    // Top hand on the floor in front of the belly.
+    const hand = v(j.shoulderF.x - 26, -2);
+    const reach = sub(hand, j.shoulderF);
+    const ang = dirAngle(reach);
+    const kk = Math.hypot(reach.x, reach.y) / (LEN.upperArm + LEN.forearm);
+    const armF: Limb = { upper: ang + 8, lower: ang - 8, end: ang - 20, ku: kk, kl: kk };
+    posed = { ...posed, armN, armF };
+    const w = frontJoints(posed).wristN;
+    const g = add(w, rot(v(0, LEN.grip), theta));
+    return { pose: posed, props: { db: at(g) } };
+  },
+};
+
 // Eccentric Thomas test. Sit near one end of a flat bench and hug the far knee
 // to the chest. The near foot is hooked under a heavy dumbbell on the floor.
 // Roll back slowly until the head and shoulders hang past the far end of the
@@ -1521,6 +1573,7 @@ export const MOBILITY: Spec[] = [
   bandFacePull,
   externalRotation,
   kneeExternalRotation,
+  sideLyingInternalRotation,
   proneYRaise,
   benchProneYRaise,
   weightedProneYRaise,
