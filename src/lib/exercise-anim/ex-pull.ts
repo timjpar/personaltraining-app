@@ -761,6 +761,36 @@ const overheadTricepsExtension: Spec = {
   },
 };
 
+// Facing away from a cable tower, the pulley about head height behind, a
+// staggered stance and the trunk leaned well forward. The elbows stay up by
+// the ears while the hands go from behind the head (long head on stretch) to
+// straight out in line with the trunk.
+const OH_TRI_PULLEY = v(-62, -150);
+const cableOverheadTricepsExtension: Spec = {
+  name: "Cable Overhead Triceps Extension",
+  aka: ["Cable Overhead Extension", "Overhead Cable Triceps Extension", "Rope Overhead Triceps Extension"],
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist" },
+  primary: ["triceps"],
+  secondary: ["abs", "lats"],
+  still: 0,
+  scene: [{ draw: cableTower(-74, OH_TRI_PULLEY), layer: "back" }],
+  props: [
+    { id: "cable", draw: cable(), layer: "back" },
+    { id: "handle", draw: cableBarEnd(), layer: "front" },
+  ],
+  motion: (p) => {
+    let pose = stand(-90, { torso: -34, pelvis: -24, head: -22 }, { ankleN: v(24, -8), ankleF: v(-26, -8), hipX: -2 });
+    const upper = lerp(146, 154, p);
+    const fore = lerp(150, 296, p);
+    const arm = limb(upper, fore, fore);
+    pose = { ...pose, armN: arm, armF: { ...arm } };
+    const g = grips(pose).N;
+    return { pose, props: { cable: line(OH_TRI_PULLEY, g), handle: at(g) } };
+  },
+};
+
 const PUSHDOWN_PULLEY = v(36, -206);
 const tricepsPushdown: Spec = {
   name: "Triceps Pushdown",
@@ -855,6 +885,7 @@ export const PULL: Spec[] = [
   curl({ name: "Cable Curl", load: "cable", primary: ["biceps"], secondary: ["forearms"] }),
   skullcrusher,
   overheadTricepsExtension,
+  cableOverheadTricepsExtension,
   tricepsPushdown,
   wristWork({ name: "Reverse Wrist Curl", primary: ["forearms"] }),
   wristWork({ name: "Band Wrist Extension", band: true, primary: ["forearms"] }),
