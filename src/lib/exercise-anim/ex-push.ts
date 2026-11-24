@@ -63,9 +63,9 @@ import {
 } from "./kit";
 import type { Prop } from "./render";
 
-const barbell = (): Prop[] => [
-  { id: "bar", draw: barbellFar(), layer: "back" },
-  { id: "bar", draw: barbellNear(), layer: "front" },
+const barbell = (plate?: number): Prop[] => [
+  { id: "bar", draw: barbellFar(plate), layer: "back" },
+  { id: "bar", draw: barbellNear(plate), layer: "front" },
 ];
 const dumbbells = (r = 6.5): Prop[] => [
   { id: "dbF", draw: dumbbellEnd(r), layer: "back" },
@@ -732,6 +732,41 @@ const lateralRaise: Spec = {
   },
 };
 
+// Barbell front raise to overhead (reel DYsBoynvR7L): a pronated
+// shoulder-width grip, the arms locked straight the whole way, the bar swung
+// from the front of the thighs up past the face to straight overhead. Pure
+// shoulder flexion with no press, so the elbows never bend. The body leans
+// back a little, the hips forward, and leans back most while the bar is out
+// in front at shoulder height, where it is hardest to hold. No rest at the
+// bottom: the bar stays just off the thighs.
+const FRONT_RAISE_FROM = 16;
+const FRONT_RAISE_TO = 178;
+
+const barbellFrontRaise: Spec = {
+  name: "Barbell Front Raise to Overhead",
+  aka: ["Front Delt Barbell Raise", "Overhead Barbell Front Raise", "Full Range Barbell Front Raise"],
+  mode: "alternate",
+  seconds: 3.2,
+  hands: { N: "fist" },
+  primary: ["delts_front"],
+  secondary: ["delts_side", "traps", "upper_back", "abs"],
+  still: 0.6,
+  // Light: small plates, or an empty bar.
+  props: barbell(11),
+  motion: (p) => {
+    const raise = lerp(FRONT_RAISE_FROM, FRONT_RAISE_TO, p);
+    // How far the bar is out in front of the shoulder: 0 at the thighs and
+    // overhead, 1 at shoulder height.
+    const out = Math.sin((raise * Math.PI) / 180);
+    const torso = 4 + out * 3;
+    const probe = (pose: Pose) => shoulders(pose).N;
+    let pose = stand(-94.4, { torso, pelvis: torso * 0.6, head: torso + 4 }, { probe, over: 1 - out * 3 });
+    const arm = limb(raise, raise, raise);
+    pose = { ...pose, armN: arm, armF: { ...arm } };
+    return { pose, props: { bar: at(grips(pose).N) } };
+  },
+};
+
 const LOW_L = v(-70, -14);
 const cableLateralRaise: Spec = {
   name: "Cable Lateral Raise",
@@ -1288,6 +1323,7 @@ export const PUSH: Spec[] = [
   arnoldPress,
   lateralRaise,
   cableLateralRaise,
+  barbellFrontRaise,
   rearDeltFly,
   reversePecDeck,
   facePull,

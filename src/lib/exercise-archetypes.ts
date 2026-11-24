@@ -125,7 +125,7 @@ const RULES: Rule[] = [
     archetype: "press-overhead",
     match: [
       "overhead press", "shoulder press", "push press", "overhead triceps",
-      "handstand", "arnold", "lateral raise", "landmine",
+      "handstand", "arnold", "lateral raise", "front raise", "landmine",
       "tuck press", "shoulder stack", "toe pull",
     ],
   },
