@@ -17,7 +17,7 @@
 
 import { BACK, FRONT } from "./body-front";
 import { SIDE, type Layer, type Muscle, type PartArt } from "./body-side";
-import { add, ease, frontJoints, joints, rot, v, type Limb, type Pose, type V } from "./rig";
+import { add, ease, frontJoints, joints, rot, trunkK, v, type Limb, type Pose, type V } from "./rig";
 
 export type HandShape = "hand" | "fist" | "palm";
 export type View = "side" | "front" | "back";
@@ -135,7 +135,7 @@ function squarePieces(p: Pose, hands: Spec["hands"], back: boolean, legsInFront 
   const legs = [...leg(p.legF, "F"), ...leg(p.legN, "N")];
   const trunk: Piece[] = [
     { key: "pelvis", at: hipRoot, angle: p.pelvis, art: A.pelvis, pair: true },
-    { key: "torso", at: j.lumbar, angle: p.torso, art: A.torso, pair: true },
+    { key: "torso", at: j.lumbar, angle: p.torso, k: p.bow ? trunkK(p) : undefined, art: A.torso, pair: true },
     { key: "head", at: j.neck, angle: p.head, art: A.head },
   ];
   return [

@@ -67,10 +67,15 @@ const RULES: Rule[] = [
   // end-range mobility drills; "fly" would otherwise file them under press.
   { archetype: "stretch", match: ["stretch", "leg swing", "foam roll", "half-butterfly"] },
 
+  // guard: the incline Y raise is a lateral raise lying back on a bench (side
+  // delts), not the prone Y below.
+  { archetype: "press-overhead", match: ["incline dumbbell y raise", "incline y raise"] },
+
   // guard: "Rear Delt Fly" is a pull; "fly" would otherwise send it to press.
   // A prone Y is shoulder-blade work of the same kind, and "Bench Prone Y
-  // Raise" would otherwise be read as a bench press.
-  { archetype: "pull-horizontal", match: ["rear delt", "y raise"] },
+  // Raise" would otherwise be read as a bench press. The ring row press is
+  // led by the row, so it goes with the rows, not the dumbbell press.
+  { archetype: "pull-horizontal", match: ["rear delt", "y raise", "ring row"] },
 
   // guard: "Pallof Press" is anti-rotation core, not a press.
   { archetype: "core", match: ["pallof"] },
@@ -97,7 +102,7 @@ const RULES: Rule[] = [
     match: [
       "rack pull", "pull-through", "good morning", "deadlift", "hinge",
       "swing", "hip thrust", "glute bridge", "back extension", "nordic",
-      "leg curl", "hamstring",
+      "leg curl", "hamstring", " rdl",
     ],
   },
 
@@ -170,7 +175,8 @@ const RULES: Rule[] = [
       "swings", "wall slide", "airplane", "clamshell", "inchworm",
       "breathing", "ankle", "thread the needle", "forward fold",
       "a-skip", "banded", "band ", "walk",
-      "external rotation", "shoulder cars",
+      "external rotation", "internal rotation", "shoulder cars",
+      "supraspinatus", "full can raise",
       "piked tke", "saq", "straddle leg lift",
       "roller hurdle", "hip hurdle",
     ],

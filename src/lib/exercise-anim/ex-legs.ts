@@ -3,6 +3,7 @@
 import {
   barbellFar,
   barbellNear,
+  barLine,
   box,
   cable,
   cableTower,
@@ -13,12 +14,15 @@ import {
   hyperBench,
   kettlebell,
   kettlebellGoblet,
+  landmineBase,
   legPressFrame,
   legPressSled,
   mat,
+  plateEdge,
   roller,
   seat,
   step,
+  wall,
 } from "./equipment";
 import {
   add,
@@ -425,6 +429,54 @@ function rdl(o: { name: string; aka?: string[]; load: "barbell" | "dumbbells"; p
   };
 }
 
+// Barbell single-leg RDL from reel DW62fqBjhmi: bar in both hands, standing
+// on the far leg, the free knee bent about 90 degrees so the foot rides up
+// behind as the trunk tips toward level and the bar slides down the shin.
+const barbellSingleLegRdl: Spec = {
+  name: "Barbell Single-Leg RDL",
+  aka: ["Barbell Single Leg RDL", "Barbell Single-Leg Romanian Deadlift", "Barbell Single-Leg Deadlift"],
+  mode: "alternate",
+  seconds: 3.8,
+  hands: { N: "fist" },
+  primary: ["hamstrings", "glutes"],
+  secondary: ["abductors", "lower_back", "forearms"],
+  still: 0.8,
+  props: barbell(),
+  motion: (p) => {
+    const torso = lerp(-4, -76, p);
+    const arm = lerp(6, 1, p);
+    const probe = (pose: Pose) => add(shoulders(pose).N, rot(v(0, 61.6), arm));
+    let pose = stand(lerp(-94.2, -88, p), { torso, pelvis: lerp(-2, -70, p), head: torso * 0.7 }, { probe, over: lerp(15, 12, p) });
+    const thigh = kf(p, [[0, -8], [1, torso + 2]]);
+    pose = { ...pose, legN: limb(thigh, thigh - 92, thigh - 70), armN: limb(arm), armF: limb(arm) };
+    return { pose, props: { bar: at(grips(pose).N) } };
+  },
+};
+
+// Kettlebell single-leg RDL with the back to a wall, from reel DW62fqBjhmi:
+// the hips reach back until the glutes touch the wall, the free knee stays
+// bent with the foot low behind, and the bell in the opposite hand drops to
+// the floor beside the standing foot. The wall says how far back to sit.
+const SLW_WALL = -40;
+const wallSingleLegRdl: Spec = {
+  name: "Wall Single-Leg RDL",
+  aka: ["Kettlebell Wall Single-Leg RDL", "Single-Leg RDL to Wall", "Wall-Assisted Single-Leg RDL", "Single-Leg RDL with Wall Touch"],
+  mode: "alternate",
+  seconds: 3.8,
+  hands: { N: "fist", F: "hand" },
+  primary: ["hamstrings", "glutes"],
+  secondary: ["abductors", "lower_back", "forearms"],
+  still: 0.8,
+  scene: [{ draw: wall(SLW_WALL - 8, -170), layer: "back" }],
+  props: [{ id: "kb", draw: kettlebell(), layer: "front" }],
+  motion: (p) => {
+    const torso = lerp(-4, -80, p);
+    let pose = stand(lerp(-94.4, -80, p), { torso, pelvis: torso * 0.9, head: torso * 0.75 }, { hipX: lerp(-6, -22, p) });
+    pose = { ...pose, legN: limb(lerp(-2, 8, p), lerp(-36, -34, p), lerp(-20, -10, p)), armN: limb(0), armF: limb(4, 10, 10) };
+    return { pose, props: { kb: at(grips(pose).N) } };
+  },
+};
+
 const goodMorning: Spec = {
   name: "Good Morning",
   mode: "alternate",
@@ -783,7 +835,7 @@ function nordic(o: { name: string; aka?: string[]; band?: boolean }): Spec {
 // One leg, the other held out in front. `box` sits down onto a box behind
 // and stands back up; `assisted` holds a post in front, the hands sliding
 // down it, so the arms can help.
-function pistol(o: { name: string; box?: boolean; assisted?: boolean }): Spec {
+function pistol(o: { name: string; aka?: string[]; box?: boolean; assisted?: boolean; landmine?: boolean }): Spec {
   const depth = o.box ? -58 : -42;
   const at1 = (p: number) => {
     const torso = lerp(-4, o.assisted ? -22 : -36, p);
@@ -794,20 +846,27 @@ function pistol(o: { name: string; box?: boolean; assisted?: boolean }): Spec {
   const post = v(54, -150);
   return {
     name: o.name,
+    aka: o.aka,
     mode: "alternate",
     seconds: 3.4,
-    hands: { N: o.assisted ? "fist" : "hand" },
+    hands: { N: o.assisted || o.landmine ? "fist" : "hand" },
     primary: ["quads", "glutes"],
-    secondary: ["adductors", "hip_flexors", "abs"],
+    secondary: o.landmine ? ["adductors", "hip_flexors", "abs", "obliques"] : ["adductors", "hip_flexors", "abs"],
     still: 0.85,
     scene: [
       ...(o.box ? [{ draw: box(bottom.x - 26, bottom.x + 12, bottom.y + 14), layer: "back" as const }] : []),
       ...(o.assisted ? [{ draw: column(post.x, post.y, 6), layer: "back" as const }] : []),
+      ...(o.landmine ? [{ draw: landmineBase(BAZOOKA_PIVOT), layer: "back" as const }] : []),
     ],
+    props: o.landmine ? bazookaProps : [],
     motion: (p) => {
       let pose = at1(p);
       const lift = lerp(10, o.box ? 70 : 82, p);
       pose = { ...pose, legF: limb(lift, lift, 10) };
+      if (o.landmine) {
+        pose = { ...pose, armF: limb(lerp(16, 84, p)) };
+        return shoulderLoad(pose, "landmine");
+      }
       if (o.assisted) {
         const s = shoulders(pose).N;
         pose = hold(pose, "side", v(post.x + 1, s.y + 14), undefined, -1);
@@ -886,6 +945,79 @@ function shrimp(o: { name: string; aka?: string[]; held?: boolean; assisted?: bo
         const toes = add(joints(pose).ankleF, rot(v(8, 4), shin - 55));
         pose = { ...pose, armF: gripArm(shoulders(pose).F, toes, 1) };
       }
+      return { pose };
+    },
+  };
+}
+
+// The load for a "bazooka" squat: the sleeve end of a landmine bar (a plate
+// on it) held on the front of the near shoulder, the bar running down and
+// back to its pivot on the floor behind. The banded version swaps the bar
+// for a band anchored low behind and pulled up across to the same shoulder.
+// Both sit on the near side of the body, so they draw over the trunk.
+const BAZOOKA_PIVOT = v(-92, -3);
+const BAND_ANCHOR = v(-78, -10);
+const bazookaProps: Prop[] = [
+  { id: "bar", draw: barLine(), layer: "mid" },
+  { id: "plate", draw: plateEdge(19), layer: "mid" },
+];
+const bandProps: Prop[] = [{ id: "band", draw: { svg: `<path class="band" d="M0 0H1" style="vector-effect:non-scaling-stroke"/>`, box: [0, -1, 1, 1] }, layer: "mid" }];
+
+function shoulderLoad(pose: Pose, load: "band" | "landmine"): { pose: Pose; props: Record<string, PropState> } {
+  const s = shoulders(pose).N;
+  // Hand by the chin, elbow down in front of the chest.
+  const grip = add(s, v(13, -9));
+  pose = { ...pose, armN: gripArm(s, grip, -1, 0) };
+  if (load === "band") return { pose, props: { band: line(BAND_ANCHOR, grip) } };
+  const d = sub(grip, BAZOOKA_PIVOT);
+  const len = Math.hypot(d.x, d.y);
+  const unit = v(d.x / len, d.y / len);
+  const bar = line(BAZOOKA_PIVOT, add(grip, v(unit.x * 4, unit.y * 4)));
+  return { pose, props: { bar, plate: turned(sub(grip, v(unit.x * 22, unit.y * 22)), bar.angle ?? 0) } };
+}
+
+// One leg, the other knee bent with its foot lifted behind, then sitting down
+// until the back knee touches the floor just behind the standing heel. The
+// trunk stays taller than in a shrimp squat and the back shin angles up off
+// the floor rather than lying along it. `load` holds a band or the end of a
+// landmine bar (a "bazooka") on the near shoulder.
+function skater(o: { name: string; aka?: string[]; load?: "band" | "landmine" }): Spec {
+  const KNEE_ON_FLOOR = -6;
+  const bottom = v(-10, -48);
+  const thighDown = (-Math.acos((KNEE_ON_FLOOR - bottom.y) / LEN.thigh) * 180) / Math.PI;
+  const lean = o.load ? -24 : -34;
+  const kneeX = bottom.x + LEN.thigh * Math.sin((thighDown * Math.PI) / 180);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: 3.4,
+    hands: { N: o.load ? "fist" : "hand", F: "hand" },
+    primary: ["quads", "glutes"],
+    secondary: o.load ? ["hip_flexors", "adductors", "abs", "obliques"] : ["hip_flexors", "adductors", "abs"],
+    still: 0.85,
+    scene: [
+      { draw: mat(kneeX - 16, kneeX + 14), layer: "back" },
+      ...(o.load === "landmine" ? [{ draw: landmineBase(BAZOOKA_PIVOT), layer: "back" as const }] : []),
+      ...(o.load === "band"
+        ? [{ draw: { svg: `<rect class="frame" x="${BAND_ANCHOR.x - 3}" y="${BAND_ANCHOR.y - 6}" width="6" height="${-BAND_ANCHOR.y + 6}"/>`, box: [BAND_ANCHOR.x - 3, BAND_ANCHOR.y - 6, BAND_ANCHOR.x + 3, 0] as [number, number, number, number] }, layer: "back" as const }]
+        : []),
+    ],
+    props: o.load === "landmine" ? bazookaProps : o.load === "band" ? bandProps : [],
+    motion: (p) => {
+      const hip = lerpV(v(0.5, -94.4), bottom, p);
+      const torso = lerp(-4, lean, p);
+      let pose = base(hip, { torso, pelvis: torso * 0.85, head: torso * 0.45 });
+      const thigh = lerp(-2, thighDown, p);
+      const shin = lerp(-100, -128, p);
+      pose = { ...pose, legN: plantLeg(hip, v(0, -8), 0, 1), legF: limb(thigh, shin, shin - 50) };
+      if (o.load) {
+        // The free hand swings forward for balance as the hips sink.
+        pose = { ...pose, armF: limb(lerp(-14, 62, p), lerp(-4, 80, p)) };
+        return shoulderLoad(pose, o.load);
+      }
+      // Arms swing like a skater's: the far one forward, the near one back.
+      pose = { ...pose, armN: limb(lerp(-6, -34, p), lerp(4, -10, p)), armF: limb(lerp(10, 78, p), lerp(20, 90, p)) };
       return { pose };
     },
   };
@@ -978,6 +1110,84 @@ function figure4(o: { name: string; aka?: string[]; box?: boolean }): Spec {
     },
   };
 }
+
+// Square-on, one foot on each of two plyo boxes set a stride apart, toes
+// turned out, a kettlebell hanging by its handle in both hands between the
+// legs. Sitting down into a deep sumo squat, knees out over the toes and the
+// chest bowing forward over the bell, lets it sink into the gap below the
+// level of the feet: the boxes make the deficit, so the hips get the range the
+// floor would stop. The legs are solved in 3D (z toward the viewer) and drawn
+// foreshortened, because the thighs swing out and toward the camera.
+const SUMO_BOX = { inner: 22, outer: 62, top: -36 };
+const SUMO_ANKLE = { x: 35, y: SUMO_BOX.top - 8 };
+const SUMO_TOE_OUT = 45;
+
+type V3 = { x: number; y: number; z: number };
+const v3 = (x: number, y: number, z: number): V3 => ({ x, y, z });
+
+// Hip to ankle with the knee pushed toward `pole`, as a foreshortened limb.
+function leg3(hip: V3, ankle: V3, pole: V3): Limb {
+  const d = v3(ankle.x - hip.x, ankle.y - hip.y, ankle.z - hip.z);
+  const L = Math.hypot(d.x, d.y, d.z);
+  const u = v3(d.x / L, d.y / L, d.z / L);
+  const T = LEN.thigh;
+  const S = LEN.shin;
+  const reach = Math.min(L, T + S - 0.01);
+  const along = (T * T - S * S + reach * reach) / (2 * reach);
+  const out = Math.sqrt(Math.max(0, T * T - along * along));
+  const dp = pole.x * u.x + pole.y * u.y + pole.z * u.z;
+  const q = v3(pole.x - dp * u.x, pole.y - dp * u.y, pole.z - dp * u.z);
+  const qn = Math.hypot(q.x, q.y, q.z) || 1;
+  const knee = v3(hip.x + u.x * along + (q.x / qn) * out, hip.y + u.y * along + (q.y / qn) * out, hip.z + u.z * along + (q.z / qn) * out);
+  const thigh = v(knee.x - hip.x, knee.y - hip.y);
+  const shin = v(ankle.x - knee.x, ankle.y - knee.y);
+  return {
+    upper: dirAngle(thigh),
+    lower: dirAngle(shin),
+    end: 0,
+    ku: Math.hypot(thigh.x, thigh.y) / T,
+    kl: Math.hypot(shin.x, shin.y) / S,
+  };
+}
+
+const boxSumoSquat: Spec = {
+  name: "Kettlebell Deficit Sumo Squat",
+  aka: [
+    "Deficit Sumo Squat",
+    "Box Sumo Squat",
+    "Sumo Squat on Boxes",
+    "Kettlebell Sumo Squat on Boxes",
+    "Elevated Sumo Squat",
+    "Plyo Box Sumo Squat",
+  ],
+  view: "front",
+  mode: "alternate",
+  seconds: 3.6,
+  hands: { N: "fist" },
+  primary: ["adductors", "glutes", "quads"],
+  secondary: ["hamstrings", "lower_back", "forearms"],
+  still: 1,
+  scene: [-1, 1].map((s) => {
+    const [a, b] = [SUMO_BOX.inner * s, SUMO_BOX.outer * s];
+    return { draw: box(Math.min(a, b), Math.max(a, b), SUMO_BOX.top, "mat"), layer: "back" as const };
+  }),
+  props: [{ id: "kb", draw: kettlebell(), layer: "mid" }],
+  motion: (p) => {
+    const hipY = lerp(-126, -74, p);
+    const hipZ = lerp(0, -14, p);
+    let pose: Pose = { ...base(v(0, hipY)), bow: lerp(6, 60, p) };
+    const turn = (SUMO_TOE_OUT * Math.PI) / 180;
+    const legFor = (s: 1 | -1) =>
+      leg3(v3(9 * s, hipY, hipZ), v3(SUMO_ANKLE.x * s, SUMO_ANKLE.y, 0), v3(Math.sin(turn) * s, 0, Math.cos(turn)));
+    pose = { ...pose, legN: legFor(1), legF: legFor(-1) };
+    // Arms long, hands together on the handle under the chest.
+    const sh = shoulders(pose, "front").N;
+    const reachY = Math.sqrt((LEN.upperArm + LEN.forearm + LEN.grip - 0.6) ** 2 - (sh.x - 2.4) ** 2);
+    const grip = sh.y + reachY;
+    pose = hold(pose, "front", v(2.4, grip), v(-2.4, grip), 1);
+    return { pose, props: { kb: at(v(0, grip)) } };
+  },
+};
 
 const stepUp: Spec = {
   name: "Step-Up",
@@ -1076,8 +1286,13 @@ export const LEGS: Spec[] = [
   shrimp({ name: "Advanced Shrimp Squat", held: true }),
   dragon({ name: "Dragon Squat", aka: ["Dragon Pistol Squat", "Dragon Pistol"] }),
   dragon({ name: "Assisted Dragon Squat", assisted: true }),
+  skater({ name: "Skater Squat", aka: ["Skater Squats"] }),
+  skater({ name: "Banded Skater Squat", aka: ["Band-Resisted Skater Squat", "Band Skater Squat"], load: "band" }),
+  skater({ name: "Bazooka Squat", aka: ["Landmine Skater Squat", "Bazooka Skater Squat", "Bazooka Squats"], load: "landmine" }),
+  pistol({ name: "Bazooka Pistol Squat", aka: ["Bazooka Pistol", "Bazooka Pistols", "Landmine Pistol Squat"], landmine: true }),
   figure4({ name: "Figure-4 Squat", aka: ["Figure-4 Single-Leg Squat", "Figure Four Squat", "Crossed-Leg Squat"] }),
   figure4({ name: "Box Figure-4 Squat", box: true }),
+  boxSumoSquat,
   legPress,
   lunge({ name: "Reverse Lunge", kind: "reverse", load: "dumbbells", primary: ["quads", "glutes"], secondary: ["adductors", "hamstrings"] }),
   lunge({ name: "Walking Lunge", kind: "forward", load: "dumbbells", primary: ["quads", "glutes"], secondary: ["adductors", "hamstrings", "calves"] }),
@@ -1098,6 +1313,8 @@ export const LEGS: Spec[] = [
   }),
   rdl({ name: "Romanian Deadlift", load: "barbell", primary: ["hamstrings", "glutes"], secondary: ["lower_back", "forearms"] }),
   rdl({ name: "Dumbbell Romanian Deadlift", load: "dumbbells", primary: ["hamstrings", "glutes"], secondary: ["lower_back", "forearms"] }),
+  barbellSingleLegRdl,
+  wallSingleLegRdl,
   goodMorning,
   seatedGoodMorning,
   swing({ name: "Kettlebell Swing", top: 88 }),
