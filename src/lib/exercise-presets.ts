@@ -371,6 +371,8 @@ const WARMUP_AND_MOBILITY: PresetCategory[] = [
       "Child's Pose",
       "Thread the Needle",
       "Thoracic Extension over Foam Roller",
+      "Feet-on-Wall Overhead Plate Reach",
+      "Feet-on-Wall Overhead Reach over Foam Roller",
       "Foam Roll Quads",
       "Foam Roll Glutes",
       "Foam Roll Lats",

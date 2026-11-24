@@ -180,7 +180,7 @@ const RULES: Rule[] = [
       "external rotation", "internal rotation", "shoulder cars",
       "supraspinatus", "full can raise",
       "piked tke", "saq", "straddle leg lift",
-      "roller hurdle", "hip hurdle",
+      "roller hurdle", "hip hurdle", "overhead reach", "overhead plate reach",
     ],
   },
 ];
