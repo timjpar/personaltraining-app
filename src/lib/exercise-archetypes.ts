@@ -63,8 +63,9 @@ const RULES: Rule[] = [
   },
 
   // guard: anything explicitly a stretch, before "hamstring" claims it for
-  // hinge and "swings" claims Leg Swings.
-  { archetype: "stretch", match: ["stretch", "leg swing", "foam roll"] },
+  // hinge and "swings" claims Leg Swings. The half-butterfly lifts are
+  // end-range mobility drills; "fly" would otherwise file them under press.
+  { archetype: "stretch", match: ["stretch", "leg swing", "foam roll", "half-butterfly"] },
 
   // guard: the incline Y raise is a lateral raise lying back on a bench (side
   // delts), not the prone Y below.

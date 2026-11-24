@@ -1400,6 +1400,93 @@ const kbButterflyElevated = butterfly({
   block: true,
 });
 
+// Half butterfly, square-on: one leg folded in like a butterfly (right of
+// the picture, sole against the other thigh, knee out to the side), the other
+// long and angled out (left of the picture). Two "lift out of the stretch"
+// drills from reel DQ6-6GBkZoC (@rangeofstrength), both active end-range
+// work rather than passive hangs:
+//  - knee: a kettlebell rests on the folded thigh by the knee, a hand only
+//    steadying its handle, and the knee lifts it a few inches and lowers slow.
+//  - leg: hands down by the hips, the long leg lifts off the floor with the
+//    knee locked and toes up, and lowers without a bounce.
+function halfButterfly(o: { name: string; aka?: string[]; lift: "knee" | "leg" }): Spec {
+  const kb = o.lift === "knee";
+  return {
+    name: o.name,
+    aka: o.aka,
+    view: "front",
+    legsInFront: true,
+    mode: "alternate",
+    seconds: kb ? 3 : 2.6,
+    hands: { N: kb ? "fist" : "hand" },
+    primary: kb ? ["adductors", "hip_flexors"] : ["hip_flexors", "quads"],
+    secondary: kb ? ["glutes", "abs"] : ["abs", "adductors", "hamstrings"],
+    still: 1,
+    props: kb ? [{ id: "kb", draw: kettlebell(), layer: "front" }] : [],
+    motion: (p) => {
+      const up = kb ? p : 0;
+      const legUp = kb ? 0 : p;
+      // Tip a touch away from a lifting straight leg to balance it.
+      let pose = base(v(0, -14), { torso: legUp * 3, head: 0 });
+      const h = hips(pose, "front");
+      // Folded leg, from its hip: knee low and out on the stretch, lifted and
+      // drawn in a little at the top. The foot rests against the other thigh.
+      const knee = lerpV(v(41, 5), v(37, -7), up);
+      const ankle = v(-SQUARE.hipX - 4, 9);
+      const kN = add(h.N, knee);
+      const aN = add(h.N, ankle);
+      const thigh = Math.hypot(kN.x - h.N.x, kN.y - h.N.y);
+      const shin = Math.hypot(aN.x - kN.x, aN.y - kN.y);
+      const legN: Limb = {
+        ...limb(dirTo(h.N, kN), dirTo(kN, aN), 0),
+        ku: Math.min(1, thigh / LEN.thigh),
+        kl: Math.max(0.15, Math.min(1, shin / LEN.shin)),
+        ke: 0.45,
+      };
+      // Long leg, out at an angle and toward the viewer, so foreshortened.
+      // Ankle x is measured out from its own hip, y from the floor.
+      const ankleF = lerpV(v(46, -7), v(42, -38), legUp);
+      const d = v(-ankleF.x, ankleF.y - h.F.y);
+      const reach = Math.min(1, Math.hypot(d.x, d.y) / (LEN.thigh + LEN.shin));
+      const aF = dirAngle(d);
+      const legF: Limb = { upper: aF, lower: aF, end: -180, ku: reach, kl: reach };
+      pose = { ...pose, legN, legF };
+      if (!kb) {
+        // Arms folded across the chest, as in the reel, so the hands can't
+        // help the leg up.
+        pose = { ...pose, armN: limb(14, -118, -118), armF: mirror(limb(14, -118, -118)) };
+        return { pose };
+      }
+      // The bell sits on the folded thigh just inside the knee; the arm is
+      // nearly straight and foreshortened to reach its handle.
+      const j = frontJoints(pose);
+      const g = add(lerpV(h.N, j.kneeN, 0.85), v(0, -15.5));
+      const s = shoulders(pose, "front");
+      const reachTo = (sh: V, gp: V): Limb => {
+        const a = dirTo(sh, gp);
+        const k = (Math.hypot(gp.x - sh.x, gp.y - sh.y) - LEN.grip) / (LEN.upperArm + LEN.forearm);
+        const side = Math.sign(gp.x - sh.x) || 1;
+        return { ...limb(a + 6 * side, a - 6 * side, a), ku: k, kl: k };
+      };
+      // The near hand steadies the handle; the other rests on the floor.
+      pose = palms(pose, "front", v(0, 0), v(-30, -1), 0, -1);
+      pose = { ...pose, armN: reachTo(s.N, g) };
+      return { pose, props: { kb: turned(g, 0) } };
+    },
+  };
+}
+
+const halfButterflyKneeLift = halfButterfly({
+  name: "Kettlebell Half-Butterfly Knee Lift",
+  aka: ["Weighted Half-Butterfly Knee Lift", "Half-Butterfly Knee Lift", "Loaded Half-Butterfly Lift-Off"],
+  lift: "knee",
+});
+const halfButterflyLegLift = halfButterfly({
+  name: "Half-Butterfly Straight-Leg Lift",
+  aka: ["Half-Butterfly Leg Lift", "Seated Half-Butterfly Leg Raise", "Hurdle-Sit Leg Lift"],
+  lift: "leg",
+});
+
 const frogStretch: Spec = {
   name: "Frog Stretch",
   mode: "alternate",
@@ -1709,6 +1796,8 @@ export const MOBILITY: Spec[] = [
   butterflyElevated,
   kbButterfly,
   kbButterflyElevated,
+  halfButterflyKneeLift,
+  halfButterflyLegLift,
   frogStretch,
 ];
 
