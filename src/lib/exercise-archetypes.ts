@@ -83,6 +83,14 @@ const RULES: Rule[] = [
   // is rotation, not a press ("landmine") or a hip hinge ("swing").
   { archetype: "core", match: ["landmine rainbow", "landmine swing", "pendulum swing", "seesaw"] },
 
+  // guard: the back lever ladder is body tension like the flags; "Rear
+  // Support to Back Lever" belongs with it, not with the dips. The German hang
+  // is a hold for shoulder range. Hang to rear support presses the bar down
+  // behind the body with straight arms, a pull.
+  { archetype: "core", match: ["back lever"] },
+  { archetype: "stretch", match: ["german hang"] },
+  { archetype: "pull-vertical", match: ["hang to rear support", "pull to rear support"] },
+
   // guard: "Turkish Get-Up" matches nothing else meaningful.
   { archetype: "core", match: ["turkish", "get-up"] },
 

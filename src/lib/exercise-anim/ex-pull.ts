@@ -23,6 +23,7 @@ import {
   add,
   at,
   base,
+  dirAngle,
   frontJoints,
   gripArm,
   grips,
@@ -279,6 +280,8 @@ function pullUpBack(o: {
   aka?: string[];
   gripX?: number;
   plate?: boolean;
+  // Knees bent and ankles crossed behind, as most people hang on a low bar.
+  crossed?: boolean;
   primary: Spec["primary"];
   secondary?: Spec["secondary"];
 }): Spec {
@@ -293,7 +296,7 @@ function pullUpBack(o: {
     primary: o.primary,
     secondary: o.secondary,
     still: 0.7,
-    scene: [{ draw: pullUpBarAcross(ACROSS), layer: "back" }],
+    scene: [{ draw: pullUpBarAcross(ACROSS, Math.max(48, gx + 12)), layer: "back" }],
     props: o.plate
       ? [
           { id: "chain", draw: { svg: `<path d="M-6 0L0 22L6 0" fill="none" stroke="#5b6461" stroke-width="1"/><rect class="iron" x="-14" y="20" width="28" height="9" rx="2"/>`, box: [-14, 0, 14, 29] }, layer: "front" },
@@ -308,13 +311,64 @@ function pullUpBack(o: {
       const { upper, lower } = ik2(v(19, shoulderY), v(gx, ACROSS), LEN.upperArm, LEN.forearm + LEN.grip, -1);
       const arm = { upper, lower, end: lower };
       const leg = { upper: lerp(1, 3, p), lower: lerp(-1, -3, p), end: 0 };
-      const pose: Pose = { ...STAND, hip, shrug, armN: arm, armF: mirror(arm), legN: leg, legF: mirror(leg) };
+      // Crossed: the shins point back at the viewer, so they shorten, and
+      // they angle in until the ankles cross.
+      const legN = o.crossed ? { upper: lerp(3, 5, p), lower: -16, end: -16, kl: 0.62, ke: 0.7 } : leg;
+      const legF = o.crossed ? { upper: lerp(-3, -5, p), lower: 20, end: 20, kl: 0.58, ke: 0.7 } : mirror(leg);
+      const pose: Pose = { ...STAND, hip, shrug, armN: arm, armF: mirror(arm), legN, legF };
       const props: Record<string, PropState> = {};
       if (o.plate) props.chain = at(add(hip, v(0, 6)));
       return { pose, props };
     },
   };
 }
+
+// Hang to rear support, from the reel DZK0jZqIymN (no settled name for it):
+// from a wide dead hang, pitch the chest forward under the bar and press the
+// bar down behind the body with straight arms, the arms swinging out through
+// a T, until it sits behind the hips in rear support, the start of a Korean
+// dip. Seen from behind, as in the reel. The bar passes in front of the back,
+// so it is drawn over the trunk and under the arms; the forward pitch shows as
+// the trunk shortening (bow). The arms stay straight: when the bar is level
+// with the shoulders they reach back towards the viewer, which shows as the
+// arm shortening, not as a bent elbow.
+const REAR_GRIP = 50;
+const hangToRearSupport: Spec = {
+  name: "Hang to Rear Support",
+  aka: ["Pull to Rear Support", "Behind-the-Bar Muscle-Up"],
+  view: "back",
+  mode: "alternate",
+  seconds: 4.4,
+  samples: 40,
+  hands: { N: "fist" },
+  primary: ["lats", "triceps"],
+  secondary: ["delts_rear", "upper_back", "abs", "forearms"],
+  still: 0.6,
+  scene: [{ draw: pullUpBarAcross(ACROSS, 62), layer: "mid" }],
+  motion: (p) => {
+    const reach = LEN.upperArm + LEN.forearm + LEN.grip;
+    const dx = REAR_GRIP - 19;
+    const hangY = ACROSS + Math.sqrt(reach ** 2 - dx ** 2) - 0.3;
+    const sy = kf(p, [[0, hangY], [0.25, hangY - 4], [0.55, ACROSS + 2], [0.78, ACROSS - 26], [1, ACROSS - 50]]);
+    const bow = kf(p, [[0, 0], [0.25, 36], [0.55, 50], [0.78, 34], [1, 12]]);
+    const shrug = kf(p, [[0, 4], [0.3, 1], [1, -3]]);
+    const kt = Math.cos((bow * Math.PI) / 180);
+    const lumbar = v(0, sy + (38 + shrug) * kt);
+    const hip = v(0, lumbar.y + 11 * kt);
+    // The legs trail back towards the viewer through the pitch, knees bent.
+    const kThigh = kf(p, [[0, 1], [0.3, 0.8], [0.6, 0.7], [1, 0.92]]);
+    const kShin = kf(p, [[0, 1], [0.3, 0.7], [0.6, 0.6], [1, 0.7]]);
+    const leg = { upper: 3, lower: kf(p, [[0, 4], [0.5, -6], [1, -8]]), end: -8, ku: kThigh, kl: kShin, ke: 0.8 };
+    let pose: Pose = { ...STAND, hip, shrug, bow, legN: leg, legF: mirror(leg) };
+    const s = shoulders(pose, "back").N;
+    const d = sub(v(REAR_GRIP, ACROSS), s);
+    const ang = dirAngle(d);
+    const k = Math.min(1, (Math.hypot(d.x, d.y) - LEN.grip) / (LEN.upperArm + LEN.forearm));
+    const arm = { upper: ang, lower: ang, end: ang, ku: k, kl: k };
+    pose = { ...pose, armN: arm, armF: mirror(arm) };
+    return { pose };
+  },
+};
 
 // Side-on pull-up for the grips that pull in the plane: chin-up and neutral.
 const SIDE_BAR = v(6, -236);
@@ -938,6 +992,7 @@ export const PULL: Spec[] = [
   ringRowPress,
   pullUpBack({ name: "Pull-Up", aka: ["Pull Up"], primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
   pullUpBack({ name: "Weighted Pull-Up", plate: true, primary: ["lats", "upper_back"], secondary: ["biceps", "forearms", "abs"] }),
+  pullUpBack({ name: "Wide-Grip Pull-Up", aka: ["Wide Grip Pull-Up", "Wide Pull-Up"], gripX: 46, crossed: true, primary: ["lats", "upper_back"], secondary: ["delts_rear", "biceps", "forearms"] }),
   pullUpSide({ name: "Chin-Up", aka: ["Chin Up"], primary: ["lats", "biceps"], secondary: ["upper_back", "forearms"] }),
   pullUpSide({ name: "Chest-to-Bar Pull-Up", aka: ["Chest to Bar Pull-Up"], chest: true, primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
   pullUpSide({ name: "Explosive Pull-Up", explosive: true, primary: ["lats", "upper_back", "biceps"], secondary: ["delts_rear", "forearms", "abs"] }),
@@ -945,6 +1000,7 @@ export const PULL: Spec[] = [
   muscleUp,
   negative(muscleUp, "Negative Muscle-Up", ["Muscle-Up Negative"]),
   muscleDown,
+  hangToRearSupport,
   barPullover,
   oneArmPullover,
   negative(oneArmPullover, "One-Arm Pullover Negative", ["Negative One-Arm Pullover"]),

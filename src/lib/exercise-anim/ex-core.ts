@@ -5,6 +5,7 @@ import { barbellAcross, barLine, box, cable, cableTower, column, flatBench, hype
 import {
   add,
   allFours,
+  aroundBar,
   at,
   base,
   dirAngle,
@@ -13,7 +14,9 @@ import {
   grips,
   hangSide,
   hold,
+  holdBehind,
   kf,
+  kfv,
   LEN,
   lerp,
   limb,
@@ -462,6 +465,89 @@ function lever(o: { name: string; aka?: string[]; tuck: number; straddle?: boole
     },
   };
 }
+
+// --- Back lever ----------------------------------------------------------------------
+//
+// From the reel DZK0jZqIymN. The back lever hangs face-down with the body
+// level under the bar and the arms straight behind it, the hands over the
+// lower back. skinPose already turns the body that far round (torso past 180
+// is face-down), so the ladder is skinPose at a level torso: tucked, the hips
+// opened, straddled, then legs together. On a bar, as in the reel.
+const BACK_LEVER_TORSO = 268;
+const BACK_LEVER_ARM = 214;
+
+function backLever(o: { name: string; aka?: string[]; tuck: number; straddle?: boolean }): Spec {
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "loop",
+    seconds: 4,
+    hands: { N: "fist" },
+    primary: ["chest", "delts_front", "biceps"],
+    secondary: ["lats", "abs", "lower_back", "glutes", "forearms"],
+    still: 0.25,
+    scene: [{ draw: pullUpBar(HANG_BAR), layer: "back" }],
+    motion: (p) => {
+      // A slight sag and recovery: the hips are what drop first.
+      const sag = breathe(p, 2);
+      const pose = skinPose(BACK_LEVER_TORSO - sag, BACK_LEVER_ARM + sag * 0.4, o.tuck);
+      if (!o.straddle) return { pose };
+      return { pose: { ...pose, legF: { ...pose.legF, upper: pose.legF.upper + 6, lower: pose.legF.lower + 6, ku: 0.82, kl: 0.82 } } };
+    },
+  };
+}
+
+// The German hang: the end of skin the cat held still, the body hanging
+// behind the hands with the shoulders fully extended, feet towards the floor.
+// The first rung of the back lever, for the shoulder range it needs.
+const germanHang: Spec = {
+  name: "German Hang",
+  aka: ["German Hang Hold", "Bar German Hang"],
+  mode: "loop",
+  seconds: 4,
+  hands: { N: "fist" },
+  primary: ["chest", "delts_front", "biceps"],
+  secondary: ["lats", "forearms"],
+  still: 0.25,
+  scene: [{ draw: pullUpBar(HANG_BAR), layer: "back" }],
+  motion: (p) => {
+    const sink = breathe(p, 3);
+    return { pose: skinPose(SKIN_TORSO + sink, SKIN_ARM_GERMAN + sink * 0.6, 0.15) };
+  },
+};
+
+// Rear support to back lever, the end of the reel: in support on top of the
+// bar with the bar behind the hips (as for a Korean dip), lean forward and let
+// the elbows bend so the bar rolls up to the lower back while the legs come
+// up level; then push the body away from the bar until the arms are straight
+// in a back lever, hold, and come back up the same way. `c` is where the bar
+// sits on the trunk (onTrunk offsets, behind the back); the lever end comes
+// from the arm angle, so it matches the back lever drawings exactly.
+const BEHIND_BAR = HANG_BAR;
+const LEVER_CONTACT = add(v(0, -41), rot(v(0, LEN.upperArm + LEN.forearm + LEN.grip), BACK_LEVER_ARM - BACK_LEVER_TORSO));
+const rearSupportToBackLever: Spec = {
+  name: "Rear Support to Back Lever",
+  aka: ["Korean Dip to Back Lever", "Back Lever from Rear Support"],
+  mode: "alternate",
+  seconds: 5,
+  samples: 40,
+  hands: { N: "fist" },
+  primary: ["chest", "delts_front", "triceps"],
+  secondary: ["biceps", "lats", "abs", "lower_back", "glutes"],
+  still: 1,
+  scene: [{ draw: { svg: `<circle class="steel" cx="${BEHIND_BAR.x}" cy="${BEHIND_BAR.y}" r="2.8"/>`, box: [BEHIND_BAR.x - 3, BEHIND_BAR.y - 3, BEHIND_BAR.x + 3, BEHIND_BAR.y + 3] }, layer: "front" }],
+  motion: (p) => {
+    const keys: [number, number][] = [[0, 0], [0.2, 0.25], [0.42, 0.55], [0.58, 0.8], [0.8, 1], [1, 1]];
+    const q = kf(p, keys);
+    const torso = kf(q, [[0, -18], [0.25, -42], [0.55, -72], [0.8, -90], [1, BACK_LEVER_TORSO - 360]]);
+    const c = kfv(q, [[0, v(-16, 16)], [0.25, v(-15, 8)], [0.55, v(-15, 0)], [0.8, v(-16, -6)], [1, LEVER_CONTACT]]);
+    let pose = aroundBar(BEHIND_BAR, torso, c, { head: torso * 0.6 + kf(q, [[0, 0], [0.55, -40], [1, -44]]) });
+    // Legs from hanging under the hips to level with the trunk.
+    const leg = kf(q, [[0, 2], [0.25, -20], [0.55, -66], [0.8, -90], [1, torso]]);
+    pose = { ...pose, legN: limb(leg, leg - kf(q, [[0, 6], [0.55, 0]]), leg + 24), legF: limb(leg - 2, leg - 2 - kf(q, [[0, 10], [0.55, 0]]), leg + 22) };
+    return { pose: holdBehind(pose, BEHIND_BAR) };
+  },
+};
 
 // Supported on parallettes with straight arms, hips between the hands and the
 // legs held out in front: tucked, one leg out, both, or lifted into a V.
@@ -1375,6 +1461,12 @@ export const CORE: Spec[] = [
   lever({ name: "Straddle Front Lever", tuck: 0, straddle: true }),
   lever({ name: "Front Lever", aka: ["Full Front Lever"], tuck: 0 }),
   frontLeverRaise,
+  germanHang,
+  backLever({ name: "Tuck Back Lever", aka: ["Back Lever Tuck"], tuck: 1 }),
+  backLever({ name: "Advanced Tuck Back Lever", tuck: 0.68 }),
+  backLever({ name: "Straddle Back Lever", tuck: 0, straddle: true }),
+  backLever({ name: "Back Lever", aka: ["Full Back Lever"], tuck: 0 }),
+  rearSupportToBackLever,
   skinTheCat,
   lSit({ name: "Tuck L-Sit", kind: "tuck", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),
   lSit({ name: "One-Leg L-Sit", kind: "one", primary: ["abs", "hip_flexors"], secondary: ["triceps", "delts_front", "quads"] }),

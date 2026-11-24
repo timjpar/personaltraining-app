@@ -24,6 +24,7 @@ import {
 } from "./equipment";
 import {
   add,
+  aroundBar,
   at,
   base,
   dirAngle,
@@ -31,10 +32,12 @@ import {
   gripArm,
   grips,
   hold,
+  holdBehind,
   joints,
   kf,
   LEN,
   lerp,
+  lerpV,
   limb,
   line,
   mirror,
@@ -510,6 +513,36 @@ function dip(o: {
         props.sF = line(v(grip.x - 2.2, -260), add(grip, v(-2.2, -1)));
       }
       return { pose, props };
+    },
+  };
+}
+
+// The Korean dip, from the reel DZK0jZqIymN: the same straight bar, but with
+// the bar behind the body. In rear support the arms reach straight back and
+// down to the bar at the glutes; bending the elbows back drops the body, so
+// the bar rides up to the lower back while the chest pitches forward and the
+// shoulders go deep into extension. `p` is height here (1 the top), so the
+// negative builder can use it. `c` is the bar's place on the trunk.
+function koreanDip(o: { name: string; aka?: string[]; hold?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+  const bar = v(4, DIP_BAR);
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: o.hold ? "loop" : "alternate",
+    seconds: o.hold ? 4 : 3,
+    samples: o.hold ? 20 : undefined,
+    hands: { N: "fist" },
+    primary: o.primary,
+    secondary: o.secondary,
+    still: o.hold ? 0.25 : 0.1,
+    scene: [{ draw: { svg: `<circle class="steel" cx="${bar.x}" cy="${bar.y}" r="3.2"/>`, box: [bar.x - 3.2, bar.y - 3.2, bar.x + 3.2, bar.y + 3.2] }, layer: "front" }],
+    motion: (q) => {
+      const p = o.hold ? 1 - wave(q) * 0.05 : q;
+      const torso = lerp(-46, -18, p);
+      const c = lerpV(v(-14.5, -3), v(-16, 16), p);
+      let pose = aroundBar(bar, torso, c, { head: torso * 0.5 });
+      pose = { ...pose, legN: limb(lerp(26, 8, p), -64, -36), legF: limb(lerp(20, 4, p), -70, -42) };
+      return { pose: holdBehind(pose, bar) };
     },
   };
 }
@@ -1280,6 +1313,9 @@ export const PUSH: Spec[] = [
   dip({ name: "Straight-Bar Support Hold", straightBar: true, support: true, primary: ["triceps", "chest"], secondary: ["delts_front", "abs", "forearms"] }),
   dip({ name: "Ring Support Hold", rings: true, support: true, primary: ["triceps", "chest"], secondary: ["delts_front", "abs", "forearms"] }),
   dip({ name: "Ring Dip", rings: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
+  koreanDip({ name: "Rear Support Hold", aka: ["Korean Dip Support Hold", "Straight-Bar Rear Support", "Reverse Support Hold"], hold: true, primary: ["triceps", "delts_front"], secondary: ["chest", "abs", "forearms"] }),
+  koreanDip({ name: "Korean Dip", aka: ["Korean Dips", "Rear Support Dip"], primary: ["triceps", "chest", "delts_front"], secondary: ["abs", "forearms"] }),
+  negative(koreanDip({ name: "Korean Dip", primary: ["triceps", "chest", "delts_front"], secondary: ["abs", "forearms"] }), "Korean Dip Negative", ["Negative Korean Dip"]),
   overheadPress({ name: "Overhead Press", primary: ["delts_front", "delts_side"], secondary: ["triceps", "traps", "abs"] }),
   overheadPress({ name: "Push Press", dip: true, primary: ["delts_front", "delts_side", "triceps"], secondary: ["quads", "glutes"] }),
   landminePress,

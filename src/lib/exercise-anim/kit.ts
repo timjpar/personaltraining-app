@@ -250,6 +250,29 @@ export function hangSide(bar: V, t: Trunk & { reach?: number } = {}): Pose {
   return { ...pose, armN: arm, armF: { ...arm } };
 }
 
+// Placed so a bar (side view) sits at `contact`, a point carried by the trunk
+// in the same bind-pose offsets onTrunk takes; negative x is behind the back.
+// For the moves with the bar behind the body: rear support, the Korean dip,
+// the lean down into a back lever.
+export function aroundBar(bar: V, torso: number, contact: V, t: Trunk = {}): Pose {
+  const pelvis = t.pelvis ?? torso;
+  const lumbar = sub(bar, rot(contact, torso));
+  const hip = sub(lumbar, rot(v(0, -11), pelvis));
+  return base(hip, { ...t, torso, pelvis });
+}
+
+// Both fists on a bar behind the body, the elbows folding back towards the
+// head as in a Korean dip, whichever way round that is in the picture.
+export function holdBehind(pose: Pose, bar: V): Pose {
+  const a = hold(pose, "side", bar, bar, -1);
+  const b = hold(pose, "side", bar, bar, 1);
+  const towardHead = (q: Pose) => {
+    const j = joints(q);
+    return rot(sub(j.elbowN, j.lumbar), -q.torso).y;
+  };
+  return towardHead(a) <= towardHead(b) ? a : b;
+}
+
 // On hands and knees, head to the right: knees on the floor under the hips,
 // palms under the shoulders.
 export function allFours(t: Trunk = {}, hipX = 0): Pose {
