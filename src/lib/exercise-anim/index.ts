@@ -13,6 +13,7 @@ export const ANIMATIONS: Record<string, { primary: string[]; secondary: string[]
   "american-kettlebell-swing": {"primary":["glutes","hamstrings"],"secondary":["lower_back","delts_front","forearms"]},
   "ankle-rock": {"primary":["calves"],"secondary":["tibialis"]},
   "arc-training": {"primary":["forearms","lats"],"secondary":["biceps","upper_back","calves","abs"]},
+  "archer-pull-up": {"primary":["lats","biceps"],"secondary":["upper_back","forearms","delts_rear","obliques"]},
   "archer-push-up": {"primary":["chest","triceps"],"secondary":["delts_front","abs","obliques"]},
   "arm-circles": {"primary":["delts_side"],"secondary":["delts_front","delts_rear","traps"]},
   "arnold-press": {"primary":["delts_front","delts_side"],"secondary":["triceps"]},

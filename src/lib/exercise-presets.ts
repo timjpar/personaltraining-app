@@ -131,6 +131,8 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Negative Pull-Up",
       "Chest-to-Bar Pull-Up",
       "Explosive Pull-Up",
+      "Archer Pull-Up",
+      "Typewriter Pull-Up",
       "One-Arm Pull-Up",
       "Negative Muscle-Up",
       "Muscle-Down",
