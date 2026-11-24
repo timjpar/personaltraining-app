@@ -23,6 +23,7 @@ import {
   add,
   at,
   base,
+  frontJoints,
   gripArm,
   grips,
   hold,
@@ -682,6 +683,43 @@ function curl(o: {
   };
 }
 
+// Back on an incline bench, dumbbells rising out in the scapular plane (about
+// 30° in front of the sides) to a Y. From the side the arms swing toward the
+// viewer, so they shorten as they rise; the top lands well past perpendicular
+// to the reclined trunk.
+const inclineYRaise: Spec = {
+  name: "Incline Dumbbell Y Raise",
+  aka: ["Incline Y Raise", "Seated Incline Y Raise"],
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist" },
+  primary: ["delts_side"],
+  secondary: ["delts_front", "traps"],
+  still: 0.85,
+  scene: [{ draw: seat(-30, 6, -50), layer: "back" }],
+  props: [
+    { id: "back", draw: { svg: `<rect class="pad" x="-4" y="-46" width="8" height="84" rx="3.5"/>`, box: [-4, -46, 4, 38] }, layer: "back" },
+    { id: "dbF", draw: dumbbellEnd(6.5), layer: "back" },
+    { id: "dbN", draw: dumbbellEnd(6.5), layer: "front" },
+  ],
+  motion: (p) => {
+    let pose = seated(-50, 46, { torso: 40, pelvis: 30, head: 20 });
+    const upper = kf(p, [[0, 8], [0.5, 70], [1, 146]]);
+    const ku = kf(p, [[0, 1], [0.5, 0.72], [1, 0.52]]);
+    const arm = { ...limb(upper, upper - 6, upper - 6), ku, kl: ku };
+    pose = { ...pose, armN: arm, armF: { ...arm } };
+    const g = grips(pose);
+    return {
+      pose,
+      props: {
+        back: turned(onTrunk(pose, v(-19.5, -18)), pose.torso),
+        dbN: at(g.N),
+        dbF: at(add(g.F, v(-2.2, -1))),
+      },
+    };
+  },
+};
+
 const skullcrusher: Spec = {
   name: "Dumbbell Skullcrusher",
   aka: ["Skullcrusher", "Barbell Lying Triceps Extension"],
@@ -721,6 +759,36 @@ const overheadTricepsExtension: Spec = {
     const arm = limb(172, fore, fore);
     const pose = { ...pose0, armN: arm, armF: { ...arm } };
     return { pose, props: { db: turned(grips(pose).N, fore + 90) } };
+  },
+};
+
+// Facing away from a cable tower, the pulley about head height behind, a
+// staggered stance and the trunk leaned well forward. The elbows stay up by
+// the ears while the hands go from behind the head (long head on stretch) to
+// straight out in line with the trunk.
+const OH_TRI_PULLEY = v(-62, -150);
+const cableOverheadTricepsExtension: Spec = {
+  name: "Cable Overhead Triceps Extension",
+  aka: ["Cable Overhead Extension", "Overhead Cable Triceps Extension", "Rope Overhead Triceps Extension"],
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist" },
+  primary: ["triceps"],
+  secondary: ["abs", "lats"],
+  still: 0,
+  scene: [{ draw: cableTower(-74, OH_TRI_PULLEY), layer: "back" }],
+  props: [
+    { id: "cable", draw: cable(), layer: "back" },
+    { id: "handle", draw: cableBarEnd(), layer: "front" },
+  ],
+  motion: (p) => {
+    let pose = stand(-90, { torso: -34, pelvis: -24, head: -22 }, { ankleN: v(24, -8), ankleF: v(-26, -8), hipX: -2 });
+    const upper = lerp(146, 154, p);
+    const fore = lerp(150, 296, p);
+    const arm = limb(upper, fore, fore);
+    pose = { ...pose, armN: arm, armF: { ...arm } };
+    const g = grips(pose).N;
+    return { pose, props: { cable: line(OH_TRI_PULLEY, g), handle: at(g) } };
   },
 };
 
@@ -784,6 +852,80 @@ function wristWork(o: { name: string; band?: boolean; twist?: boolean; primary: 
   };
 }
 
+// Lateral Australian pull-up (reel DYdSfPhO1ol): one ring overhead, the body
+// side-on to it and leaning away with the feet stacked out on the floor, the
+// free hand on the hip. At the bottom the arm is long and the hips sag away
+// from the ring, a stretch from the hip to the hand down the ring side; the
+// pull drives the elbow down to the ribs and lifts the hips into a straight,
+// side-plank line. Square-on, the ring on the left of the picture: with the
+// trunk tipped that way the near arm is the top one.
+const LAT_AUS_ANKLE = v(66, -8);
+// Top: a straight line from the feet, the hand by the side of the head.
+const LAT_AUS_TOP_TILT = 22;
+// Bottom: hips sagged this far below the line.
+const LAT_AUS_SAG = 20;
+
+function latAusBody(legs: number, torso: number): Pose {
+  const pose: Pose = {
+    ...base(v(0, 0), { torso, pelvis: lerp(legs, torso, 0.5), head: torso - 8 }),
+    legN: limb(legs - 2.5, legs - 2.5, legs + 80),
+    legF: limb(legs + 2.5, legs + 2.5, legs + 80),
+  };
+  const j = frontJoints(pose);
+  const feet = lerpV(j.ankleN, j.ankleF, 0.5);
+  return { ...pose, hip: add(pose.hip, sub(LAT_AUS_ANKLE, feet)) };
+}
+
+function shouldersFront(pose: Pose) {
+  const j = frontJoints(pose);
+  return { N: j.shoulder, F: j.shoulderF };
+}
+
+// The ring hangs just above and outside the top shoulder at the top of the
+// rep, the fist beside the head.
+const LAT_AUS_RING = add(shouldersFront(latAusBody(LAT_AUS_TOP_TILT, LAT_AUS_TOP_TILT)).N, v(-2, -32));
+
+// The bottom: the lean, with the hips sagged, at which the arm just reaches
+// the ring straight.
+const LAT_AUS_BOTTOM_TILT = (() => {
+  const reach = LEN.upperArm + LEN.forearm + LEN.grip - 0.4;
+  let lo = LAT_AUS_TOP_TILT;
+  let hi = 80;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    const s = shouldersFront(latAusBody(mid + LAT_AUS_SAG / 2, mid - LAT_AUS_SAG / 2)).N;
+    if (Math.hypot(LAT_AUS_RING.x - s.x, LAT_AUS_RING.y - s.y) < reach) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+})();
+
+const lateralAustralianPullUp: Spec = {
+  name: "Lateral Australian Pull-Up",
+  aka: ["Lateral Ring Row", "Side-Lying Ring Pull-Up", "Lateral Inverted Row", "Single-Arm Lateral Ring Row"],
+  view: "front",
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist", F: "fist" },
+  primary: ["lats", "obliques"],
+  secondary: ["biceps", "upper_back", "delts_rear", "abs", "forearms"],
+  still: 0.9,
+  props: [
+    { id: "sN", draw: strap(), layer: "back" },
+    { id: "rN", draw: ring(), layer: "front" },
+  ],
+  motion: (p) => {
+    const t = smooth(p);
+    const tilt = lerp(LAT_AUS_BOTTOM_TILT, LAT_AUS_TOP_TILT, t);
+    const sag = lerp(LAT_AUS_SAG, 0, t);
+    let pose = latAusBody(tilt + sag / 2, tilt - sag / 2);
+    const j = frontJoints(pose);
+    const onHip = add(j.hipF, rot(v(-2, -9), pose.pelvis));
+    pose = hold(pose, "front", LAT_AUS_RING, onHip, -1, -1);
+    return { pose, props: { rN: at(LAT_AUS_RING), sN: line(v(LAT_AUS_RING.x, -250), LAT_AUS_RING) } };
+  },
+};
+
 export const PULL: Spec[] = [
   barbellRow({ name: "Barbell Row", aka: ["Bent-Over Row"], torso: -52, primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "lower_back"] }),
   barbellRow({ name: "Pendlay Row", torso: -82, fromFloor: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "lower_back"] }),
@@ -792,6 +934,7 @@ export const PULL: Spec[] = [
   seatedCableRow,
   invertedRow({ name: "Inverted Row", primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear"] }),
   invertedRow({ name: "Ring Row", rings: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "abs"] }),
+  lateralAustralianPullUp,
   ringRowPress,
   pullUpBack({ name: "Pull-Up", aka: ["Pull Up"], primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
   pullUpBack({ name: "Weighted Pull-Up", plate: true, primary: ["lats", "upper_back"], secondary: ["biceps", "forearms", "abs"] }),
@@ -814,9 +957,11 @@ export const PULL: Spec[] = [
   curl({ name: "Dumbbell Curl", aka: ["Bicep Curl", "Biceps Curl"], load: "dumbbells", primary: ["biceps"], secondary: ["forearms"] }),
   curl({ name: "Hammer Curl", load: "hammer", primary: ["biceps", "forearms"] }),
   curl({ name: "Incline Curl", aka: ["Incline Dumbbell Curl"], load: "dumbbells", incline: true, primary: ["biceps"], secondary: ["forearms"] }),
+  inclineYRaise,
   curl({ name: "Cable Curl", load: "cable", primary: ["biceps"], secondary: ["forearms"] }),
   skullcrusher,
   overheadTricepsExtension,
+  cableOverheadTricepsExtension,
   tricepsPushdown,
   wristWork({ name: "Reverse Wrist Curl", primary: ["forearms"] }),
   wristWork({ name: "Band Wrist Extension", band: true, primary: ["forearms"] }),

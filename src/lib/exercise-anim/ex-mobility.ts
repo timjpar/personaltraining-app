@@ -3,7 +3,7 @@
 
 import { FRONT } from "./body-front";
 import { SQUARE } from "./rig";
-import { box, column, doorFrame, dumbbellEnd, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateEdge, plateFace, sauna, tubBack, tubFront, uprightRoller, wall } from "./equipment";
+import { box, column, doorFrame, dumbbellEnd, dumbbellSide, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateEdge, plateFace, sauna, tubBack, tubFront, uprightRoller, wall } from "./equipment";
 import {
   add,
   allFours,
@@ -12,6 +12,7 @@ import {
   both,
   dirAngle,
   frontJoints,
+  gripArm,
   grips,
   hips,
   hold,
@@ -205,6 +206,57 @@ const sideLyingInternalRotation: Spec = {
     const w = frontJoints(posed).wristN;
     const g = add(w, rot(v(0, LEN.grip), theta));
     return { pose: posed, props: { db: at(g) } };
+  },
+};
+
+// Side-lying supraspinatus raise. Lie on one side along a flat bench, head on
+// the bottom hand. Set the top shoulder back and down, then lift the straight
+// top arm from the hip to vertical with the thumb leading, turn the thumb down
+// at the top and lower slowly. Light, 10–15 reps, as in reel DYYOLwfAmdu.
+// Front view, head to the right; the dumbbell's handle stays in the plane of
+// the drawing, so the turn shows as the bells swinging end-on and back.
+const SUPRA_BENCH = -26;
+const sideLyingSupraspinatusRaise: Spec = {
+  name: "Side-Lying Supraspinatus Raise",
+  aka: ["Side-Lying Dumbbell Raise", "Side-Lying Full Can Raise", "Supraspinatus Raise", "Side-Lying Lateral Raise"],
+  view: "front",
+  mode: "loop",
+  seconds: 5.2,
+  samples: 56,
+  hands: { N: "hand", F: "fist" },
+  primary: ["delts_side"],
+  secondary: ["delts_front", "traps"],
+  still: 0.4,
+  scene: [{ draw: flatBench(-96, 40, SUPRA_BENCH), layer: "back" }],
+  props: [{ id: "db", draw: dumbbellSide(), layer: "front" }],
+  motion: (p) => {
+    // Top arm: 262 = along the trunk toward the feet, 180 = straight up.
+    // About 1.4 s up, a beat at the top to turn the thumb down, 2.6 s down.
+    const theta = kf(p, [[0, 262], [0.06, 262], [0.32, 180], [0.44, 180], [0.94, 262], [1, 262]]);
+    // Thumb up (0) on the way up, thumb down (180) from the top to the hip.
+    const turn = kf(p, [[0, 0], [0.33, 0], [0.43, 180], [0.94, 180], [1, 0]]);
+    const pose = base(v(-8, SUPRA_BENCH - 18.5), { torso: -90, pelvis: -90, head: -84 });
+    const straight = { ...limb(-90, -90, -180) };
+    let posed: Pose = { ...pose, legN: straight, legF: { ...straight } };
+    const j = frontJoints({ ...posed, armN: limb(0), armF: limb(0) });
+    // Bottom arm reaches along the bench past the head, hand back under the ear.
+    const ear = add(add(j.neck, rot(v(0, -11), -90)), v(0, 6));
+    const elbow = v(j.shoulder.x + LEN.upperArm * 0.95, SUPRA_BENCH - 3);
+    const up = sub(elbow, j.shoulder);
+    const fore = sub(ear, elbow);
+    const armN: Limb = {
+      upper: dirAngle(up),
+      lower: dirAngle(fore),
+      end: dirAngle(fore),
+      ku: Math.hypot(up.x, up.y) / LEN.upperArm,
+      kl: Math.min(1, Math.hypot(fore.x, fore.y) / LEN.forearm),
+    };
+    const armF = limb(theta, theta, theta);
+    posed = { ...posed, armN, armF };
+    const w = frontJoints(posed).wristF;
+    const g = add(w, rot(v(0, LEN.grip), theta));
+    const scaleX = Math.max(0.18, Math.abs(Math.cos((turn * Math.PI) / 180)));
+    return { pose: posed, props: { db: { at: g, angle: 180 - theta, scaleX } } };
   },
 };
 
@@ -879,7 +931,7 @@ const RFE_GRIP = v(RFE_POST - 2, -122);
 
 const rearFootElevatedHipFlexor: Spec = {
   name: "Rear-Foot-Elevated Hip Flexor Stretch",
-  aka: ["Standing Couch Stretch", "Elevated Couch Stretch", "RFE Hip Flexor Stretch"],
+  aka: ["Rear-Foot-Elevated Hip Flexor", "Standing Couch Stretch", "Elevated Couch Stretch", "RFE Hip Flexor Stretch", "RFE Hip Flexor"],
   mode: "alternate",
   seconds: 2.4,
   hands: { N: "fist" },
@@ -1191,6 +1243,37 @@ const hipAirplane: Spec = {
   },
 };
 
+// Hip airplane with a hand on a rack upright and a kettlebell held on the
+// hip, from reel DW62fqBjhmi. Hinged on one leg, trunk near level, the
+// pelvis turns open about the standing hip and then closes again. From the
+// side the turn shows as the free leg swinging out toward the camera
+// (foreshortened) and the bell riding up from under the belly to the top of
+// the hip.
+const SHA_RAIL = v(70, -74);
+const supportedHipAirplane: Spec = {
+  name: "Supported Kettlebell Hip Airplane",
+  aka: ["Kettlebell Hip Airplane", "Supported Hip Airplane", "Loaded Hip Airplane", "Weighted Hip Airplane"],
+  mode: "alternate",
+  seconds: 3.6,
+  hands: { N: "fist", F: "fist" },
+  primary: ["glutes", "abductors"],
+  secondary: ["hamstrings", "obliques", "adductors"],
+  still: 0.6,
+  scene: [{ draw: column(SHA_RAIL.x - 2, SHA_RAIL.y + 2, 8), layer: "back" }],
+  props: [{ id: "kb", draw: kettlebell(), layer: "front" }],
+  motion: (p) => {
+    const torso = lerp(-80, -74, p);
+    let pose = stand(-90, { torso, pelvis: torso * 0.95, head: torso * 0.85 }, { hipX: -4 });
+    const open = kf(p, [[0, 0], [1, 1]]);
+    pose = { ...pose, legN: { ...limb(lerp(-84, -76, open), lerp(-86, -70, open), lerp(-60, -40, open)), ku: lerp(1, 0.62, open), kl: lerp(1, 0.62, open) } };
+    // Bell from the belly side of the near hip to the top of it.
+    const kb = onTrunk(pose, kfv(p, [[0, v(14, 14)], [0.5, v(4, 4)], [1, v(-10, 2)]]));
+    const s = shoulders(pose);
+    pose = { ...pose, armN: gripArm(s.N, kb, 1), armF: gripArm(s.F, SHA_RAIL, -1) };
+    return { pose, props: { kb: at(kb) } };
+  },
+};
+
 // --- Recovery rooms -------------------------------------------------------------
 
 const saunaSpec: Spec = {
@@ -1373,6 +1456,93 @@ const kbButterflyElevated = butterfly({
   aka: ["Elevated Kettlebell Butterfly Stretch"],
   kb: true,
   block: true,
+});
+
+// Half butterfly, square-on: one leg folded in like a butterfly (right of
+// the picture, sole against the other thigh, knee out to the side), the other
+// long and angled out (left of the picture). Two "lift out of the stretch"
+// drills from reel DQ6-6GBkZoC (@rangeofstrength), both active end-range
+// work rather than passive hangs:
+//  - knee: a kettlebell rests on the folded thigh by the knee, a hand only
+//    steadying its handle, and the knee lifts it a few inches and lowers slow.
+//  - leg: hands down by the hips, the long leg lifts off the floor with the
+//    knee locked and toes up, and lowers without a bounce.
+function halfButterfly(o: { name: string; aka?: string[]; lift: "knee" | "leg" }): Spec {
+  const kb = o.lift === "knee";
+  return {
+    name: o.name,
+    aka: o.aka,
+    view: "front",
+    legsInFront: true,
+    mode: "alternate",
+    seconds: kb ? 3 : 2.6,
+    hands: { N: kb ? "fist" : "hand" },
+    primary: kb ? ["adductors", "hip_flexors"] : ["hip_flexors", "quads"],
+    secondary: kb ? ["glutes", "abs"] : ["abs", "adductors", "hamstrings"],
+    still: 1,
+    props: kb ? [{ id: "kb", draw: kettlebell(), layer: "front" }] : [],
+    motion: (p) => {
+      const up = kb ? p : 0;
+      const legUp = kb ? 0 : p;
+      // Tip a touch away from a lifting straight leg to balance it.
+      let pose = base(v(0, -14), { torso: legUp * 3, head: 0 });
+      const h = hips(pose, "front");
+      // Folded leg, from its hip: knee low and out on the stretch, lifted and
+      // drawn in a little at the top. The foot rests against the other thigh.
+      const knee = lerpV(v(41, 5), v(37, -7), up);
+      const ankle = v(-SQUARE.hipX - 4, 9);
+      const kN = add(h.N, knee);
+      const aN = add(h.N, ankle);
+      const thigh = Math.hypot(kN.x - h.N.x, kN.y - h.N.y);
+      const shin = Math.hypot(aN.x - kN.x, aN.y - kN.y);
+      const legN: Limb = {
+        ...limb(dirTo(h.N, kN), dirTo(kN, aN), 0),
+        ku: Math.min(1, thigh / LEN.thigh),
+        kl: Math.max(0.15, Math.min(1, shin / LEN.shin)),
+        ke: 0.45,
+      };
+      // Long leg, out at an angle and toward the viewer, so foreshortened.
+      // Ankle x is measured out from its own hip, y from the floor.
+      const ankleF = lerpV(v(46, -7), v(42, -38), legUp);
+      const d = v(-ankleF.x, ankleF.y - h.F.y);
+      const reach = Math.min(1, Math.hypot(d.x, d.y) / (LEN.thigh + LEN.shin));
+      const aF = dirAngle(d);
+      const legF: Limb = { upper: aF, lower: aF, end: -180, ku: reach, kl: reach };
+      pose = { ...pose, legN, legF };
+      if (!kb) {
+        // Arms folded across the chest, as in the reel, so the hands can't
+        // help the leg up.
+        pose = { ...pose, armN: limb(14, -118, -118), armF: mirror(limb(14, -118, -118)) };
+        return { pose };
+      }
+      // The bell sits on the folded thigh just inside the knee; the arm is
+      // nearly straight and foreshortened to reach its handle.
+      const j = frontJoints(pose);
+      const g = add(lerpV(h.N, j.kneeN, 0.85), v(0, -15.5));
+      const s = shoulders(pose, "front");
+      const reachTo = (sh: V, gp: V): Limb => {
+        const a = dirTo(sh, gp);
+        const k = (Math.hypot(gp.x - sh.x, gp.y - sh.y) - LEN.grip) / (LEN.upperArm + LEN.forearm);
+        const side = Math.sign(gp.x - sh.x) || 1;
+        return { ...limb(a + 6 * side, a - 6 * side, a), ku: k, kl: k };
+      };
+      // The near hand steadies the handle; the other rests on the floor.
+      pose = palms(pose, "front", v(0, 0), v(-30, -1), 0, -1);
+      pose = { ...pose, armN: reachTo(s.N, g) };
+      return { pose, props: { kb: turned(g, 0) } };
+    },
+  };
+}
+
+const halfButterflyKneeLift = halfButterfly({
+  name: "Kettlebell Half-Butterfly Knee Lift",
+  aka: ["Weighted Half-Butterfly Knee Lift", "Half-Butterfly Knee Lift", "Loaded Half-Butterfly Lift-Off"],
+  lift: "knee",
+});
+const halfButterflyLegLift = halfButterfly({
+  name: "Half-Butterfly Straight-Leg Lift",
+  aka: ["Half-Butterfly Leg Lift", "Seated Half-Butterfly Leg Raise", "Hurdle-Sit Leg Lift"],
+  lift: "leg",
 });
 
 const frogStretch: Spec = {
@@ -1632,6 +1802,7 @@ export const MOBILITY: Spec[] = [
   externalRotation,
   kneeExternalRotation,
   sideLyingInternalRotation,
+  sideLyingSupraspinatusRaise,
   proneYRaise,
   benchProneYRaise,
   weightedProneYRaise,
@@ -1677,6 +1848,7 @@ export const MOBILITY: Spec[] = [
   inchworm,
   worldsGreatest,
   hipAirplane,
+  supportedHipAirplane,
   saunaSpec,
   coldPlunge,
   ninetyNinety,
@@ -1684,6 +1856,8 @@ export const MOBILITY: Spec[] = [
   butterflyElevated,
   kbButterfly,
   kbButterflyElevated,
+  halfButterflyKneeLift,
+  halfButterflyLegLift,
   frogStretch,
 ];
 
