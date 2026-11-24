@@ -873,7 +873,7 @@ const RFE_GRIP = v(RFE_POST - 2, -122);
 
 const rearFootElevatedHipFlexor: Spec = {
   name: "Rear-Foot-Elevated Hip Flexor Stretch",
-  aka: ["Standing Couch Stretch", "Elevated Couch Stretch", "RFE Hip Flexor Stretch"],
+  aka: ["Rear-Foot-Elevated Hip Flexor", "Standing Couch Stretch", "Elevated Couch Stretch", "RFE Hip Flexor Stretch", "RFE Hip Flexor"],
   mode: "alternate",
   seconds: 2.4,
   hands: { N: "fist" },
