@@ -63,8 +63,11 @@ const RULES: Rule[] = [
   },
 
   // guard: anything explicitly a stretch, before "hamstring" claims it for
-  // hinge and "swings" claims Leg Swings.
-  { archetype: "stretch", match: ["stretch", "leg swing", "foam roll"] },
+  // hinge and "swings" claims Leg Swings. The half-butterfly lifts are
+  // end-range mobility drills; "fly" would otherwise file them under press.
+  // The archer swing circles the bell round the shoulder, so it is shoulder
+  // mobility, not a hip hinge.
+  { archetype: "stretch", match: ["stretch", "leg swing", "foam roll", "half-butterfly", "archer swing"] },
 
   // guard: the incline Y raise is a lateral raise lying back on a bench (side
   // delts), not the prone Y below.
@@ -130,7 +133,7 @@ const RULES: Rule[] = [
     archetype: "press-overhead",
     match: [
       "overhead press", "shoulder press", "push press", "overhead triceps",
-      "handstand", "arnold", "lateral raise", "landmine",
+      "handstand", "arnold", "lateral raise", "front raise", "landmine",
       "tuck press", "shoulder stack", "toe pull",
     ],
   },
@@ -183,8 +186,9 @@ const RULES: Rule[] = [
       "breathing", "ankle", "thread the needle", "forward fold",
       "a-skip", "banded", "band ", "walk",
       "external rotation", "internal rotation", "shoulder cars",
+      "supraspinatus", "full can raise",
       "piked tke", "saq", "straddle leg lift",
-      "roller hurdle", "hip hurdle",
+      "roller hurdle", "hip hurdle", "overhead reach", "overhead plate reach",
     ],
   },
 ];

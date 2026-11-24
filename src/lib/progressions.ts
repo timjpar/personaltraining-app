@@ -268,6 +268,13 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
         weeks: "6–10 weeks",
       },
       {
+        name: "Archer Pull-Up",
+        how: "Grip very wide. Pull up beside one hand while the other arm straightens along the bar, lower to a dead hang, then go to the other side. Start as a half archer with the far arm still bent, and widen the grip a little at a time. 3 × 3 per side.",
+        when: "3 × 5 per side with the far arm straight.",
+        target: reps(3, 5),
+        weeks: "4–8 weeks",
+      },
+      {
         name: "Typewriter Pull-Up",
         how: "Pull up wide, then travel your chin across to each hand without dropping. 3 × 3 lengths.",
         when: "3 × 5 lengths without dropping below the bar.",
