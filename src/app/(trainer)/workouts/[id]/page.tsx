@@ -20,6 +20,7 @@ import {
 import { SubmitButton } from "@/components/SubmitButton";
 import { CoachFeedbackForm } from "@/components/CoachFeedbackForm";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
+import { demoFor } from "@/lib/exercise-demo";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { getLastResults } from "@/lib/exercise-history";
 import { getProgressions } from "@/lib/progression-view";
@@ -197,10 +198,11 @@ export default async function WorkoutReviewPage({
                     name={ex.name}
                     metrics={exerciseMetrics(ex)}
                     notes={ex.notes}
-                    demo={(() => {
-                      const own = media.get(normalizeExerciseName(ex.name));
-                      return own ? { own: true, url: own.url } : undefined;
-                    })()}
+                    demo={demoFor(
+                      ex.name,
+                      media.get(normalizeExerciseName(ex.name)),
+                      { search: false },
+                    )}
                     logged={isCompleted && ex.done}
                     footer={(() => {
                       const result = isCompleted

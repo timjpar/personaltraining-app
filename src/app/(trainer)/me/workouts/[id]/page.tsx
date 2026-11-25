@@ -22,7 +22,7 @@ import { getExerciseMedia } from "@/lib/exercise-catalog";
 import { getLastResults } from "@/lib/exercise-history";
 import { logHints } from "@/lib/exercise-progression";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
-import { demoSearchUrl } from "@/lib/exercise-archetypes";
+import { demoFor } from "@/lib/exercise-demo";
 import { RpeMeter } from "@/components/RpeMeter";
 import { WorkoutLogForm } from "@/components/WorkoutLogForm";
 import { ProgressionPanel } from "@/components/ProgressionPanel";
@@ -100,11 +100,8 @@ export default async function MyWorkoutPage({
     toDiscipline(workout.discipline),
   );
 
-  const demoFor = (name: string): Demo => {
-    const own = media.get(normalizeExerciseName(name));
-    if (own) return { own: true, url: own.url };
-    return { own: false, url: demoSearchUrl(name) };
-  };
+  const demoOf = (name: string): Demo | undefined =>
+    demoFor(name, media.get(normalizeExerciseName(name)), { search: true });
 
   return (
     <Container className="max-w-3xl">
@@ -206,7 +203,7 @@ export default async function MyWorkoutPage({
                         name={ex.name}
                         metrics={exerciseMetrics(ex)}
                         notes={ex.notes}
-                        demo={demoFor(ex.name)}
+                        demo={demoOf(ex.name)}
                         logged={ex.done}
                         footer={(() => {
                           const result = loggedResult({
@@ -244,7 +241,7 @@ export default async function MyWorkoutPage({
             self
             exercises={workout.exercises.map((ex) => ({
               ...ex,
-              demo: demoFor(ex.name),
+              demo: demoOf(ex.name),
               progression: progressions.get(normalizeExerciseName(ex.name)),
               hints: logHints({
                 name: ex.name,
