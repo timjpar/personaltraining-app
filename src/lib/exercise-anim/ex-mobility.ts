@@ -866,6 +866,29 @@ const catCow: Spec = {
   },
 };
 
+// Cat-Cow with a band looped over the mid-back and its ends pinned under the
+// hands. The band goes slack in the cow and stretches as the back rounds up
+// into it, so the cat is pushed against resistance: the upper back spreads and
+// the abs pull the ribs down. Only the near half of the loop shows side-on.
+const bandedCatCow: Spec = {
+  name: "Banded Cat-Cow",
+  aka: ["Resisted Cat-Cow", "Band Cat-Cow", "Cat-Cow with Band"],
+  mode: "loop",
+  seconds: 4.4,
+  samples: 20,
+  hands: { N: "palm" },
+  primary: ["upper_back", "abs"],
+  secondary: ["lower_back", "lats"],
+  still: 0.25,
+  props: [band()],
+  motion: (p) => {
+    const c = Math.sin(2 * Math.PI * p);
+    const pose = allFours({ torso: -90 + c * 10, pelvis: -90 - c * 16, head: -90 - c * 28, shrug: 0 });
+    const hand = v(joints(pose).wristN.x + 4, -1);
+    return { pose, props: { band: line(hand, onTrunk(pose, v(-15, -27))) } };
+  },
+};
+
 // On hands and knees, head to the right, a foam roller stood on its end
 // beside the near knee, about a third of the way to the hand. The near leg
 // kicks straight back, circles out and forward with the knee bent so the foot
@@ -1881,6 +1904,7 @@ export const MOBILITY: Spec[] = [
   childsPoseLiftOff,
   threadTheNeedle,
   catCow,
+  bandedCatCow,
   rollerHurdle,
   couchStretch,
   rearFootElevatedHipFlexor,

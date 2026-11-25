@@ -361,6 +361,7 @@ const WARMUP_AND_MOBILITY: PresetCategory[] = [
       "Inchworm",
       "World's Greatest Stretch",
       "Cat-Cow",
+      "Banded Cat-Cow",
       "Hip Airplane",
       "Supported Kettlebell Hip Airplane",
       "Quadruped Roller Hurdle",
