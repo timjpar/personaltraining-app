@@ -231,6 +231,46 @@ const sideHyperextension: Spec = {
   motion: (p) => ({ pose: sideHyperPose(lerp(10, -40, p)) }),
 };
 
+// Reel DfQ3DzQi0__: the same bench and view, but only the bottom foot is
+// hooked under the roller and the hands are behind the head. The trunk drops
+// further, past level until the head is below the hip, and turns the chest
+// toward the floor on the way (drawn as a bow, since the rig can't twist the
+// trunk about its own axis). The free top leg swings up as a counterweight,
+// so the bottom leg's adductors hold the body up from the roller.
+function hyperAdductorPose(p: number): Pose {
+  const torso = lerp(-25, -125, p);
+  const pelvis = lerp(-40, -58, p);
+  let pose: Pose = { ...base(SIDE_HYPER_HIP, { pelvis, torso, head: torso - 10 * p }), bow: 25 * p };
+  const top = lerp(-50, -128, p);
+  pose = { ...pose, legN: limb(-45, -45, -40), legF: { ...limb(top, top + 4, top + 10), ku: 0.95 } };
+  // Hands behind the head, elbows wide: upper arms up and out along the
+  // trunk, forearms folded back to the back of the head.
+  const behind = (s: 1 | -1): Limb => ({ ...limb(torso + 180 + 60 * s, torso + 180 - 115 * s), ku: 0.75, kl: 0.85 });
+  return { ...pose, armN: behind(1), armF: behind(-1) };
+}
+
+const hyperAdductorRotation: Spec = {
+  name: "Side-Lying Hyperextension Adductor Rotation",
+  aka: ["Hyperextension Adductor Rotation", "45-Degree Hyper Adductor Rotation", "Side Hyperextension Adductor Raise"],
+  view: "front",
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "hand" },
+  primary: ["adductors", "obliques"],
+  secondary: ["abs", "lower_back", "abductors"],
+  still: 1,
+  scene: [
+    {
+      draw: hyperBench(add(SIDE_HYPER_HIP, v(9, 14)), SIDE_HYPER_ANKLES.N, [
+        add(SIDE_HYPER_ANKLES.N, v(-5, -5)),
+        add(SIDE_HYPER_ANKLES.N, v(5, 5)),
+      ]),
+      layer: "back",
+    },
+  ],
+  motion: (p) => ({ pose: hyperAdductorPose(p) }),
+};
+
 // --- Lying ----------------------------------------------------------------------------
 
 const hollowHold: Spec = {
@@ -1465,6 +1505,7 @@ export const CORE: Spec[] = [
   copenhagenKneeTuck,
   hipFlexorPlank,
   sideHyperextension,
+  hyperAdductorRotation,
   hollowHold,
   deadBug,
   birdDog,
