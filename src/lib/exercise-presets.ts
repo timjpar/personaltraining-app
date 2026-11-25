@@ -367,6 +367,8 @@ const WARMUP_AND_MOBILITY: PresetCategory[] = [
       "Plate Halo",
       "Leg Swings",
       "Hip CARs",
+      "Standing Hip Internal Rotation",
+      "Elevated 90/90 Hip Internal Rotation",
       "Inchworm",
       "World's Greatest Stretch",
       "Cat-Cow",

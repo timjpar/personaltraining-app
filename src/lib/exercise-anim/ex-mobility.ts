@@ -2,7 +2,7 @@
 // rooms (sauna, cold plunge).
 
 import { FRONT } from "./body-front";
-import { SQUARE } from "./rig";
+import { len, mul, SQUARE } from "./rig";
 import { box, column, doorFrame, dumbbellEnd, dumbbellSide, flatBench, foamRoller, kettlebell, lightBarFar, lightBarNear, plateEdge, plateFace, sauna, tubBack, tubFront, uprightRoller, wall } from "./equipment";
 import {
   add,
@@ -27,6 +27,7 @@ import {
   line,
   mirror,
   onTrunk,
+  palmArm,
   palms,
   plant,
   plantLeg,
@@ -1413,6 +1414,131 @@ const hipCars: Spec = {
   },
 };
 
+// Two hip-rotation drills from reel DfWwyV1pSPH (@the_tissueguy), both on
+// one leg with a dowel for balance, square-on like Hip CARs.
+
+const dowelProp = (layer: "back" | "front" = "back"): Prop => ({
+  id: "dowel",
+  draw: { svg: `<path d="M0 0H1" style="fill:none;stroke:#e4dfd3;stroke-width:3.4;stroke-linecap:round;vector-effect:non-scaling-stroke"/><path d="M0 0H1" style="fill:none;stroke:#b9b2a2;stroke-width:.5;vector-effect:non-scaling-stroke"/>`, box: [0, -2, 1, 2] },
+  layer,
+});
+const norm3 = (d: D3): D3 => {
+  const l = Math.hypot(...d);
+  return [d[0] / l, d[1] / l, d[2] / l];
+};
+const cross3 = (a: D3, b: D3): D3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+// Turn `d` (square to `axis`) about `axis` by `deg`.
+const spin3 = (d: D3, axis: D3, deg: number): D3 => {
+  const r = (deg * Math.PI) / 180;
+  const c = cross3(axis, d);
+  return norm3([d[0] * Math.cos(r) + c[0] * Math.sin(r), d[1] * Math.cos(r) + c[1] * Math.sin(r), d[2] * Math.cos(r) + c[2] * Math.sin(r)]);
+};
+const square3 = (d: D3, to: D3): D3 => {
+  const k = d[0] * to[0] + d[1] * to[1] + d[2] * to[2];
+  return norm3([d[0] - k * to[0], d[1] - k * to[1], d[2] - k * to[2]]);
+};
+const ang3 = (d: D3) => (Math.atan2(d[0], d[1]) * 180) / Math.PI;
+const flat3 = (d: D3, min = 0.12) => Math.max(min, Math.hypot(d[0], d[1]));
+
+// Standing on one leg, a dowel in the far hand, the working knee lifted and
+// bent to 90 with a light dumbbell strapped under the foot. The thigh holds
+// still; the shin swings out to the side about it (the hip turning in) and
+// back to hanging. The knee stays where it is — only the foot travels.
+const SHIR_THIGH = norm3([0.12, 0.3, 0.95]);
+const SHIR_SHIN = square3([0, 1, 0], SHIR_THIGH);
+const SHIR_FOOT = square3(square3([0, 0, 1], SHIR_SHIN), SHIR_SHIN);
+const SHIR_TURN = cross3(SHIR_THIGH, SHIR_SHIN)[0] > 0 ? 1 : -1;
+const standingHipInternalRotation: Spec = {
+  name: "Standing Hip Internal Rotation",
+  aka: [
+    "Standing Weighted Hip Internal Rotation",
+    "MonkeyFeet Hip Internal Rotation",
+    "Standing Dumbbell Hip Internal Rotation",
+    "Standing Hip IR",
+    "Open-Chain Hip Internal Rotation",
+  ],
+  view: "front",
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "palm", F: "fist" },
+  primary: ["glutes", "abductors"],
+  secondary: ["hip_flexors", "adductors"],
+  still: 0.3,
+  props: [dowelProp(), { id: "db", draw: dumbbellSide(), layer: "front" }],
+  motion: (p) => {
+    let pose = plant(base(v(-2, -94.6), { torso: 1, head: 0 }), "front", v(14, -8), v(-11, -8), {}, 1);
+    const turn = SHIR_TURN * lerp(0, 42, p);
+    const shin = spin3(SHIR_SHIN, SHIR_THIGH, turn);
+    const foot = spin3(SHIR_FOOT, SHIR_THIGH, turn);
+    pose = {
+      ...pose,
+      legN: { ...limb(ang3(SHIR_THIGH), ang3(shin), ang3(foot)), ku: flat3(SHIR_THIGH), kl: flat3(shin), ke: flat3(foot, 0.45) },
+    };
+    const j = frontJoints(pose);
+    // The bell sits under the sole, its handle across the foot.
+    const across = cross3(shin, foot);
+    const db = add(j.ankleN, v(foot[0] * 6 + shin[0] * 7, foot[1] * 6 + shin[1] * 7));
+    const s = shoulders(pose, "front");
+    const h = hips(pose, "front");
+    const grip = v(-46, s.F.y - 6);
+    pose = { ...pose, armF: gripArm(s.F, grip, 1), armN: palmArm(s.N, add(h.N, v(8, -8)), 160, 1) };
+    return {
+      pose,
+      props: {
+        dowel: line(v(-46, 0), v(-46, -176)),
+        db: { at: db, angle: (Math.atan2(-across[1], across[0]) * 180) / Math.PI },
+      },
+    };
+  },
+};
+
+// The back leg of a 90/90, stood up: the thigh rests on a pad in front, the
+// knee bent and the shin lying out to the side along it, so the hip sits
+// turned in. Both hands on a dowel planted on the far side, the pelvis sinks
+// and turns away from the pinned leg, which winds the hip further in, then
+// comes back.
+const E99_KNEE = v(20, -82);
+const E99_ANKLE = v(66, -86);
+const elevated9090InternalRotation: Spec = {
+  name: "Elevated 90/90 Hip Internal Rotation",
+  aka: [
+    "Standing 90/90 Hip Internal Rotation",
+    "Standing 90/90 Back-Leg Lean",
+    "Elevated 90/90 Hip IR",
+    "Pelvis-on-Femur Hip Internal Rotation",
+    "Standing Hip Internal Rotation Lean",
+  ],
+  view: "front",
+  mode: "alternate",
+  seconds: 3.2,
+  hands: { N: "fist", F: "fist" },
+  primary: ["glutes", "abductors"],
+  secondary: ["adductors", "obliques"],
+  still: 0.45,
+  scene: [{ draw: flatBench(4, 84, -78), layer: "back" }],
+  props: [dowelProp("front")],
+  motion: (p) => {
+    const lean = lerp(0, 1, p);
+    const hip = v(lerp(-3, -11, lean), lerp(-94.6, -91.5, lean));
+    let pose = base(hip, { pelvis: lerp(0, -6, lean), torso: lerp(0, -14, lean), head: lerp(0, -8, lean) });
+    const h = hips(pose, "front");
+    const thigh = sub(E99_KNEE, h.N);
+    const shin = sub(E99_ANKLE, E99_KNEE);
+    pose = {
+      ...pose,
+      legN: { ...limb(dirAngle(thigh), dirAngle(shin), 180), ku: Math.min(1, len(thigh) / LEN.thigh), kl: Math.min(1, len(shin) / LEN.shin), ke: 0.55 },
+      legF: plantLeg(h.F, v(-16, -8), 0, -1),
+    };
+    const s = shoulders(pose, "front");
+    const chest = lerpV(s.N, s.F, 0.5);
+    const foot = v(-58, 0);
+    const top = add(chest, v(4, 8));
+    const along = (k: number) => lerpV(foot, top, k);
+    pose = { ...pose, armN: gripArm(s.N, along(0.93), 1), armF: gripArm(s.F, along(0.85), -1) };
+    return { pose, props: { dowel: line(foot, add(top, mul(sub(top, foot), 0.02))) } };
+  },
+};
+
 // --- Recovery rooms -------------------------------------------------------------
 
 const saunaSpec: Spec = {
@@ -1951,6 +2077,8 @@ export const MOBILITY: Spec[] = [
   archerSwing,
   shoulderCars,
   hipCars,
+  standingHipInternalRotation,
+  elevated9090InternalRotation,
   wristCircles,
   fingerRolls,
   forearmStretch,
