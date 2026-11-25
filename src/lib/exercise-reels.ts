@@ -80,7 +80,10 @@ const REELS: { id: string; names: string[] }[] = [
   },
   { id: "DR2DVVZkcpt", names: ["Hanging Tuck Sweep"] },
   // Squat University's lower-trap fix.
-  { id: "DScuJl2AHZz", names: ["Prone Y Raise", "Child's Pose Lift-Off"] },
+  {
+    id: "DScuJl2AHZz",
+    names: ["Weighted Prone Y Raise", "Prone Y Raise", "Child's Pose Lift-Off"],
+  },
   { id: "DQ5cHDcDCJA", names: ["Rear-Foot-Elevated Hip Flexor Stretch"] },
   {
     id: "DQ6-6GBkZoC",
@@ -93,7 +96,10 @@ const REELS: { id: string; names: string[] }[] = [
     names: ["Side-Lying Dumbbell Internal Rotation", "Seated Dumbbell External Rotation"],
   },
   { id: "DUrP-HOEgeZ", names: ["Kettlebell Archer Swing"] },
-  { id: "DUoSpOtiRuS", names: ["Feet-on-Wall Overhead Plate Reach"] },
+  {
+    id: "DUoSpOtiRuS",
+    names: ["Feet-on-Wall Overhead Plate Reach", "Feet-on-Wall Overhead Reach over Foam Roller"],
+  },
   {
     id: "DVcwYb-jOkV",
     names: [
