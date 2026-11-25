@@ -1569,6 +1569,58 @@ const fullPlancheHold = plancheHold(
   ["chest", "triceps", "biceps", "abs", "glutes", "lower_back"],
 );
 
+// --- Prayer planche ---------------------------------------------------------------
+//
+// Bent arms on the forearms: shoulders turned in so the backs of the hands
+// touch, fingers pointing back at the feet, forearms flat on the floor under
+// the belly. The body balances over them, so the upper arms lean forward of
+// the elbows by `lean` degrees and the shoulders sit ahead of the support.
+const PRAYER_ELBOW = v(0, -4);
+const prayerShoulder = (lean: number) => sub(PRAYER_ELBOW, rot(v(0, LEN.upperArm), -lean));
+const prayerArms = (pose: Pose, lean: number): Pose => {
+  const arm = limb(-lean, -90, -90);
+  return { ...pose, armN: arm, armF: { ...arm } };
+};
+const PRAYER_TOE = v(-140, 0);
+const prayerLean = (lean: number) => prayerArms(onToes(PRAYER_TOE, prayerShoulder(lean)), lean);
+function prayerHold(lean: number, legs: "tuck" | "straight", torso = -93): Pose {
+  const pose = fromShoulder(prayerShoulder(lean), torso, torso + 16);
+  const leg = legs === "tuck" ? folded(torso, 135, 150, 20) : folded(torso, 0, 0, 52);
+  return prayerArms({ ...pose, legN: leg, legF: { ...leg, upper: leg.upper - 1, lower: leg.lower - 1, end: leg.end - 1 } }, lean);
+}
+function prayerSpec(name: string, aka: string[], keys: (p: number) => Pose, still: number): Spec {
+  return {
+    name,
+    aka,
+    mode: "loop",
+    seconds: 5,
+    samples: 40,
+    hands: { N: "palm" },
+    primary: ["delts_front", "delts_side"],
+    secondary: ["chest", "triceps", "abs", "lower_back"],
+    still,
+    motion: (p) => ({ pose: keys(p) }),
+  };
+}
+const prayerPlancheLean = prayerSpec(
+  "Prayer Planche Lean",
+  ["Forearm Prayer Planche Lean", "Prayer Lean"],
+  (p) => seq(p, [[0, prayerLean(4)], [0.32, prayerLean(26)], [0.78, prayerLean(26)], [1, prayerLean(4)]]),
+  0.55,
+);
+const tuckPrayerPlanche = prayerSpec(
+  "Tuck Prayer Planche",
+  ["Tuck Prayer Planche Hold"],
+  (p) => seq(p, [[0, prayerLean(10)], [0.18, prayerLean(20)], [0.38, prayerHold(22, "tuck", -104)], [0.8, prayerHold(22, "tuck", -102)], [1, prayerLean(10)]]),
+  0.6,
+);
+const prayerPlanche = prayerSpec(
+  "Prayer Planche",
+  ["Prayer Planche Hold", "Full Prayer Planche", "Praying Planche"],
+  (p) => seq(p, [[0, prayerLean(10)], [0.18, prayerLean(24)], [0.38, prayerHold(26, "straight")], [0.8, prayerHold(26, "straight")], [1, prayerLean(10)]]),
+  0.6,
+);
+
 // The press: crouch, lean into the tuck planche, then let the hips rise over
 // the hands as the shoulders come back above them, open into a tuck
 // handstand and straighten the legs. Phase 1 is the handstand, so played
@@ -1867,6 +1919,9 @@ export const PUSH: Spec[] = [
   advancedTuckPlanche,
   straddlePlanche,
   fullPlancheHold,
+  prayerPlancheLean,
+  tuckPrayerPlanche,
+  prayerPlanche,
   tuckPress,
   negative(tuckPress, "Tuck Press Negative", ["Tuck Press Lowering", "Handstand to Tuck Planche Negative"]),
   boxPikeStack,
