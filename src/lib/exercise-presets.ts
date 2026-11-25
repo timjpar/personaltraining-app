@@ -46,6 +46,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Push Press",
       "Landmine Press",
       "Barbell Front Raise to Overhead",
+      "Barbell Cuban Press",
       "Bazooka Squat",
       "Bazooka Pistol Squat",
       "Barbell Hip Thrust",
