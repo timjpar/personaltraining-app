@@ -1274,6 +1274,82 @@ const tuckPlanchePushUp: Spec = {
   },
 };
 
+// --- The planche ladder past the tuck --------------------------------------------
+//
+// Each hold leans from the planche lean on the toes into the position and
+// back. The further the legs reach behind, the further the shoulders have to
+// sit past the hands to keep the weight over them, so `lean` grows each step.
+
+// Advanced tuck: back flat, hips level with the shoulders, thighs straight
+// down under the hips and the shins pointing back.
+function advancedTuck(lean: number, torso = -94): Pose {
+  const pose = fromShoulder(straightShoulder(lean), torso, torso + 18);
+  const leg = folded(torso, 92, 118, 30);
+  return { ...pose, legN: leg, legF: { ...leg } };
+}
+
+// Straight body, hips a touch above the shoulders. A straddle splits the legs
+// wide to the sides, so from the side they read shorter, the far one lower.
+function fullPlanche(lean: number, torso = -95, straddle = false): Pose {
+  const pose = fromShoulder(straightShoulder(lean), torso, torso + 16);
+  const leg = folded(torso, 0, 0, 52);
+  if (!straddle) return { ...pose, legN: leg, legF: { ...leg, upper: leg.upper - 1, lower: leg.lower - 1, end: leg.end - 1 } };
+  return {
+    ...pose,
+    legN: { ...leg, ku: 0.78, kl: 0.78 },
+    legF: { ...leg, upper: leg.upper + 3, lower: leg.lower + 3, end: leg.end + 3, ku: 0.78, kl: 0.78 },
+  };
+}
+
+function plancheHold(name: string, aka: string[], seconds: number, held: (lean: number) => Pose, lean: number, secondary: Spec["secondary"]): Spec {
+  return {
+    name,
+    aka,
+    mode: "loop",
+    seconds,
+    samples: 40,
+    hands: { N: "palm" },
+    primary: ["delts_front"],
+    secondary,
+    still: 0.6,
+    motion: (p) => {
+      const keys: [number, Pose][] = [
+        [0, onToes(PLANCHE_TOE, straightShoulder(16))],
+        [0.18, onToes(PLANCHE_TOE, straightShoulder(lean - 3))],
+        [0.38, held(lean)],
+        [0.8, held(lean)],
+        [1, onToes(PLANCHE_TOE, straightShoulder(16))],
+      ];
+      return { pose: palms(seq(p, keys), "side", PALM, PALM, 90, -1) };
+    },
+  };
+}
+
+const advancedTuckPlanche = plancheHold(
+  "Advanced Tuck Planche",
+  ["Advanced Tuck Planche Hold", "Adv Tuck Planche", "Flat Back Tuck Planche"],
+  5,
+  (l) => advancedTuck(l),
+  21,
+  ["chest", "triceps", "biceps", "abs", "lower_back"],
+);
+const straddlePlanche = plancheHold(
+  "Straddle Planche",
+  ["Straddle Planche Hold", "Straddle Planche Lean"],
+  5.2,
+  (l) => fullPlanche(l, -95, true),
+  25,
+  ["chest", "triceps", "biceps", "abs", "glutes", "lower_back"],
+);
+const fullPlancheHold = plancheHold(
+  "Full Planche",
+  ["Planche", "Full Planche Hold", "Straight Planche", "Planche Hold"],
+  5.2,
+  (l) => fullPlanche(l),
+  27,
+  ["chest", "triceps", "biceps", "abs", "glutes", "lower_back"],
+);
+
 // The press: crouch, lean into the tuck planche, then let the hips rise over
 // the hands as the shoulders come back above them, open into a tuck
 // handstand and straighten the legs. Phase 1 is the handstand, so played
@@ -1538,6 +1614,9 @@ export const PUSH: Spec[] = [
   pseudoPlanchePushUp,
   tuckPlancheHold,
   tuckPlanchePushUp,
+  advancedTuckPlanche,
+  straddlePlanche,
+  fullPlancheHold,
   tuckPress,
   negative(tuckPress, "Tuck Press Negative", ["Tuck Press Lowering", "Handstand to Tuck Planche Negative"]),
   boxPikeStack,
