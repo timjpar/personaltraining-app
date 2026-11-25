@@ -74,6 +74,8 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Weighted Prone Y Raise",
       "Dumbbell Fly",
       "Dumbbell Pullover",
+      "Prone Dumbbell Pull-Up",
+      "Alternating Prone Dumbbell Pull-Up",
       "Dumbbell Curl",
       "Hammer Curl",
       "Incline Curl",
