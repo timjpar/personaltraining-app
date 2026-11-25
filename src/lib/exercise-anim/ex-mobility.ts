@@ -989,6 +989,44 @@ const couchStretch: Spec = {
   },
 };
 
+// Couch stretch braced on a foam roller (reel DfVJ1ZKtUw1, move 3): rear knee
+// in the corner of the wall, shin and instep up it, front foot flat, and a
+// foam roller stood on end just inside the front knee with both palms stacked
+// on top. The torso leans a little over the roller and the hips sink forward
+// on each breath out, which opens the rear hip and loads the quad.
+const ROLLER_COUCH_X = 17;
+const ROLLER_COUCH_H = 64;
+const rollerCouchAt = (p: number): Pose => {
+  const hip = lerpV(v(-22, -52), v(-12, -47), p);
+  const torso = lerp(-26, -16, p);
+  const rearKnee = v(-34, -6);
+  const pose = base(hip, { torso, pelvis: torso * 0.4 + 6, head: torso * 0.6 - 18 });
+  return {
+    ...pose,
+    legF: { upper: dirTo(hip, rearKnee), lower: 184, end: 96 },
+    legN: plantLeg(hip, v(42, -8), 0, 1),
+  };
+};
+
+const rollerCouchStretch: Spec = {
+  name: "Foam Roller Couch Stretch",
+  aka: ["Couch Stretch with Foam Roller", "Supported Couch Stretch", "Couch Stretch on Roller"],
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "hand", F: "hand" },
+  primary: ["quads", "hip_flexors"],
+  secondary: ["abs"],
+  still: 0.25,
+  scene: [
+    { draw: wall(-54, -120, 10), layer: "back" },
+    { draw: uprightRoller(ROLLER_COUCH_X, ROLLER_COUCH_H), layer: "mid" },
+  ],
+  motion: (p) => {
+    const top = v(ROLLER_COUCH_X - 4, -ROLLER_COUCH_H - 1);
+    return { pose: palms(rollerCouchAt(p), "side", top, add(top, v(0, -2.5)), 90, -1) };
+  },
+};
+
 // Standing couch stretch (reel DQ5cHDcDCJA): rear instep on a bench, front
 // foot flat, both hands on an upright post ahead. It rocks between the
 // bottom, rear knee bent ~70° (quad / rectus femoris), and a drive forward
@@ -1968,6 +2006,7 @@ export const MOBILITY: Spec[] = [
   bandedCatCow,
   rollerHurdle,
   couchStretch,
+  rollerCouchStretch,
   rearFootElevatedHipFlexor,
   eccentricThomas,
   halfKneel({ name: "Hip Flexor Stretch", aka: ["Half-Kneeling Hip Flexor Stretch"], primary: ["hip_flexors", "quads"], secondary: ["abs"] }),
