@@ -180,6 +180,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Ring Row",
       "Single-Arm Ring Row with Dumbbell Press",
       "Lateral Australian Pull-Up",
+      "Ring Y-Pull",
       "Inverted Row",
       "Air Squat",
       "Sissy Squat",
