@@ -19,7 +19,7 @@ import { BACK, FRONT } from "./body-front";
 import { SIDE, type Layer, type Muscle, type PartArt } from "./body-side";
 import { add, ease, frontJoints, joints, rot, trunkK, v, type Limb, type Pose, type V } from "./rig";
 
-export type HandShape = "hand" | "fist" | "palm";
+export type HandShape = "hand" | "fist" | "palm" | "heel";
 export type View = "side" | "front" | "back";
 
 // A drawing in local coordinates (origin at its attachment point), optionally

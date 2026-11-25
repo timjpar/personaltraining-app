@@ -199,6 +199,44 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "palm-raise",
+    goal: "Decline Plank Palm Raise",
+    family: "bodyweight",
+    blurb:
+      "Wrist and finger strength for handstands, planche work and wrists that stop aching under load. On every rung the fingers stay flat and spread on the floor while the heels of the hands peel up, so the forearm muscles that grip the floor take your weight. Each rung puts more of your body over your hands.",
+    steps: [
+      {
+        name: "Quadruped Palm Raise",
+        aka: ["All-Fours Palm Raise", "Quadruped Palm Lift-Off"],
+        how: "On all fours, hips over knees, hands under shoulders with the fingers spread and pointing forward. Press the fingers into the floor and lift the heels of both hands as high as you can, pause 1s, and lower slowly. Arms stay straight. 2–3 × 10–15.",
+        when: "3 × 15 with a 1s pause at the top and the fingers flat the whole time.",
+        target: reps(3, 15),
+        weeks: "1–2 weeks",
+      },
+      {
+        name: "Kneeling Palm Raise",
+        aka: ["Knee Plank Palm Raise", "Kneeling Palm Lift-Off"],
+        how: "A plank on your knees, body straight from knees to head, hands under your shoulders. Same lift: fingers pinned, heels of the hands up, slow down. If the heels barely move, lean less weight forward and build range first. 3 × 10–12.",
+        when: "3 × 12 with the heels clearly off the floor on every rep.",
+        target: reps(3, 12),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Plank Palm Raise",
+        aka: ["Palm Raise", "Plank Palm Lift-Off", "Palm Lift-Off"],
+        how: "Full plank on your hands, arms locked, glutes and abs tight. Lift the heels of both hands while the fingers stay flat, pause, and lower under control. Let your shoulders drift a little forward over your fingers as the palms rise. 3 × 8–12.",
+        when: "3 × 12 with a 1s pause at the top and no bend at the elbows.",
+        target: reps(3, 12),
+        weeks: "2–6 weeks",
+      },
+      {
+        name: "Decline Plank Palm Raise",
+        aka: ["Feet-Elevated Palm Raise", "Decline Palm Raise"],
+        how: "Feet up on a bench, hands on the floor under your shoulders. More of your weight sits over your hands, closer to a handstand. Same flat fingers, heels up, slow down. 3 × 8–10.",
+      },
+    ],
+  },
+  {
     id: "first-pull-up",
     goal: "Pull-Up",
     family: "bodyweight",
