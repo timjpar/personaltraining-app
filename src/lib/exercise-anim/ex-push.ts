@@ -1006,6 +1006,58 @@ const btbUprightRow: Spec = {
   },
 };
 
+// Behind-the-head dumbbell elbow sweep, from reel Dc9LXqBN8VG
+// (@lightskindarklord), the move it opens with. Standing, a dumbbell in each
+// hand held up behind the head, handles across. The elbows start forward and
+// a little low, about shoulder-width, forearms standing up past the ears.
+// They then sweep out to the sides at shoulder height while the hands stay
+// back behind the head, so the forearms tip back past vertical: loaded end-
+// range external rotation, which the coach sells as subscapularis and cuff
+// work. Square-on, as the reel mostly films it. The arm is posed in 3D
+// (x out, y down, z toward the viewer) and projected, so the upper arm
+// lengthens as it swings out and the forearm shortens as it tips back.
+const SWEEP_FORWARD = { az: 12, dip: 35, back: 25 };
+const SWEEP_WIDE = { az: 90, dip: 4, back: 58 };
+const behindHeadElbowSweep: Spec = {
+  name: "Behind-the-Head Dumbbell Elbow Sweep",
+  aka: [
+    "Behind-the-Head Dumbbell External Rotation",
+    "Dumbbell Elbow Sweep",
+    "Subscapularis Elbow Sweep",
+  ],
+  view: "front",
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "fist" },
+  primary: ["delts_rear", "delts_side"],
+  secondary: ["upper_back", "traps"],
+  still: 1,
+  props: [
+    { id: "dbN", draw: dumbbellSide(), layer: "back" },
+    { id: "dbF", draw: dumbbellSide(), layer: "back" },
+  ],
+  motion: (p) => {
+    const t = (1 - Math.cos(p * Math.PI)) / 2;
+    const rad = (d: number) => (d * Math.PI) / 180;
+    const az = rad(lerp(SWEEP_FORWARD.az, SWEEP_WIDE.az, t));
+    const dip = rad(lerp(SWEEP_FORWARD.dip, SWEEP_WIDE.dip, t));
+    const back = rad(lerp(SWEEP_FORWARD.back, SWEEP_WIDE.back, t));
+    // Picture-plane parts of the upper arm and forearm (unit lengths).
+    const u = v(Math.cos(dip) * Math.sin(az), Math.sin(dip));
+    const f = v(0, -Math.cos(back));
+    const ku = Math.hypot(u.x, u.y);
+    const kl = Math.abs(f.y);
+    const upper = dirAngle(u);
+    const arm: Limb = { upper, lower: 180, end: 180, ku, kl, ke: Math.max(kl, 0.35) };
+    let pose = standSquare(-94.6, { shrug: lerp(0, 0.8, t) });
+    pose = { ...pose, armN: arm, armF: mirror(arm) };
+    const S = shoulders(pose, "front");
+    const reach = (s: V, side: 1 | -1) =>
+      add(s, v(side * LEN.upperArm * u.x, LEN.upperArm * u.y - (LEN.forearm + LEN.grip) * kl));
+    return { pose, props: { dbN: at(reach(S.N, 1)), dbF: at(reach(S.F, -1)) } };
+  },
+};
+
 const LOW_L = v(-70, -14);
 const cableLateralRaise: Spec = {
   name: "Cable Lateral Raise",
@@ -1318,6 +1370,82 @@ const tuckPlanchePushUp: Spec = {
   },
 };
 
+// --- The planche ladder past the tuck --------------------------------------------
+//
+// Each hold leans from the planche lean on the toes into the position and
+// back. The further the legs reach behind, the further the shoulders have to
+// sit past the hands to keep the weight over them, so `lean` grows each step.
+
+// Advanced tuck: back flat, hips level with the shoulders, thighs straight
+// down under the hips and the shins pointing back.
+function advancedTuck(lean: number, torso = -94): Pose {
+  const pose = fromShoulder(straightShoulder(lean), torso, torso + 18);
+  const leg = folded(torso, 92, 118, 30);
+  return { ...pose, legN: leg, legF: { ...leg } };
+}
+
+// Straight body, hips a touch above the shoulders. A straddle splits the legs
+// wide to the sides, so from the side they read shorter, the far one lower.
+function fullPlanche(lean: number, torso = -95, straddle = false): Pose {
+  const pose = fromShoulder(straightShoulder(lean), torso, torso + 16);
+  const leg = folded(torso, 0, 0, 52);
+  if (!straddle) return { ...pose, legN: leg, legF: { ...leg, upper: leg.upper - 1, lower: leg.lower - 1, end: leg.end - 1 } };
+  return {
+    ...pose,
+    legN: { ...leg, ku: 0.78, kl: 0.78 },
+    legF: { ...leg, upper: leg.upper + 3, lower: leg.lower + 3, end: leg.end + 3, ku: 0.78, kl: 0.78 },
+  };
+}
+
+function plancheHold(name: string, aka: string[], seconds: number, held: (lean: number) => Pose, lean: number, secondary: Spec["secondary"]): Spec {
+  return {
+    name,
+    aka,
+    mode: "loop",
+    seconds,
+    samples: 40,
+    hands: { N: "palm" },
+    primary: ["delts_front"],
+    secondary,
+    still: 0.6,
+    motion: (p) => {
+      const keys: [number, Pose][] = [
+        [0, onToes(PLANCHE_TOE, straightShoulder(16))],
+        [0.18, onToes(PLANCHE_TOE, straightShoulder(lean - 3))],
+        [0.38, held(lean)],
+        [0.8, held(lean)],
+        [1, onToes(PLANCHE_TOE, straightShoulder(16))],
+      ];
+      return { pose: palms(seq(p, keys), "side", PALM, PALM, 90, -1) };
+    },
+  };
+}
+
+const advancedTuckPlanche = plancheHold(
+  "Advanced Tuck Planche",
+  ["Advanced Tuck Planche Hold", "Adv Tuck Planche", "Flat Back Tuck Planche"],
+  5,
+  (l) => advancedTuck(l),
+  21,
+  ["chest", "triceps", "biceps", "abs", "lower_back"],
+);
+const straddlePlanche = plancheHold(
+  "Straddle Planche",
+  ["Straddle Planche Hold", "Straddle Planche Lean"],
+  5.2,
+  (l) => fullPlanche(l, -95, true),
+  25,
+  ["chest", "triceps", "biceps", "abs", "glutes", "lower_back"],
+);
+const fullPlancheHold = plancheHold(
+  "Full Planche",
+  ["Planche", "Full Planche Hold", "Straight Planche", "Planche Hold"],
+  5.2,
+  (l) => fullPlanche(l),
+  27,
+  ["chest", "triceps", "biceps", "abs", "glutes", "lower_back"],
+);
+
 // The press: crouch, lean into the tuck planche, then let the hips rise over
 // the hands as the shoulders come back above them, open into a tuck
 // handstand and straighten the legs. Phase 1 is the handstand, so played
@@ -1572,6 +1700,7 @@ export const PUSH: Spec[] = [
   barbellFrontRaise,
   barbellCubanPress,
   btbUprightRow,
+  behindHeadElbowSweep,
   rearDeltFly,
   reversePecDeck,
   facePull,
@@ -1583,6 +1712,9 @@ export const PUSH: Spec[] = [
   pseudoPlanchePushUp,
   tuckPlancheHold,
   tuckPlanchePushUp,
+  advancedTuckPlanche,
+  straddlePlanche,
+  fullPlancheHold,
   tuckPress,
   negative(tuckPress, "Tuck Press Negative", ["Tuck Press Lowering", "Handstand to Tuck Planche Negative"]),
   boxPikeStack,
