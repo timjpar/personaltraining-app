@@ -196,6 +196,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Box Figure-4 Squat",
       "Nordic Hamstring Curl",
       "Band-Assisted Nordic Curl",
+      "Reverse Nordic",
       "Glute Bridge",
       "Single-Leg Glute Bridge",
       "Calf Raise",
