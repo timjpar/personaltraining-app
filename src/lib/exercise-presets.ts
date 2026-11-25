@@ -273,6 +273,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Hanging Knee Raise",
       "Hanging Leg Raise",
       "Toes-to-Bar",
+      "Dowel Toes-to-Bar",
       "Stability Ball Rollout",
       "Wall-Stop Ab Wheel Rollout",
       "Ab Wheel Rollout",
