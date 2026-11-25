@@ -76,8 +76,9 @@ const RULES: Rule[] = [
   // guard: "Rear Delt Fly" is a pull; "fly" would otherwise send it to press.
   // A prone Y is shoulder-blade work of the same kind, and "Bench Prone Y
   // Raise" would otherwise be read as a bench press. The ring row press is
-  // led by the row, so it goes with the rows, not the dumbbell press.
-  { archetype: "pull-horizontal", match: ["rear delt", "y raise", "ring row"] },
+  // led by the row, so it goes with the rows, not the dumbbell press. The ring
+  // Y-pull is the same Y done leaning back on rings.
+  { archetype: "pull-horizontal", match: ["rear delt", "y raise", "ring row", "y-pull", "y pull"] },
 
   // guard: "Pallof Press" is anti-rotation core, not a press.
   { archetype: "core", match: ["pallof"] },
@@ -106,6 +107,9 @@ const RULES: Rule[] = [
     ],
   },
 
+  // guard: "Reverse Nordic" is a quad lean-back, not the hamstring Nordic.
+  { archetype: "squat", match: ["reverse nordic"] },
+
   // guard: "Rack Pull" and "Cable Pull-Through" must beat the pull rules.
   {
     archetype: "hinge",
@@ -122,7 +126,7 @@ const RULES: Rule[] = [
   // guard: "Overhead Squat" must not read as an overhead press.
   {
     archetype: "squat",
-    match: ["squat", "leg press", "leg extension", "hack", "pistol"],
+    match: ["squat", "cossack", "leg press", "leg extension", "hack", "pistol"],
   },
 
   // guard: "Push-Up" must be claimed before the generic press rules below.
@@ -188,7 +192,7 @@ const RULES: Rule[] = [
       "breathing", "ankle", "thread the needle", "forward fold",
       "a-skip", "banded", "band ", "walk",
       "external rotation", "internal rotation", "shoulder cars", "hip cars",
-      "supraspinatus", "full can raise",
+      "supraspinatus", "full can raise", "elbow sweep",
       "piked tke", "saq", "straddle leg lift",
       "roller hurdle", "hip hurdle", "overhead reach", "overhead plate reach",
     ],
