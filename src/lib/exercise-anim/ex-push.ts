@@ -962,6 +962,50 @@ const barbellCubanPress: Spec = {
   },
 };
 
+// Behind-the-back barbell upright row, from reel DfabENpMbNB
+// (@stylup_africa._): a loaded bar held behind the hips in an overhand grip a
+// little wider than the shoulders, rowed up the back of the hips by driving
+// the elbows out and up until they are near shoulder height, the shoulders
+// shrugging and rolling forward as they go. The bar only travels from the
+// glutes to about the belt line: the elbows do the moving. Seen from behind,
+// where the bar is in plain sight and the elbows flare out to either side.
+const BTB_UPPER = LEN.upperArm * 0.88; // the elbows travel back as well as out
+const BTB_FOREARM = LEN.forearm;
+const BTB_W = 26; // half the grip width, at the wrists
+const btbUprightRow: Spec = {
+  name: "Behind-the-Back Barbell Upright Row",
+  aka: ["Behind-the-Back Upright Row", "Reverse Upright Row", "Behind-the-Back Barbell Row"],
+  view: "back",
+  mode: "alternate",
+  seconds: 2.4,
+  hands: { N: "fist" },
+  primary: ["delts_rear", "delts_side"],
+  secondary: ["traps", "upper_back"],
+  still: 0.9,
+  props: [{ id: "bar", draw: barbellAcross(64, 15), layer: "front" }],
+  motion: (p) => {
+    const e = Math.sin((p * Math.PI) / 2);
+    const pose0 = standSquare(-94.6, { shrug: lerp(0, 3, e) });
+    const S = shoulders(pose0, "back").N;
+    const sideW = Math.sign(S.x || 1) * BTB_W;
+    const low = S.y + Math.sqrt((BTB_UPPER + BTB_FOREARM) ** 2 - (sideW - S.x) ** 2) - 0.6;
+    const wrist = v(sideW, lerp(low, S.y + 27, e));
+    const d = sub(wrist, S);
+    const dist = Math.min(Math.hypot(d.x, d.y), BTB_UPPER + BTB_FOREARM - 0.01);
+    const cosA = (BTB_UPPER ** 2 + dist ** 2 - BTB_FOREARM ** 2) / (2 * BTB_UPPER * dist);
+    const a = (Math.acos(Math.max(-1, Math.min(1, cosA))) * 180) / Math.PI;
+    const base = dirAngle(d);
+    const e1 = add(S, rot(v(0, BTB_UPPER), base + a));
+    const e2 = add(S, rot(v(0, BTB_UPPER), base - a));
+    const elbow = Math.abs(e1.x) > Math.abs(e2.x) ? e1 : e2;
+    const lower = dirAngle(sub(wrist, elbow));
+    const arm: Limb = { upper: dirAngle(sub(elbow, S)), lower, end: lower, ku: 0.88 };
+    const pose = { ...pose0, armN: arm, armF: mirror(arm) };
+    const bar = add(wrist, rot(v(0, LEN.grip), lower));
+    return { pose, props: { bar: at(v(0, bar.y)) } };
+  },
+};
+
 // Behind-the-head dumbbell elbow sweep, from reel Dc9LXqBN8VG
 // (@lightskindarklord), the move it opens with. Standing, a dumbbell in each
 // hand held up behind the head, handles across. The elbows start forward and
@@ -1655,6 +1699,7 @@ export const PUSH: Spec[] = [
   cableLateralRaise,
   barbellFrontRaise,
   barbellCubanPress,
+  btbUprightRow,
   behindHeadElbowSweep,
   rearDeltFly,
   reversePecDeck,
