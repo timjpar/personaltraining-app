@@ -1,6 +1,7 @@
 // Presses, push-ups, dips, flys and the shoulder work.
 
 import {
+  barbellAcross,
   barbellFar,
   barbellNear,
   barLine,
@@ -800,6 +801,86 @@ const barbellFrontRaise: Spec = {
   },
 };
 
+// Barbell Cuban press, from reel Da6xEyJTxtr (@theharsh_sabharwal): a light
+// bar in a wide grip, upright-rowed until the elbows reach shoulder height,
+// the forearms turned up about the upper arms to a 90/90 (external rotation),
+// pressed overhead, then the same three steps in reverse. Square-on, since
+// everything it trains happens out to the sides. The grip never changes, so
+// the hands stay the same distance apart the whole way: the width is set by
+// the 90/90, where each forearm stands straight up over its elbow.
+const CUBAN_UPPER = LEN.upperArm * 0.9; // upper arms a little ahead of the trunk
+const CUBAN_FOREARM = LEN.forearm;
+// Two-bone reach from the shoulder to the wrist, elbow out to the side.
+function cubanArm(s: V, wrist: V, forearm: number): { elbow: V; wrist: V } {
+  const d = sub(wrist, s);
+  const dist = Math.min(Math.hypot(d.x, d.y), CUBAN_UPPER + forearm - 0.01);
+  const cosA = (CUBAN_UPPER ** 2 + dist ** 2 - forearm ** 2) / (2 * CUBAN_UPPER * dist);
+  const a = (Math.acos(Math.max(-1, Math.min(1, cosA))) * 180) / Math.PI;
+  const base = dirAngle(d);
+  // Of the two elbows, the one further out to the side.
+  const e1 = add(s, rot(v(0, CUBAN_UPPER), base + a));
+  const e2 = add(s, rot(v(0, CUBAN_UPPER), base - a));
+  const elbow = Math.abs(e1.x) > Math.abs(e2.x) ? e1 : e2;
+  return { elbow, wrist: add(elbow, rot(v(0, forearm), dirAngle(sub(wrist, elbow)))) };
+}
+const barbellCubanPress: Spec = {
+  name: "Barbell Cuban Press",
+  aka: ["Cuban Press", "Cuban Rotation Press", "Upright Row to Press", "Upright Row, External Rotation and Press"],
+  view: "front",
+  mode: "loop",
+  seconds: 4.6,
+  samples: 48,
+  hands: { N: "fist" },
+  primary: ["delts_side", "delts_rear"],
+  secondary: ["traps", "upper_back", "delts_front", "triceps"],
+  still: 0.36,
+  // An empty bar with collars, as in the reel.
+  props: [{ id: "bar", draw: barbellAcross(70, 6), layer: "front" }],
+  motion: (p) => {
+    // 0 hanging, 1 elbows up at the top of the row, 2 the 90/90, 3 overhead.
+    const st = kf(p, [
+      [0, 0], [0.05, 0], [0.2, 1], [0.32, 2], [0.36, 2], [0.5, 3], [0.56, 3],
+      [0.69, 2], [0.72, 2], [0.84, 1], [0.98, 0], [1, 0],
+    ]);
+    let pose = standSquare(-94.6, { shrug: kf(st, [[0, 0], [1, 1.5], [2, 0.5], [3, 2.5]]) });
+    const S = shoulders(pose, "front").N;
+    const W = S.x + CUBAN_UPPER;
+    // At the top of the row the forearms hang down and a little forward, and
+    // turn about the upper arm through pointing at the viewer to straight up.
+    const ROW_TOP = 38;
+    let arm: Limb;
+    let bar: V;
+    if (st > 1 && st < 2) {
+      const theta = lerp(ROW_TOP, 180, st - 1);
+      const c = Math.cos((theta * Math.PI) / 180);
+      const k = Math.abs(c);
+      const elbow = v(W, S.y);
+      const lower = theta < 90 ? 0 : 180;
+      arm = { upper: dirAngle(sub(elbow, S)), lower, end: lower, ku: 0.9, kl: Math.max(k, 0.04), ke: Math.max(k, 0.35) };
+      bar = v(W, S.y + (CUBAN_FOREARM + LEN.grip) * c);
+    } else {
+      let wristY: number;
+      let forearm = CUBAN_FOREARM;
+      if (st <= 1) {
+        // The row: wrists straight up the line x = W.
+        forearm = CUBAN_FOREARM * lerp(1, Math.cos((ROW_TOP * Math.PI) / 180), st);
+        const low = S.y + Math.sqrt((CUBAN_UPPER + CUBAN_FOREARM) ** 2 - CUBAN_UPPER ** 2) - 0.5;
+        wristY = lerp(low, S.y + forearm, Math.sin((st * Math.PI) / 2));
+      } else {
+        const high = S.y - Math.sqrt((CUBAN_UPPER + CUBAN_FOREARM) ** 2 - CUBAN_UPPER ** 2) + 0.5;
+        wristY = lerp(S.y - CUBAN_FOREARM, high, st - 2);
+      }
+      const j = cubanArm(S, v(W, wristY), forearm);
+      const lower = dirAngle(sub(j.wrist, j.elbow));
+      const kl = forearm / CUBAN_FOREARM;
+      arm = { upper: dirAngle(sub(j.elbow, S)), lower, end: lower, ku: 0.9, kl, ke: Math.max(kl, 0.35) };
+      bar = add(j.wrist, rot(v(0, LEN.grip * kl), lower));
+    }
+    pose = { ...pose, armN: arm, armF: mirror(arm) };
+    return { pose, props: { bar: at(v(0, bar.y)) } };
+  },
+};
+
 const LOW_L = v(-70, -14);
 const cableLateralRaise: Spec = {
   name: "Cable Lateral Raise",
@@ -1360,6 +1441,7 @@ export const PUSH: Spec[] = [
   lateralRaise,
   cableLateralRaise,
   barbellFrontRaise,
+  barbellCubanPress,
   rearDeltFly,
   reversePecDeck,
   facePull,
