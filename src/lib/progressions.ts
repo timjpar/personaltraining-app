@@ -887,6 +887,52 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "prayer-planche",
+    goal: "Prayer Planche",
+    family: "bodyweight",
+    blurb:
+      "A bent-arm planche on the forearms: shoulders turned in so the backs of the hands touch, fingers pointing back at the feet, body level over the forearms. It needs a lot of shoulder internal rotation and can pinch the shoulders while you learn it, so build the lean slowly and stop at pain. Planche work builds the front-delt strength it needs; it carries little back to the straight-arm planche.",
+    steps: [
+      {
+        name: "Planche Lean",
+        aka: ["Planche Lean Hold"],
+        how: "Plank on straight arms, rock the shoulders forward past the hands until the toes roll onto their tips. 3–5 × 10–30s.",
+        when: "3 × 30s with the shoulders a hand's length past the wrists.",
+        target: hold(3, 30),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Tuck Planche",
+        aka: ["Tuck Planche Hold"],
+        how: "Hands planted, lean until the feet float and pull the knees in off the arms. 5–8 × 5–15s.",
+        when: "5 × 10s with straight arms and the knees off the arms.",
+        target: hold(5, 10),
+        weeks: "6–12 weeks",
+      },
+      {
+        name: "Prayer Planche Lean",
+        aka: ["Prayer Lean"],
+        how: "Kneel, turn the arms in so the backs of the hands touch and the fingers point back at the knees, and lay the forearms flat under the belly. Walk the feet back to a plank on the toes and lean forward so the shoulders move past the elbows. 3–5 × 10–20s, easing into the shoulder rotation.",
+        when: "3 × 20s with the shoulders well past the elbows and no shoulder pain.",
+        target: hold(3, 20),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Tuck Prayer Planche",
+        aka: ["Tuck Prayer Planche Hold"],
+        how: "From the prayer lean, pull the knees in under the hips and lean until the feet float, balancing on the forearms. 5–8 × 5–10s.",
+        when: "5 × 10s with the feet off and the hips level with the shoulders.",
+        target: hold(5, 10),
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Prayer Planche",
+        aka: ["Prayer Planche Hold", "Full Prayer Planche"],
+        how: "From the tuck, extend the legs straight back (straddled wide at first) until the body is level from shoulders to heels, balanced over the forearms. 5–8 × 3–8s.",
+      },
+    ],
+  },
+  {
     id: "ring-dip",
     goal: "Ring Dip",
     family: "bodyweight",
