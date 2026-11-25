@@ -309,6 +309,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Copenhagen Plank Knee Tuck",
       "Bench Hip Flexor Plank",
       "Side Hyperextension",
+      "Side-Lying Hyperextension Adductor Rotation",
     ],
   },
   {

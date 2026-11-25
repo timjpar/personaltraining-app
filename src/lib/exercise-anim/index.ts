@@ -315,6 +315,7 @@ export const ANIMATIONS: Record<string, { primary: string[]; secondary: string[]
   "shuttle-run": {"primary":["quads","glutes"],"secondary":["calves","hamstrings","adductors"]},
   "side-hyperextension": {"primary":["obliques"],"secondary":["lower_back","abs","abductors"]},
   "side-lying-dumbbell-internal-rotation": {"primary":["delts_front"],"secondary":["chest","lats"]},
+  "side-lying-hyperextension-adductor-rotation": {"primary":["adductors","obliques"],"secondary":["abs","lower_back","abductors"]},
   "side-lying-supraspinatus-raise": {"primary":["delts_side"],"secondary":["delts_front","traps"]},
   "side-plank": {"primary":["obliques"],"secondary":["abs","abductors","delts_side"]},
   "silent-feet-drill": {"primary":["forearms","lats"],"secondary":["calves","quads","biceps","abs"]},
@@ -396,6 +397,7 @@ export const ANIMATIONS: Record<string, { primary: string[]; secondary: string[]
 };
 
 export const ANIMATION_ALIASES: Record<string, string> = {
+  "45-degree-hyper-adductor-rotation": "side-lying-hyperextension-adductor-rotation",
   "45-degree-side-bend": "side-hyperextension",
   "90-90-hip-stretch": "90-90-hip-switch",
   "ab-roller": "ab-wheel-rollout",
@@ -545,6 +547,7 @@ export const ANIMATION_ALIASES: Record<string, string> = {
   "hip-thrust-kettlebell-rainbow": "bench-bridge-kettlebell-rainbow",
   "hollow-body-hold": "hollow-hold",
   "hurdle-sit-leg-lift": "half-butterfly-straight-leg-lift",
+  "hyperextension-adductor-rotation": "side-lying-hyperextension-adductor-rotation",
   "ice-bath": "cold-plunge",
   "incline-dumbbell-curl": "incline-curl",
   "incline-scap-push-up": "incline-scapular-push-up",
@@ -680,6 +683,7 @@ export const ANIMATION_ALIASES: Record<string, string> = {
   "shoulder-controlled-articular-rotations": "shoulder-cars",
   "shoulder-internal-rotation": "side-lying-dumbbell-internal-rotation",
   "side-back-extension": "side-hyperextension",
+  "side-hyperextension-adductor-raise": "side-lying-hyperextension-adductor-rotation",
   "side-lying-dumbbell-raise": "side-lying-supraspinatus-raise",
   "side-lying-full-can-raise": "side-lying-supraspinatus-raise",
   "side-lying-internal-rotation": "side-lying-dumbbell-internal-rotation",
