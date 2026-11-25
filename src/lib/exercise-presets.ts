@@ -52,6 +52,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Barbell Hip Thrust",
       "Good Morning",
       "Seated Good Morning",
+      "Barbell Floor Back Extension",
       "Barbell Curl",
       "Barbell Lunge",
       "Barbell Split Squat",
