@@ -16,6 +16,7 @@ import {
 } from "@/components/BoardWorkoutStats";
 import { Grip } from "@/components/Drag";
 import { ExerciseAnimation, TargetMuscles } from "@/components/ExerciseAnimation";
+import { ReelLinks } from "@/components/ReelLinks";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { ProgressionGuide } from "@/components/ProgressionGuide";
 import { Input, Select, Textarea, buttonClass } from "@/components/ui";
@@ -215,6 +216,15 @@ const ExerciseRow = memo(function ExerciseRow({
           </button>
         )}
       </div>
+      {/* Outside the row's button, which can't hold a link of its own. */}
+      {name ? (
+        <ReelLinks
+          name={name}
+          short
+          // Lined up under the name, which moves over when the drawing shows.
+          className={cn("-mt-1 pb-1.5", showAnims ? "pl-[5.625rem]" : "pl-10")}
+        />
+      ) : null}
 
       {isOpen && !locked ? (
         <div className="@container flex flex-col gap-2.5 border-t border-line p-2.5">

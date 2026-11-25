@@ -15,6 +15,7 @@ import type { PointerEvent } from "react";
 import { Grip } from "@/components/Drag";
 import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { ProgressionGuide } from "@/components/ProgressionGuide";
+import { ReelLinks } from "@/components/ReelLinks";
 import { animationFor, muscleLabel } from "@/lib/exercise-anim/lookup";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { Select, buttonClass } from "@/components/ui";
@@ -173,6 +174,7 @@ export function BoardShelf({
                 </button>
               </div>
               <Muscles name={item.name} fallback={item.muscles} />
+              <ReelLinks name={item.name} />
               {item.suggestions.length ? (
                 <>
                   <span className="eyebrow text-ink-soft/70">Suggested</span>

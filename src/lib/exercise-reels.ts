@@ -10,7 +10,8 @@
 //
 // Data-only: imported by a client component.
 
-import { normalizeExerciseName } from "./exercise-presets";
+import { ANIMATION_ALIASES } from "./exercise-anim/index";
+import { animationSlug } from "./exercise-anim/slug";
 
 const REELS: { id: string; names: string[] }[] = [
   // Single-leg squat complex: dragon → pistol → figure-4 → shrimp.
@@ -192,17 +193,25 @@ export const reelUrl = (id: string) => `https://www.instagram.com/reel/${id}/`;
 // Every name listed, for checking each one is a real preset.
 export const REEL_NAMES: string[] = REELS.flatMap((r) => r.names);
 
+// Keyed the way the drawings are, so an exercise programmed under another
+// name the drawing already answers to ("RFE Hip Flexor", "Ab Roller") finds
+// its reel too.
+const keyFor = (name: string) => {
+  const slug = animationSlug(name);
+  return ANIMATION_ALIASES[slug] ?? slug;
+};
+
 const BY_NAME = new Map<string, string[]>();
 for (const { id, names } of REELS) {
   for (const name of names) {
-    const key = normalizeExerciseName(name);
+    const key = keyFor(name);
     BY_NAME.set(key, [...(BY_NAME.get(key) ?? []), reelUrl(id)]);
   }
 }
 
 // The reels a movement was drawn from, as links; empty for everything else.
 export function reelsFor(name: string): string[] {
-  return BY_NAME.get(normalizeExerciseName(name)) ?? [];
+  return BY_NAME.get(keyFor(name)) ?? [];
 }
 
 // The reel's shortcode, if this is an Instagram post or reel link. Lets a coach's
