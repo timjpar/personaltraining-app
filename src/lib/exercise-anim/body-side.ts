@@ -43,7 +43,7 @@ export type PartArt = { joint: V; layers: Layer[] };
 
 type SidePart =
   | "head" | "torso" | "pelvis" | "thigh" | "shin" | "foot"
-  | "upperArm" | "forearm" | "hand" | "fist" | "palm";
+  | "upperArm" | "forearm" | "hand" | "fist" | "palm" | "heel";
 
 const RAW: Record<SidePart, PartArt> = {
   head: {
@@ -187,6 +187,19 @@ const RAW: Record<SidePart, PartArt> = {
       { d: "M1.2 -84C0.2 -83.6 -1 -83.6 -2.4 -84", line: true },
     ],
   },
+
+  // The palm alone, wrist to knuckles, for a hand whose heel lifts off the
+  // floor while the fingers stay flat (the fingers are drawn as a prop that
+  // doesn't move). Same frame as `palm`: rotate +90 and it lies flat.
+  heel: {
+    joint: BIND.wrist,
+    layers: [
+      {
+        d: "M1.4 -92.4C2 -89 1.9 -84.4 1.6 -81.6C1.3 -80.2 0.2 -79.6 -1.2 -79.8L-2.8 -80.4C-3 -84.6 -2.9 -88.4 -2.6 -91.6Z",
+      },
+      { d: "M1.2 -84C0.2 -83.6 -1 -83.6 -2.4 -84", line: true },
+    ],
+  },
 };
 
 // The outlines above are drawn to real profile depths, and a real profile
@@ -205,6 +218,7 @@ const BULK: Record<SidePart, number> = {
   hand: 1.08,
   fist: 1.1,
   palm: 1,
+  heel: 1,
 };
 
 function bulk(art: PartArt, k: number): PartArt {
