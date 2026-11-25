@@ -1082,6 +1082,129 @@ const facePull: Spec = {
   },
 };
 
+// Resisted external rotation with press, the S-tier pick of reel DesLk0kBTvO
+// (@athleticadvantagephysio, shoulder exercise tier list). Half-kneeling
+// facing a cable at shoulder height, the near arm out to the side at 90/90
+// with the forearm pointing forward at the pulley. Turn the forearm up
+// against the cable to vertical (external rotation), press straight
+// overhead, lower back to the 90/90, then let the forearm turn forward again.
+// Side-on: the upper arm points nearly at the viewer (out to the side, a
+// little forward in the plane of the shoulder blade), so it reads short at
+// the 90/90 and grows to full length as the press takes it overhead, while
+// the forearm turns in the picture plane.
+const ER_PULLEY_DX = 96;
+const ER_SCAPULAR = 20; // degrees forward of straight out to the side
+// The upper arm at `abduct` degrees (90 = out to the side, 180 = overhead),
+// projected onto the side view: its world angle and how much of it shows.
+function erUpper(abduct: number): { upper: number; ku: number } {
+  const a = (abduct * Math.PI) / 180;
+  const fwd = Math.sin(a) * Math.sin((ER_SCAPULAR * Math.PI) / 180);
+  const up = -Math.cos(a);
+  return { upper: (Math.atan2(fwd, -up) * 180) / Math.PI, ku: Math.max(Math.hypot(fwd, up), 0.12) };
+}
+const cableExternalRotationPress: Spec = {
+  name: "Cable External Rotation to Press",
+  aka: [
+    "Resisted External Rotation with Press",
+    "Resisted External Rotation w/ Press",
+    "Half-Kneeling Cable External Rotation and Press",
+    "Cable 90/90 External Rotation to Press",
+    "Banded External Rotation to Press",
+    "External Rotation to Overhead Press",
+  ],
+  mode: "loop",
+  seconds: 4.8,
+  samples: 48,
+  hands: { N: "fist", F: "hand" },
+  primary: ["delts_rear", "delts_side"],
+  secondary: ["delts_front", "upper_back", "traps", "triceps"],
+  still: 0.3,
+  scene: [
+    {
+      draw: cableTower(shoulders(halfKneeling(-2)).N.x + ER_PULLEY_DX + 8, add(shoulders(halfKneeling(-2)).N, v(ER_PULLEY_DX, 0))),
+      layer: "back",
+    },
+  ],
+  props: [{ id: "c", draw: cable(), layer: "back" }],
+  motion: (p) => {
+    // 0 forearm forward at the pulley, 1 forearm up (90/90), 2 pressed overhead.
+    const st = kf(p, [
+      [0, 0], [0.06, 0], [0.24, 1], [0.3, 1], [0.46, 2], [0.52, 2], [0.68, 1], [0.74, 1], [0.94, 0], [1, 0],
+    ]);
+    let pose = halfKneeling(-2);
+    pose = { ...pose, shrug: st > 1 ? (st - 1) * 1.5 : 0, armF: limb(4, 10, 10) };
+    const pulley = add(shoulders(halfKneeling(-2)).N, v(ER_PULLEY_DX, 0));
+    let armN: Limb;
+    if (st <= 1) {
+      const u = erUpper(90);
+      const lower = lerp(84, 180, st);
+      armN = { upper: u.upper, lower, end: lower, ku: u.ku };
+    } else {
+      // Pressing: the forearm stays upright over the elbow as the elbow opens.
+      const u = erUpper(lerp(90, 176, st - 1));
+      armN = { upper: u.upper, lower: 180, end: 180, ku: u.ku };
+    }
+    pose = { ...pose, armN };
+    return { pose, props: { c: line(pulley, grips(pose).N) } };
+  },
+};
+
+// Dive bomber push-up, the other S-tier pick of the same reel. From a wide
+// pike, hips high and arms straight, the elbows bend and the chest swoops
+// down and forward, skimming the floor between the hands, then the arms
+// straighten into a cobra with the hips low and the chest up. Played back
+// the same way it went. The hands and toes stay planted; the feet roll over
+// the toes as the hips travel.
+const DB_PALM = v(40, 0);
+const DB_TOE = v(-92, 0);
+const DB_LEG = 87; // hip to ankle, as in prone()
+const DB_FOOT = Math.hypot(FOOT.toe.x, FOOT.toe.y);
+// Straight legs from the hip to the planted toes, the foot rolling to make up
+// the distance; knees bend a little if the hips come closer than that allows.
+function legsToToes(pose: Pose): Pose {
+  const hip = pose.hip;
+  const d = sub(DB_TOE, hip);
+  const dist = Math.hypot(d.x, d.y);
+  let ankle: V;
+  if (dist >= DB_LEG + DB_FOOT - 0.1) {
+    ankle = add(hip, v((d.x / dist) * DB_LEG, (d.y / dist) * DB_LEG));
+  } else {
+    const cos = (DB_LEG ** 2 + dist ** 2 - DB_FOOT ** 2) / (2 * DB_LEG * dist);
+    const phi = (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
+    const options = [dirAngle(d) + phi, dirAngle(d) - phi].map((a) => add(hip, rot(v(0, DB_LEG), a)));
+    ankle = options.sort((a, b) => a.y - b.y)[0];
+  }
+  const foot = screenAngle(sub(DB_TOE, ankle)) - screenAngle(FOOT.toe);
+  return plant(pose, "side", ankle, ankle, { N: foot, F: foot });
+}
+const diveBomberPushUp: Spec = {
+  name: "Dive Bomber Push-Up",
+  aka: ["Dive Bomber Push-up", "Dive Bombers", "Divebomber Push-Up", "Dive Bomber"],
+  mode: "alternate",
+  seconds: 3.6,
+  samples: 32,
+  hands: { N: "palm" },
+  primary: ["chest", "delts_front", "triceps"],
+  secondary: ["upper_back", "abs", "lats"],
+  still: 0.5,
+  motion: (p) => {
+    const wrist = add(DB_PALM, v(0, -LEN.palm));
+    // Locked: even the push-ups' 0.4 of slack shows as a bent elbow this long.
+    const reach = LEN.upperArm + LEN.forearm - 0.05;
+    // Where the shoulder is, as an arm angle off vertical (positive = behind
+    // the hands) and a distance from the wrist; and the trunk's angle.
+    const armTilt = kf(p, [[0, 46], [0.12, 46], [0.5, 8], [0.88, -2], [1, -2]]);
+    const armLen = kf(p, [[0, reach], [0.12, reach], [0.32, reach * 0.62], [0.5, reach * 0.3], [0.68, reach * 0.55], [0.88, reach], [1, reach]]);
+    const torso = kf(p, [[0, -142], [0.12, -142], [0.5, -98], [0.88, -34], [1, -34]]);
+    const head = kf(p, [[0, -130], [0.12, -130], [0.5, -90], [0.88, -8], [1, -8]]);
+    const shoulder = add(wrist, rot(v(0, -armLen), armTilt));
+    let pose = fromShoulder(shoulder, torso, head);
+    pose = legsToToes(pose);
+    pose = palms(pose, "side", DB_PALM, DB_PALM, 90, -1);
+    return { pose };
+  },
+};
+
 // --- Handstands ------------------------------------------------------------------
 
 function handstand(o: {
@@ -1497,6 +1620,7 @@ export const PUSH: Spec[] = [
   pushUpSpec({ name: "One-Arm Push-Up", oneArm: true, primary: ["chest", "triceps"], secondary: ["delts_front", "obliques", "abs"] }),
   pikePushUp({ name: "Pike Push-Up", primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs"] }),
   pikePushUp({ name: "Elevated Pike Push-Up", elevated: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs"] }),
+  diveBomberPushUp,
   pushUpSpec({ name: "Deficit Push-Up", deficit: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
   scapPushUp({ name: "Wall Scapular Push-Up", aka: ["Wall Scap Push-Up", "Wall Scapula Push-Up", "Wall Push-Up Plus"], on: "wall", primary: ["upper_back"], secondary: ["chest"] }),
   scapPushUp({ name: "Incline Scapular Push-Up", aka: ["Incline Scap Push-Up", "Bench Scapular Push-Up"], on: "bench", primary: ["upper_back"], secondary: ["chest", "abs"] }),
@@ -1530,6 +1654,7 @@ export const PUSH: Spec[] = [
   rearDeltFly,
   reversePecDeck,
   facePull,
+  cableExternalRotationPress,
   handstand({ name: "Handstand Hold", primary: ["delts_front", "triceps"], secondary: ["traps", "abs", "forearms"] }),
   handstand({ name: "Freestanding Handstand", free: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "abs", "forearms"] }),
   handstand({ name: "Deficit Handstand Push-Up", push: true, deficit: true, primary: ["delts_front", "triceps"], secondary: ["upper_back", "traps", "abs"] }),
