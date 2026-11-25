@@ -601,6 +601,32 @@ const ballSlam: Spec = {
   },
 };
 
+// The axe chop: a held ball (never let go) raised overhead on straight arms,
+// then chopped straight down between the feet as the hips sit back and the
+// knees bend, like splitting a log, and lifted back overhead.
+const axeChop: Spec = {
+  name: "Axe Chop",
+  aka: ["Axe Chops", "Medicine Ball Axe Chop", "Med Ball Axe Chop", "Overhead Axe Chop", "Wood Splitter", "Log Splitter"],
+  mode: "loop",
+  seconds: 2.4,
+  samples: 24,
+  hands: { N: "fist" },
+  primary: ["abs", "lats"],
+  secondary: ["delts_front", "glutes", "quads", "obliques"],
+  still: 0.12,
+  props: [{ id: "ball", draw: medBall(9), layer: "front" }],
+  motion: (p) => {
+    const down = kf(p, [[0, 0], [0.12, 0], [0.38, 1], [0.52, 1], [1, 0]]);
+    const torso = lerp(6, -52, down);
+    const probe = (pose: Pose) => onTrunk(pose, v(0, -20));
+    let pose = stand(lerp(-96, -64, down), { torso, pelvis: torso * 0.8, head: torso * 0.55 }, { probe, over: lerp(0, 6, down) });
+    const a = lerp(172, 8, down);
+    pose = { ...pose, armN: limb(a, a, a), armF: limb(a - 2, a - 2, a - 2) };
+    const g = grips(pose).N;
+    return { pose, props: { ball: at(add(g, rot(v(0, 6), a))) } };
+  },
+};
+
 const chestPass: Spec = {
   name: "Medicine Ball Chest Pass",
   mode: "loop",
@@ -653,6 +679,7 @@ export const CARDIO: Spec[] = [
   depthJump,
   broadJump,
   ballSlam,
+  axeChop,
   chestPass,
 ];
 
