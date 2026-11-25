@@ -6,6 +6,7 @@ import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { ExerciseFigure } from "@/components/ExerciseFigure";
 import { animationFor } from "@/lib/exercise-anim/lookup";
 import { archetypeFor, demoSearchUrl } from "@/lib/exercise-archetypes";
+import { reelsFor } from "@/lib/exercise-reels";
 import {
   EXERCISE_CATEGORIES,
   EXERCISE_NOTES,
@@ -62,12 +63,20 @@ function CatalogRow({ row }: { row: Row }) {
   const [open, setOpen] = useState(false);
   const places = pathsThrough(row.name, { discipline: row.discipline });
   const hasPaths = places.length > 0;
+  // A movement drawn from an Instagram reel links to that reel instead of a
+  // YouTube search, and says so under its name.
+  const reels = reelsFor(row.name);
+  const demoUrl = reels[0] ?? demoSearchUrl(row.name);
   const search = (
     <a
-      href={demoSearchUrl(row.name)}
+      href={demoUrl}
       target="_blank"
       rel="noreferrer"
-      aria-label={`Search for a demo of ${row.name}`}
+      aria-label={
+        reels.length
+          ? `Watch the Instagram video of ${row.name}`
+          : `Search for a demo of ${row.name}`
+      }
       className="ml-1 text-ink-soft transition-colors hover:text-jade-strong"
     >
       ↗
@@ -117,7 +126,7 @@ function CatalogRow({ row }: { row: Row }) {
             // The same fallback the client workout page uses when a trainer
             // hasn't attached their own demo.
             <a
-              href={demoSearchUrl(row.name)}
+              href={demoUrl}
               target="_blank"
               rel="noreferrer"
               className="text-sm font-medium text-ink transition-colors hover:text-jade-strong"
@@ -129,6 +138,23 @@ function CatalogRow({ row }: { row: Row }) {
             </a>
           )}
           {row.note ? <p className="mt-0.5 text-sm text-ink-soft">{row.note}</p> : null}
+          {reels.length ? (
+            <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs">
+              {reels.map((url, i) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ink-soft transition-colors hover:text-jade-strong hover:underline"
+                >
+                  {reels.length > 1
+                    ? `Instagram video ${i + 1} ↗`
+                    : "Watch the Instagram video ↗"}
+                </a>
+              ))}
+            </p>
+          ) : null}
         </div>
       </div>
       {open ? (
