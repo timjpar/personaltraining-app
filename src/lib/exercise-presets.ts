@@ -92,6 +92,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Step-Up",
       "Dumbbell Thruster",
       "Farmer Carry",
+      "Wrist Roller",
     ],
   },
   {
