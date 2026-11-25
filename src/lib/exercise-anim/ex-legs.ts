@@ -836,6 +836,30 @@ function nordic(o: { name: string; aka?: string[]; band?: boolean }): Spec {
   };
 }
 
+// Tall kneeling, tops of the feet flat behind, leaning back from the knees
+// with knees, hips and shoulders kept in one line, then pulling back up.
+// The quads, rectus femoris most of all, work long; arms reach forward.
+const reverseNordic: Spec = {
+  name: "Reverse Nordic",
+  aka: ["Reverse Nordic Curl", "Reverse Nordics", "Kneeling Quad Lean-Back"],
+  mode: "alternate",
+  seconds: 3.6,
+  hands: { N: "hand" },
+  primary: ["quads", "hip_flexors"],
+  secondary: ["abs"],
+  still: 0.7,
+  motion: (p) => {
+    const lean = lerp(0, 52, p);
+    const knee = v(0, -6);
+    const hip = sub(knee, rot(v(0, 44), lean));
+    let pose = base(hip, { torso: lean, pelvis: lean, head: lean - 8 });
+    pose = { ...pose, legN: limb(lean, -90, -180), legF: limb(lean, -90, -180) };
+    const arm = 90 - lean * 0.15;
+    pose = { ...pose, armN: limb(arm, arm, arm), armF: limb(arm - 6, arm - 6, arm - 6) };
+    return { pose };
+  },
+};
+
 // One leg, the other held out in front. `box` sits down onto a box behind
 // and stands back up; `assisted` holds a post in front, the hands sliding
 // down it, so the arms can help.
@@ -1541,6 +1565,7 @@ export const LEGS: Spec[] = [
   cablePullThrough,
   nordic({ name: "Nordic Hamstring Curl" }),
   nordic({ name: "Band-Assisted Nordic Curl", aka: ["Band Assisted Nordic Curl"], band: true }),
+  reverseNordic,
   calfRaise,
   seatedCalfRaise,
 ];

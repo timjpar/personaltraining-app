@@ -74,6 +74,18 @@ export const CLIMBING_GROUPS: ClimbingGroup[] = [
         note: "3 × up-and-down. Forearm work that balances all the closing.",
       },
       {
+        name: "Belt-Weighted Dead Hang",
+        note: "Plates on a hip belt, knees bent so the feet clear them. 3 × 20s. Add load only while the shoulders stay engaged.",
+      },
+      {
+        name: "Wrist Curl",
+        note: "Forearm along the thigh, palm up, the hand past the knee. 3 × max; let the hand drop all the way, then curl up.",
+      },
+      {
+        name: "Tennis Ball Squeeze",
+        note: "3 × 20 per hand. Crush it flat, a beat at the bottom, open fully. Cheap volume between sets.",
+      },
+      {
         name: "Rice Bucket Dig",
         note: "2 × 60s of grabbing, spreading, twisting. Recovery, not training — after sessions.",
       },

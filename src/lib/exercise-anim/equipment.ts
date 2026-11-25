@@ -173,6 +173,23 @@ export function dumbbellGoblet(): Drawing {
   };
 }
 
+// A hex dumbbell seen from above, drawn around the middle of its handle with
+// the handle along y: a fist closes on it from above.
+export function dumbbellFromAbove(): Drawing {
+  return {
+    svg:
+      `<rect class="steel" x="-1.5" y="-9" width="3" height="18" rx="1"/>` +
+      `<rect class="iron" x="-5.2" y="-16.5" width="10.4" height="7.5" rx="1.6"/>` +
+      `<rect class="iron" x="-5.2" y="9" width="10.4" height="7.5" rx="1.6"/>`,
+    box: [-5.2, -16.5, 5.2, 16.5],
+  };
+}
+
+// A soft shadow on the floor under a dumbbell seen from above.
+export function dumbbellShadowFromAbove(): Drawing {
+  return { svg: `<rect x="-6" y="-17" width="12" height="34" rx="3" fill="#1f2a27" fill-opacity=".16"/>`, box: [-6, -17, 6, 17] };
+}
+
 // A weight plate seen face-on, drawn around its centre: held by the rim, as
 // in a halo.
 export function plateFace(r = 15): Drawing {

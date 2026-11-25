@@ -8,8 +8,11 @@ import {
   cableBarEnd,
   cableTower,
   dumbbellEnd,
+  dumbbellFromAbove,
+  dumbbellShadowFromAbove,
   dumbbellSide,
   flatBench,
+  matFromAbove,
   lightBarFar,
   lightBarNear,
   pullUpBar,
@@ -661,6 +664,96 @@ const dumbbellPullover: Spec = {
   },
 };
 
+// Face down on the floor with a dumbbell in each hand, seen from above with
+// the head to the right: the arms reach out ahead in a Y, then pull the
+// dumbbells back beside the shoulders with the elbows wide, like the top of a
+// pull-up laid flat. The floor takes away the swing and the legs, so the
+// shoulder blades have to start it: the shoulders drop away from the ears
+// first, then the elbows pull. The dumbbells skim just off the floor through
+// the middle of the pull. `alternate` works one arm at a time while the
+// other waits with its dumbbell by the shoulder. From reel DdrWPKwMAH8.
+const PP_HIP = v(-40, 0);
+const PP_BODY = -90; // head to the right
+// Light from the top left: a shadow falls this far per unit of height.
+const PP_LIGHT = v(0.25, 0.4);
+function pronePull(o: { name: string; aka?: string[]; alternate?: boolean }): Spec {
+  // Near arm (bottom of the picture); the far arm is its reflection across the body.
+  const deg = (x: number, y: number) => dirAngle(v(x, y));
+  const reach = { upper: deg(0.93, 0.37), lower: deg(0.93, 0.37) };
+  const pulled = { upper: deg(-0.12, 1), lower: deg(1, -0.1) };
+  const armAt = (t: number, s: 1 | -1) => {
+    // t: 0 reaching out ahead, 1 pulled in.
+    const upper = lerp(reach.upper, pulled.upper, t);
+    const lower = lerp(reach.lower, pulled.lower, smooth(t));
+    return s === 1 ? limb(upper, lower, lower) : limb(180 - upper, 180 - lower, 180 - lower);
+  };
+  const props: Prop[] = ["N", "F"].flatMap((s) => [
+    { id: `sh${s}`, draw: dumbbellShadowFromAbove(), layer: "back" as const },
+    { id: `db${s}`, draw: dumbbellFromAbove(), layer: "back" as const },
+  ]);
+  return {
+    name: o.name,
+    aka: o.aka,
+    view: "back",
+    mode: "loop",
+    seconds: o.alternate ? 4.4 : 2.8,
+    samples: o.alternate ? 32 : 24,
+    floor: false,
+    backdrop: "#dfe4e2",
+    hands: { N: "fist" },
+    primary: ["lats", "upper_back"],
+    secondary: ["traps", "delts_rear", "biceps"],
+    still: 0,
+    scene: [{ draw: matFromAbove(PP_HIP.x - 100, PP_HIP.y - 34, PP_HIP.x + 66, PP_HIP.y + 34), layer: "back" }],
+    props,
+    motion: (p) => {
+      // Each stroke: reach out, pause, drop the shoulders, pull, pause.
+      const stroke = (q: number) => kf(q, [[0, 1], [0.08, 1], [0.4, 0], [0.5, 0], [0.92, 1], [1, 1]]);
+      let tN: number;
+      let tF: number;
+      let shrug: number;
+      if (o.alternate) {
+        const first = p < 0.5;
+        const q = first ? p * 2 : p * 2 - 1;
+        tN = first ? stroke(q) : 1;
+        tF = first ? 1 : stroke(q);
+        shrug = lerp(-2, 3, 1 - (first ? tN : tF));
+      } else {
+        // Both arms together, starting stretched out ahead.
+        const q = (p + 0.5) % 1;
+        tN = tF = stroke(q);
+        // The shoulders leave the ears a beat before the elbows bend.
+        shrug = kf(q, [[0, -3], [0.08, -3], [0.4, 4], [0.5, 4], [0.58, -3], [1, -3]]);
+      }
+      let pose = base(PP_HIP, { pelvis: PP_BODY, torso: PP_BODY, head: PP_BODY, shrug });
+      pose = { ...pose, legN: limb(-87), legF: limb(-93), armN: armAt(tN, 1), armF: armAt(tF, -1) };
+      const g = grips(pose, "back");
+      // Off the floor through the middle of the pull, down at each end.
+      const lift = (t: number) => 5 * Math.sin(Math.PI * t);
+      const shadow = (q: V, up: number) => at(add(q, v(PP_LIGHT.x * up, PP_LIGHT.y * up + 2)));
+      return {
+        pose,
+        props: {
+          dbN: at(g.N),
+          dbF: at(g.F),
+          shN: shadow(g.N, lift(tN)),
+          shF: shadow(g.F, lift(tF)),
+        },
+      };
+    },
+  };
+}
+
+const proneDumbbellPullUp = pronePull({
+  name: "Prone Dumbbell Pull-Up",
+  aka: ["Lying Dumbbell Pull-Up", "Floor Pull-Up", "Prone Floor Pull-Up", "Prone Pull-Up", "Dumbbell Floor Pull-Up"],
+});
+const alternatingProneDumbbellPullUp = pronePull({
+  name: "Alternating Prone Dumbbell Pull-Up",
+  aka: ["Single-Arm Prone Dumbbell Pull-Up", "One-Arm Prone Dumbbell Pull-Up", "Alternating Floor Pull-Up", "Alternating Lying Dumbbell Pull-Up"],
+  alternate: true,
+});
+
 // --- Arms -------------------------------------------------------------------------
 
 function curl(o: {
@@ -872,9 +965,14 @@ const tricepsPushdown: Spec = {
 };
 
 // Forearms along the thighs, the hands hinging at the wrist over the knees.
-function wristWork(o: { name: string; band?: boolean; twist?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+// `palmUp` is the one-arm wrist curl from reel Dd6LG7mTsHN: the bell sits in
+// the upturned palm, so it rides above the line of the hand, the hand drops
+// toward the floor at the bottom and curls up past level at the top. The other
+// forearm rests along its own thigh.
+function wristWork(o: { name: string; aka?: string[]; band?: boolean; twist?: boolean; palmUp?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
   return {
     name: o.name,
+    aka: o.aka,
     mode: "alternate",
     seconds: 2.2,
     hands: { N: "fist" },
@@ -894,11 +992,15 @@ function wristWork(o: { name: string; band?: boolean; twist?: boolean; primary: 
       const elbow = add(j.kneeN, v(-26, -9));
       const s = shoulders(pose).N;
       const up = ik2(s, elbow, LEN.upperArm, 0.01, -1);
-      const hand = o.twist ? 90 : lerp(150, 50, p);
-      pose = { ...pose, armN: limb(up.upper, 90, hand), armF: limb(up.upper, 90, hand) };
+      const hand = o.twist ? 90 : o.palmUp ? lerp(30, 140, p) : lerp(150, 50, p);
+      pose = { ...pose, armN: limb(up.upper, 90, hand), armF: limb(up.upper, 90, o.palmUp ? 96 : hand) };
       const g = grips(pose).N;
       const props: Record<string, PropState> = {};
-      if (o.band) props.band = line(v(j.ankleN.x + 6, -2), g);
+      if (o.palmUp) {
+        // Square to the hand, on the palm side (toward the head when level).
+        const a = (hand * Math.PI) / 180;
+        props.db = at(add(g, v(Math.cos(a) * 2.6, -Math.sin(a) * 2.6)));
+      } else if (o.band) props.band = line(v(j.ankleN.x + 6, -2), g);
       else if (o.twist) props.tool = { at: g, angle: 180, scaleX: 1 - 0.7 * p };
       else props.db = at(g);
       return { pose, props };
@@ -980,6 +1082,51 @@ const lateralAustralianPullUp: Spec = {
   },
 };
 
+// Ring Y-pull (reel DfiL5UBuyAR): lean back under the rings with the heels
+// planted, elbows bent and hands by the forehead, then pull the body up by
+// driving the arms long overhead into a Y. Seen from the side the Y reads as
+// arms straight overhead in line with the trunk. The rings swing on their
+// straps through the rep (as in the reel), so the hands lead and the straps
+// follow from a fixed anchor.
+const Y_PULL_HEEL = v(40, -8);
+const Y_PULL_ANCHOR = v(-62, -262);
+function leanBack(t: number): Pose {
+  const body = 90 - t;
+  const hip = sub(Y_PULL_HEEL, rot(v(0, 87), body));
+  return { ...base(hip, { torso: body, pelvis: body, head: body + 4 }), legN: limb(body), legF: limb(body) };
+}
+const ringYPull: Spec = {
+  name: "Ring Y-Pull",
+  aka: ["Ring Y Raise", "Ring Y", "TRX Y Pull", "TRX Y Raise", "Suspension Y Pull", "Y-Pull", "Ring Y Fly"],
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "fist" },
+  primary: ["delts_side", "delts_rear", "upper_back"],
+  secondary: ["lats", "triceps", "abs", "glutes"],
+  still: 0.9,
+  props: [
+    { id: "sN", draw: strap(), layer: "back" },
+    { id: "rN", draw: ring(), layer: "front" },
+  ],
+  motion: (p) => {
+    const t = smooth(p);
+    let pose = leanBack(lerp(45, 70, t));
+    const s = shoulders(pose).N;
+    const up = rot(v(0, -1), pose.torso);
+    const front = rot(v(0, -1), pose.torso - 90);
+    // Bottom: hands just above and in front of the forehead, elbows bent.
+    // Top: arm's length overhead, a touch in front of the trunk line.
+    const bottom = add(add(s, v(up.x * 31, up.y * 31)), v(front.x * 13, front.y * 13));
+    const reach = LEN.upperArm + LEN.forearm + LEN.grip - 1;
+    const topDir = rot(v(0, -1), pose.torso - 8);
+    const top = add(s, v(topDir.x * reach, topDir.y * reach));
+    const g = lerpV(bottom, top, t);
+    pose = hold(pose, "side", g, undefined, -1);
+    const hand = grips(pose).N;
+    return { pose, props: { rN: at(hand), sN: line(Y_PULL_ANCHOR, hand) } };
+  },
+};
+
 export const PULL: Spec[] = [
   barbellRow({ name: "Barbell Row", aka: ["Bent-Over Row"], torso: -52, primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "lower_back"] }),
   barbellRow({ name: "Pendlay Row", torso: -82, fromFloor: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "lower_back"] }),
@@ -989,6 +1136,7 @@ export const PULL: Spec[] = [
   invertedRow({ name: "Inverted Row", primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear"] }),
   invertedRow({ name: "Ring Row", rings: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "abs"] }),
   lateralAustralianPullUp,
+  ringYPull,
   ringRowPress,
   pullUpBack({ name: "Pull-Up", aka: ["Pull Up"], primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
   pullUpBack({ name: "Weighted Pull-Up", plate: true, primary: ["lats", "upper_back"], secondary: ["biceps", "forearms", "abs"] }),
@@ -1009,6 +1157,8 @@ export const PULL: Spec[] = [
   neutralPulldown,
   straightArmPulldown,
   dumbbellPullover,
+  proneDumbbellPullUp,
+  alternatingProneDumbbellPullUp,
   curl({ name: "Barbell Curl", load: "barbell", primary: ["biceps"], secondary: ["forearms"] }),
   curl({ name: "Dumbbell Curl", aka: ["Bicep Curl", "Biceps Curl"], load: "dumbbells", primary: ["biceps"], secondary: ["forearms"] }),
   curl({ name: "Hammer Curl", load: "hammer", primary: ["biceps", "forearms"] }),
@@ -1019,6 +1169,7 @@ export const PULL: Spec[] = [
   overheadTricepsExtension,
   cableOverheadTricepsExtension,
   tricepsPushdown,
+  wristWork({ name: "Wrist Curl", aka: ["Dumbbell Wrist Curl", "Seated Wrist Curl", "Single-Arm Wrist Curl"], palmUp: true, primary: ["forearms"] }),
   wristWork({ name: "Reverse Wrist Curl", primary: ["forearms"] }),
   wristWork({ name: "Band Wrist Extension", band: true, primary: ["forearms"] }),
   wristWork({ name: "Pronator Twist", twist: true, primary: ["forearms"] }),

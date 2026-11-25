@@ -1353,6 +1353,66 @@ const supportedHipAirplane: Spec = {
   },
 };
 
+// Standing hip CARs, square-on: one hand on a wall, the free knee drawn the
+// biggest circle the hip owns — up in front, out to the side, the foot
+// turning up and back as the hip rolls in, then the thigh sweeping back
+// behind and down to standing. Each segment is a direction in 3D (x out to
+// the right of the picture, y down, z toward the viewer) projected onto the
+// screen and foreshortened to fit.
+type D3 = [number, number, number];
+const HIP_CARS: [number, D3, D3][] = [
+  [0, [0.02, 1, 0], [0, 1, 0]],
+  [0.22, [0.05, -0.12, 1], [0, 1, 0.12]],
+  [0.42, [0.78, -0.08, 0.62], [0.05, 1, 0]],
+  [0.6, [0.96, 0.05, 0.05], [0.35, -0.4, -0.85]],
+  [0.8, [0.18, 0.9, -0.42], [0.05, 0.45, -0.9]],
+  [1, [0.02, 1, 0], [0, 1, 0]],
+];
+function hipCarsDirs(p: number): [D3, D3] {
+  let i = 0;
+  while (i < HIP_CARS.length - 2 && p > HIP_CARS[i + 1][0]) i++;
+  const [t0, a0, b0] = HIP_CARS[i];
+  const [t1, a1, b1] = HIP_CARS[i + 1];
+  const u = (p - t0) / (t1 - t0);
+  const e = u * u * (3 - 2 * u);
+  const mix = (a: D3, b: D3): D3 => {
+    const m: D3 = [lerp(a[0], b[0], e), lerp(a[1], b[1], e), lerp(a[2], b[2], e)];
+    const l = Math.hypot(...m);
+    return [m[0] / l, m[1] / l, m[2] / l];
+  };
+  return [mix(a0, a1), mix(b0, b1)];
+}
+const hipCars: Spec = {
+  name: "Hip CARs",
+  aka: ["Hip Controlled Articular Rotations", "Standing Hip CARs", "Hip Circles"],
+  view: "front",
+  mode: "loop",
+  seconds: 6,
+  samples: 30,
+  hands: { N: "palm", F: "palm" },
+  primary: ["hip_flexors", "glutes", "abductors"],
+  secondary: ["adductors", "obliques"],
+  still: 0.4,
+  scene: [{ draw: wall(-62, -230, 10), layer: "back" }],
+  motion: (p) => {
+    let pose = plant(base(v(-3, -94.6), { torso: 1, head: 0 }), "front", v(14, -8), v(-12, -8), {}, 1);
+    const [thigh, shin] = hipCarsDirs(p);
+    const ang = (d: D3) => (Math.atan2(d[0], d[1]) * 180) / Math.PI;
+    const flat = (d: D3) => Math.max(0.12, Math.hypot(d[0], d[1]));
+    // The foot points at the viewer when the shin hangs, and lies along the
+    // shin once it has turned up behind.
+    const up = Math.max(0, -shin[2]);
+    pose = {
+      ...pose,
+      legN: { ...limb(ang(thigh), ang(shin), lerp(0, ang(shin) + 90, up)), ku: flat(thigh), kl: flat(shin), ke: lerp(0.45, 1, up) },
+    };
+    const s = shoulders(pose, "front");
+    const h = hips(pose, "front");
+    pose = palms(pose, "front", add(h.N, v(10, -10)), v(-58, s.F.y + 6), 0, 1, 1);
+    return { pose };
+  },
+};
+
 // --- Recovery rooms -------------------------------------------------------------
 
 const saunaSpec: Spec = {
@@ -1890,6 +1950,7 @@ export const MOBILITY: Spec[] = [
   plateHalo,
   archerSwing,
   shoulderCars,
+  hipCars,
   wristCircles,
   fingerRolls,
   forearmStretch,

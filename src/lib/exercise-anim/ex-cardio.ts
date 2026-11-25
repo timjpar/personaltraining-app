@@ -95,7 +95,7 @@ function plantLegFrom(pose: Pose, s: "N" | "F", dy: number) {
   return plantLeg(pose.hip, ankle, l.end, 1);
 }
 
-function carry(o: { name: string; load: "dumbbells" | "suitcase" | "rack"; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+function carry(o: { name: string; aka?: string[]; load: "dumbbells" | "suitcase" | "rack"; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
   const props: Prop[] =
     o.load === "dumbbells"
       ? [
@@ -110,6 +110,7 @@ function carry(o: { name: string; load: "dumbbells" | "suitcase" | "rack"; prima
           ];
   return {
     name: o.name,
+    aka: o.aka,
     mode: "loop",
     seconds: 1.6,
     samples: 16,
@@ -600,6 +601,32 @@ const ballSlam: Spec = {
   },
 };
 
+// The axe chop: a held ball (never let go) raised overhead on straight arms,
+// then chopped straight down between the feet as the hips sit back and the
+// knees bend, like splitting a log, and lifted back overhead.
+const axeChop: Spec = {
+  name: "Axe Chop",
+  aka: ["Axe Chops", "Medicine Ball Axe Chop", "Med Ball Axe Chop", "Overhead Axe Chop", "Wood Splitter", "Log Splitter"],
+  mode: "loop",
+  seconds: 2.4,
+  samples: 24,
+  hands: { N: "fist" },
+  primary: ["abs", "lats"],
+  secondary: ["delts_front", "glutes", "quads", "obliques"],
+  still: 0.12,
+  props: [{ id: "ball", draw: medBall(9), layer: "front" }],
+  motion: (p) => {
+    const down = kf(p, [[0, 0], [0.12, 0], [0.38, 1], [0.52, 1], [1, 0]]);
+    const torso = lerp(6, -52, down);
+    const probe = (pose: Pose) => onTrunk(pose, v(0, -20));
+    let pose = stand(lerp(-96, -64, down), { torso, pelvis: torso * 0.8, head: torso * 0.55 }, { probe, over: lerp(0, 6, down) });
+    const a = lerp(172, 8, down);
+    pose = { ...pose, armN: limb(a, a, a), armF: limb(a - 2, a - 2, a - 2) };
+    const g = grips(pose).N;
+    return { pose, props: { ball: at(add(g, rot(v(0, 6), a))) } };
+  },
+};
+
 const chestPass: Spec = {
   name: "Medicine Ball Chest Pass",
   mode: "loop",
@@ -630,7 +657,7 @@ export const CARDIO: Spec[] = [
   gaitSpec({ name: "Sprint Intervals", aka: ["Sprint", "Sprints"], g: SPRINT, seconds: 0.62, primary: ["glutes", "hamstrings", "quads"], secondary: ["calves", "hip_flexors"] }),
   gaitSpec({ name: "Shuttle Run", g: SPRINT, seconds: 0.66, primary: ["quads", "glutes"], secondary: ["calves", "hamstrings", "adductors"] }),
   gaitSpec({ name: "Easy Walk", aka: ["Walk", "Walking"], g: WALK, seconds: 1.3, primary: ["calves"], secondary: ["quads", "glutes"] }),
-  carry({ name: "Farmer Carry", load: "dumbbells", primary: ["forearms", "traps"], secondary: ["abs", "glutes"] }),
+  carry({ name: "Farmer Carry", aka: ["Farmer's Walk", "Farmers Walk", "Farmer Walk"], load: "dumbbells", primary: ["forearms", "traps"], secondary: ["abs", "glutes"] }),
   carry({ name: "Suitcase Carry", load: "suitcase", primary: ["obliques", "forearms"], secondary: ["traps", "abs"] }),
   carry({ name: "Kettlebell Front Rack Carry", load: "rack", primary: ["abs", "upper_back"], secondary: ["biceps", "delts_front"] }),
   rower({ name: "Row (Erg)", aka: ["Rowing", "Rower", "Row Erg"], seconds: 2.2 }),
@@ -652,6 +679,7 @@ export const CARDIO: Spec[] = [
   depthJump,
   broadJump,
   ballSlam,
+  axeChop,
   chestPass,
 ];
 
