@@ -167,6 +167,8 @@ const RULES: Rule[] = [
       "knee raise", "leg raise", "rollout", "twist", "woodchop",
       "toes-to-bar", "ab wheel", "ab roller",
       "human flag", "vertical flag", "tuck flag", "straddle flag", "tuck sweep",
+      // Wrist drills held in a plank or on all fours.
+      "palm raise",
     ],
   },
 

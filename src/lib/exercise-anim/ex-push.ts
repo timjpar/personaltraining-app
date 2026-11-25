@@ -32,6 +32,7 @@ import {
   FOOT,
   gripArm,
   grips,
+  ik2,
   hold,
   holdBehind,
   joints,
@@ -65,7 +66,7 @@ import {
   type Spec,
   type V,
 } from "./kit";
-import type { Prop } from "./render";
+import type { Drawing, Prop } from "./render";
 
 const barbell = (plate?: number): Prop[] => [
   { id: "bar", draw: barbellFar(plate), layer: "back" },
@@ -461,6 +462,86 @@ function scapPushUp(o: {
       const props: Record<string, PropState> = {};
       if (o.plate) props.plate = turned(onTrunk(pose, v(-14.5, -23)), pose.torso);
       return { pose, props };
+    },
+  };
+}
+
+// --- Palm raises -------------------------------------------------------------------
+
+// The heel of each hand peels off the floor while the fingers stay flat: the
+// palm hinges up about the knuckles and the forearm flexors hold the fingers
+// down against the body's weight. Seen in reel DdEDVeXN7Z_ as a handstand
+// wrist drill. The palm is the `heel` hand shape and the fingers a prop that
+// never moves, so only the palm tilts.
+
+// Where the floor meets the palm under the knuckles, from the wrist, in the
+// `heel` art's own frame.
+const KNUCKLE = v(-3.2, 9.6);
+const FINGER_LEN = 9;
+const LIFT = 34;
+
+const fingers = (far: boolean): Drawing => {
+  const d = `M-1 0L${FINGER_LEN - 1.2} 0C${FINGER_LEN} 0 ${FINGER_LEN + 0.4} -1.1 ${FINGER_LEN - 0.4} -1.8C${FINGER_LEN - 1.8} -2.6 1 -2.8 -1 -2.9Z`;
+  const body = `<path class="b" d="${d}"/><path class="ol" d="${d}"/><path class="ln" d="M1.6 -2.6L1.6 -0.2"/>`;
+  return { svg: far ? `<g class="far">${body}</g>` : body, box: [-1, -3, FINGER_LEN + 1, 0] };
+};
+
+// Hands on all fours: hips stacked over the knees, the trunk pivoting on them.
+const leanQuadruped = (x: number): Lean => (tilt) => {
+  const knee = v(x, -5);
+  const hip = sub(knee, v(0, LEN.thigh));
+  const body = -90 + tilt;
+  return { ...base(hip, { pelvis: body, torso: body, head: body + 8 }), legN: limb(0, -90, -100), legF: limb(0, -90, -100) };
+};
+
+function palmRaise(o: {
+  name: string;
+  aka?: string[];
+  on: "fours" | "knees" | "toes" | "decline";
+  primary: Spec["primary"];
+  secondary?: Spec["secondary"];
+}): Spec {
+  const setup = {
+    fours: { lean: leanQuadruped(-34), range: [-10, 50] },
+    knees: { lean: leanKnees(-22), range: [0, 60] },
+    toes: { lean: leanToes(v(-62, 0)), range: [-5, 45] },
+    decline: { lean: leanToes(v(-86, SCAP_BENCH)), range: [-30, 30] },
+  }[o.on];
+  const { lean } = setup;
+  const [lo, hi] = setup.range;
+
+  // Flat, the wrist sits a palm's width above the floor just ahead of the
+  // shoulder, and the knuckles a palm's length in front of it.
+  const wrist0 = v(shoulders(lean(armsVertical(lean, 0, lo, hi))).N.x + 1, -LEN.palm);
+  const knuckle = add(wrist0, rot(KNUCKLE, 90));
+  const flat = v(knuckle.x, 0);
+  const depth = v(-2.2, -1);
+
+  const scene: Spec["scene"] = [];
+  if (o.on === "decline") scene.push({ draw: box(-86 - 28, -86 + 16, SCAP_BENCH), layer: "back" });
+
+  return {
+    name: o.name,
+    aka: o.aka,
+    mode: "alternate",
+    seconds: 2.6,
+    hands: { N: "heel" },
+    primary: o.primary,
+    secondary: o.secondary,
+    still: 1,
+    scene,
+    props: [
+      { id: "fingersF", draw: fingers(true), layer: "back" },
+      { id: "fingersN", draw: fingers(false), layer: "front" },
+    ],
+    motion: (p) => {
+      const end = 90 - LIFT * p;
+      const wrist = sub(flat, rot(KNUCKLE, end));
+      let pose = lean(lockedTilt(lean, 0, wrist, lo, hi));
+      const s = shoulders(pose);
+      const arm = (sh: V): Limb => ({ ...ik2(sh, wrist, LEN.upperArm, LEN.forearm, -1), end });
+      pose = { ...pose, armN: arm(s.N), armF: arm(s.F) };
+      return { pose, props: { fingersN: at(flat), fingersF: at(add(flat, depth)) } };
     },
   };
 }
@@ -1423,6 +1504,10 @@ export const PUSH: Spec[] = [
   scapPushUp({ name: "Scapular Push-Up", aka: ["Scap Push-Up", "Scapula Push-Up", "Scapular Push Up", "Plank Scapular Push-Up"], primary: ["upper_back"], secondary: ["chest", "abs"] }),
   scapPushUp({ name: "Decline Scapular Push-Up", aka: ["Decline Scap Push-Up", "Feet-Elevated Scapular Push-Up"], on: "decline", primary: ["upper_back"], secondary: ["chest", "delts_front", "abs"] }),
   scapPushUp({ name: "Weighted Scapular Push-Up", aka: ["Weighted Scap Push-Up", "Plate Scapular Push-Up"], plate: true, primary: ["upper_back"], secondary: ["chest", "abs"] }),
+  palmRaise({ name: "Quadruped Palm Raise", aka: ["All-Fours Palm Raise", "Quadruped Palm Lift-Off", "Palm Raise on All Fours"], on: "fours", primary: ["forearms"], secondary: ["delts_front"] }),
+  palmRaise({ name: "Kneeling Palm Raise", aka: ["Knee Plank Palm Raise", "Kneeling Palm Lift-Off", "Palm Raise from Knees"], on: "knees", primary: ["forearms"], secondary: ["delts_front", "abs"] }),
+  palmRaise({ name: "Plank Palm Raise", aka: ["Palm Raise", "Palm Raises", "Plank Palm Lift-Off", "Palm Lift-Off", "Plank Wrist Raise", "Palm Lifts"], on: "toes", primary: ["forearms"], secondary: ["delts_front", "abs", "chest"] }),
+  palmRaise({ name: "Decline Plank Palm Raise", aka: ["Feet-Elevated Palm Raise", "Decline Palm Raise", "Feet-Elevated Plank Palm Raise"], on: "decline", primary: ["forearms"], secondary: ["delts_front", "abs", "chest"] }),
   scapPushUp({ name: "Push-Up Plus", aka: ["Push Up Plus", "Push-Up with Protraction", "Serratus Push-Up"], plus: true, primary: ["chest", "upper_back"], secondary: ["triceps", "delts_front", "abs"] }),
   dip({ name: "Dip", primary: ["chest", "triceps"], secondary: ["delts_front"] }),
   dip({ name: "Straight-Bar Dip", straightBar: true, primary: ["chest", "triceps"], secondary: ["delts_front", "abs"] }),
