@@ -188,7 +188,7 @@ const RULES: Rule[] = [
       "breathing", "ankle", "thread the needle", "forward fold",
       "a-skip", "banded", "band ", "walk",
       "external rotation", "internal rotation", "shoulder cars", "hip cars",
-      "supraspinatus", "full can raise",
+      "supraspinatus", "full can raise", "elbow sweep",
       "piked tke", "saq", "straddle leg lift",
       "roller hurdle", "hip hurdle", "overhead reach", "overhead plate reach",
     ],

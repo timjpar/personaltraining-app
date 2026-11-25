@@ -962,6 +962,58 @@ const barbellCubanPress: Spec = {
   },
 };
 
+// Behind-the-head dumbbell elbow sweep, from reel Dc9LXqBN8VG
+// (@lightskindarklord), the move it opens with. Standing, a dumbbell in each
+// hand held up behind the head, handles across. The elbows start forward and
+// a little low, about shoulder-width, forearms standing up past the ears.
+// They then sweep out to the sides at shoulder height while the hands stay
+// back behind the head, so the forearms tip back past vertical: loaded end-
+// range external rotation, which the coach sells as subscapularis and cuff
+// work. Square-on, as the reel mostly films it. The arm is posed in 3D
+// (x out, y down, z toward the viewer) and projected, so the upper arm
+// lengthens as it swings out and the forearm shortens as it tips back.
+const SWEEP_FORWARD = { az: 12, dip: 35, back: 25 };
+const SWEEP_WIDE = { az: 90, dip: 4, back: 58 };
+const behindHeadElbowSweep: Spec = {
+  name: "Behind-the-Head Dumbbell Elbow Sweep",
+  aka: [
+    "Behind-the-Head Dumbbell External Rotation",
+    "Dumbbell Elbow Sweep",
+    "Subscapularis Elbow Sweep",
+  ],
+  view: "front",
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "fist" },
+  primary: ["delts_rear", "delts_side"],
+  secondary: ["upper_back", "traps"],
+  still: 1,
+  props: [
+    { id: "dbN", draw: dumbbellSide(), layer: "back" },
+    { id: "dbF", draw: dumbbellSide(), layer: "back" },
+  ],
+  motion: (p) => {
+    const t = (1 - Math.cos(p * Math.PI)) / 2;
+    const rad = (d: number) => (d * Math.PI) / 180;
+    const az = rad(lerp(SWEEP_FORWARD.az, SWEEP_WIDE.az, t));
+    const dip = rad(lerp(SWEEP_FORWARD.dip, SWEEP_WIDE.dip, t));
+    const back = rad(lerp(SWEEP_FORWARD.back, SWEEP_WIDE.back, t));
+    // Picture-plane parts of the upper arm and forearm (unit lengths).
+    const u = v(Math.cos(dip) * Math.sin(az), Math.sin(dip));
+    const f = v(0, -Math.cos(back));
+    const ku = Math.hypot(u.x, u.y);
+    const kl = Math.abs(f.y);
+    const upper = dirAngle(u);
+    const arm: Limb = { upper, lower: 180, end: 180, ku, kl, ke: Math.max(kl, 0.35) };
+    let pose = standSquare(-94.6, { shrug: lerp(0, 0.8, t) });
+    pose = { ...pose, armN: arm, armF: mirror(arm) };
+    const S = shoulders(pose, "front");
+    const reach = (s: V, side: 1 | -1) =>
+      add(s, v(side * LEN.upperArm * u.x, LEN.upperArm * u.y - (LEN.forearm + LEN.grip) * kl));
+    return { pose, props: { dbN: at(reach(S.N, 1)), dbF: at(reach(S.F, -1)) } };
+  },
+};
+
 const LOW_L = v(-70, -14);
 const cableLateralRaise: Spec = {
   name: "Cable Lateral Raise",
@@ -1527,6 +1579,7 @@ export const PUSH: Spec[] = [
   cableLateralRaise,
   barbellFrontRaise,
   barbellCubanPress,
+  behindHeadElbowSweep,
   rearDeltFly,
   reversePecDeck,
   facePull,

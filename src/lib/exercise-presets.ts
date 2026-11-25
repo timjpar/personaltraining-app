@@ -65,6 +65,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Incline Dumbbell Press",
       "Dumbbell Shoulder Press",
       "Arnold Press",
+      "Behind-the-Head Dumbbell Elbow Sweep",
       "Dumbbell Row",
       "Chest-Supported Row",
       "Dumbbell Lateral Raise",
