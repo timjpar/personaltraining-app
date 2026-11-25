@@ -163,6 +163,7 @@ const STRENGTH_AND_CONDITIONING: PresetCategory[] = [
       "Pike Push-Up",
       "Elevated Pike Push-Up",
       "Dive Bomber Push-Up",
+      "Reverse Push-Up",
       "Planche Lean",
       "Pseudo Planche Push-Up",
       "Tuck Planche",
