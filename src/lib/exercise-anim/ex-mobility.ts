@@ -1682,8 +1682,9 @@ const ninetyNinety: Spec = {
 // the heels up on a yoga block so the knees have further to fall — the two
 // ways the reel this was drawn from (DNqIvjvM9PW) loads it.
 const BLOCK_TOP = -11;
-function butterfly(o: { name: string; aka?: string[]; kb?: boolean; block?: boolean }): Spec {
+function butterfly(o: { name: string; aka?: string[]; kb?: boolean; db?: boolean; block?: boolean }): Spec {
   const lift = o.block ? -BLOCK_TOP : 0;
+  const loaded = o.kb || o.db;
   return {
     name: o.name,
     aka: o.aka,
@@ -1691,15 +1692,15 @@ function butterfly(o: { name: string; aka?: string[]; kb?: boolean; block?: bool
     legsInFront: true,
     mode: "alternate",
     seconds: 4,
-    hands: { N: o.kb ? "fist" : "palm" },
+    hands: { N: loaded ? "fist" : "palm" },
     primary: ["adductors"],
     secondary: ["glutes", "hip_flexors"],
     still: 1,
     scene: o.block ? [{ draw: box(-13, 13, BLOCK_TOP, "frame"), layer: "front" }] : [],
-    props: o.kb
+    props: loaded
       ? [
-          { id: "kbN", draw: kettlebell(), layer: "front" },
-          { id: "kbF", draw: kettlebell(), layer: "front" },
+          { id: "kbN", draw: o.db ? dumbbellSide() : kettlebell(), layer: "front" },
+          { id: "kbF", draw: o.db ? dumbbellSide() : kettlebell(), layer: "front" },
         ]
       : [],
     motion: (p) => {
@@ -1724,7 +1725,7 @@ function butterfly(o: { name: string; aka?: string[]; kb?: boolean; block?: bool
         };
       };
       pose = { ...pose, legN: legAt(h.N, 1), legF: legAt(h.F, -1) };
-      if (!o.kb) {
+      if (!loaded) {
         // Hands resting on the floor out past the knees.
         pose = palms(pose, "front", v(52, -1), v(-52, -1), 0, -1);
         return { pose };
@@ -1732,7 +1733,9 @@ function butterfly(o: { name: string; aka?: string[]; kb?: boolean; block?: bool
       // Each bell sits on its thigh just inside the knee; the hand holds
       // the handle, which is the bell's grip point.
       const j = frontJoints(pose);
-      const on = (hip: V, k: V) => add(lerpV(hip, k, 0.9), v(0, -15.5));
+      // A dumbbell stands on its end, the lower head on the thigh, so its
+      // handle (the grip) sits higher than a bell's.
+      const on = (hip: V, k: V) => add(lerpV(hip, k, 0.9), v(0, o.db ? -22 : -15.5));
       const gN = on(h.N, j.kneeN);
       const gF = on(h.F, j.kneeF);
       // Arms hang nearly straight to the handles, the elbows soft and set
@@ -1746,7 +1749,8 @@ function butterfly(o: { name: string; aka?: string[]; kb?: boolean; block?: bool
         return { ...limb(a + 6 * side, a - 6 * side, a), ku: k, kl: k };
       };
       pose = { ...pose, armN: reachTo(s.N, gN), armF: reachTo(s.F, gF) };
-      return { pose, props: { kbN: turned(gN, 0), kbF: turned(gF, 0) } };
+      const a = o.db ? 90 : 0;
+      return { pose, props: { kbN: turned(gN, a), kbF: turned(gF, a) } };
     },
   };
 }
@@ -1754,6 +1758,13 @@ function butterfly(o: { name: string; aka?: string[]; kb?: boolean; block?: bool
 const butterflyStretch = butterfly({ name: "Butterfly Stretch", aka: ["Seated Butterfly Stretch", "Bound Angle Pose"] });
 const butterflyElevated = butterfly({ name: "Feet-Elevated Butterfly Stretch", block: true });
 const kbButterfly = butterfly({ name: "Kettlebell Butterfly Stretch", aka: ["Loaded Butterfly Stretch", "Weighted Butterfly Stretch"], kb: true });
+// Reel DgBlkwtpcWY (@proformance_sportstherapy): the same loaded butterfly
+// with a dumbbell stood on end on each thigh, hands round the handles.
+const dbButterfly = butterfly({
+  name: "Dumbbell Butterfly Stretch",
+  aka: ["Weighted Butterfly Stretch with Dumbbells", "Loaded Butterfly with Dumbbells", "DB Butterfly Stretch"],
+  db: true,
+});
 const kbButterflyElevated = butterfly({
   name: "Feet-Elevated Kettlebell Butterfly Stretch",
   aka: ["Elevated Kettlebell Butterfly Stretch"],
@@ -1847,6 +1858,199 @@ const halfButterflyLegLift = halfButterfly({
   aka: ["Half-Butterfly Leg Lift", "Seated Half-Butterfly Leg Raise", "Hurdle-Sit Leg Lift"],
   lift: "leg",
 });
+
+// Four hip drills from reel DgBlkwtpcWY (@proformance_sportstherapy, "I
+// train my hips now because my 70 year old self has travel plans"); the
+// fifth move of the reel is the dumbbell butterfly above.
+
+// A leg placed by where its knee and ankle land on screen, each bone
+// foreshortened to fit: for the square views, where thighs and shins point
+// toward the viewer.
+function legAtPoints(hip: V, knee: V, ankle: V, foot: number, ke = 0.45): Limb {
+  const thigh = Math.hypot(knee.x - hip.x, knee.y - hip.y);
+  const shin = Math.hypot(ankle.x - knee.x, ankle.y - knee.y);
+  return {
+    ...limb(dirTo(hip, knee), dirTo(knee, ankle), foot),
+    ku: Math.max(0.12, Math.min(1, thigh / LEN.thigh)),
+    kl: Math.max(0.15, Math.min(1, shin / LEN.shin)),
+    ke,
+  };
+}
+
+// Sitting on a flat bench, square-on, hands on the hips. One foot is on the
+// floor; the other is up on the bench out to the side, knee pointing up, with
+// a dumbbell resting on top of the knee. The knee falls in across the body
+// and down past the edge of the seat (the hip turning in), then comes back
+// up. The foot stays where it is.
+const SHIR_BENCH = -40;
+const seatedDumbbellHipInternalRotation: Spec = {
+  name: "Seated Dumbbell Hip Internal Rotation",
+  aka: ["Seated Weighted Hip Internal Rotation", "Bench Hip Internal Rotation Knee Drop", "Seated Hip IR Knee Drop", "Weighted Knee Drop"],
+  view: "front",
+  legsInFront: true,
+  mode: "alternate",
+  seconds: 3,
+  hands: { N: "fist" },
+  primary: ["glutes", "abductors"],
+  secondary: ["adductors", "hip_flexors"],
+  still: 0.55,
+  scene: [{ draw: flatBench(-40, 78, SHIR_BENCH), layer: "back" }],
+  props: [{ id: "db", draw: dumbbellEnd(8), layer: "front" }],
+  motion: (p) => {
+    let pose = base(v(0, SHIR_BENCH - 14), { torso: lerp(0, -3, p), head: lerp(0, -6, p) });
+    const h = hips(pose, "front");
+    // Working leg (right of the picture): foot on the bench out to the side.
+    const ankle = add(h.N, v(40, 6));
+    const knee = kfv(p, [
+      [0, add(h.N, v(18, -32))],
+      [0.5, add(h.N, v(6, -12))],
+      [1, add(h.N, v(-8, 14))],
+    ]);
+    // Standing leg: thigh toward the viewer, foot flat on the floor.
+    const kneeF = add(h.F, v(-5, 5));
+    const ankleF = v(h.F.x - 8, -8);
+    pose = {
+      ...pose,
+      legN: legAtPoints(h.N, knee, ankle, 0),
+      legF: legAtPoints(h.F, kneeF, ankleF, 0),
+    };
+    // Hands on the hips, elbows out.
+    pose = hold(pose, "front", add(h.N, v(9, -12)), add(h.F, v(-9, -12)), 1);
+    // The bell rests on top of the thigh just behind the knee.
+    const db = add(lerpV(h.N, knee, 0.82), v(0, -10));
+    return { pose, props: { db: at(db) } };
+  },
+};
+
+// Side-on, facing right. The front leg lies along a bench at hip height —
+// thigh on the pad, shin across it toward the viewer — and the back leg is
+// long behind, toes on the floor. Hands on the hips, trunk tall, the hips
+// sink toward the floor (back knee bending, front hip folding deeper) and
+// rise again with the back leg near straight. The front knee stays put.
+const BPR_BENCH = -46;
+const BPR_KNEE = v(56, BPR_BENCH - 6);
+const BPR_REAR = v(-58, -8);
+const bprHip = (theta: number) => {
+  const r = (theta * Math.PI) / 180;
+  return v(BPR_KNEE.x - LEN.thigh * Math.cos(r), BPR_KNEE.y + LEN.thigh * Math.sin(r));
+};
+const benchPigeonRock: Spec = {
+  name: "Bench Pigeon Rock",
+  aka: ["Elevated Pigeon Rock", "Bench Pigeon Stretch", "Elevated Pigeon Stretch", "Standing Pigeon on Bench", "Bench Pigeon Lunge"],
+  mode: "alternate",
+  seconds: 2.6,
+  hands: { N: "fist" },
+  primary: ["glutes", "hip_flexors"],
+  secondary: ["abductors", "quads"],
+  still: 1,
+  nearShinOnTop: true,
+  scene: [{ draw: flatBench(30, 100, BPR_BENCH), layer: "back" }],
+  motion: (p) => {
+    const hip = bprHip(lerp(-6, 18, p));
+    const torso = lerp(4, 8, p);
+    let pose = base(hip, { torso, pelvis: torso, head: 0 });
+    pose = {
+      ...pose,
+      // Shin across the bench toward the viewer: it shows end-on, short.
+      legN: { upper: dirTo(hip, BPR_KNEE), lower: 60, end: 150, kl: 0.3, ke: 0.5 },
+      legF: plantLeg(hip, BPR_REAR, -50, 1),
+    };
+    const g = add(hip, rot(v(3, -13), torso));
+    pose = hold(pose, "side", g, g, -1);
+    return { pose };
+  },
+};
+
+// Sitting on the floor square-on, one knee hugged to the chest. The other
+// leg, knee locked and toes up, lifts up and over a foam roller stood on its
+// end beside it, sets down outside, and lifts back over to where it started.
+const SRH_IN = v(38, -7); // ankle: x out from its own hip, y above the floor
+const SRH_UP = v(62, -52);
+const SRH_OUT = v(84, -7);
+const SRH_ROLLER = 57; // out from the hip
+const seatedRollerHurdle: Spec = {
+  name: "Seated Roller Hurdle",
+  aka: ["Seated Leg Lift over Foam Roller", "Seated Straight-Leg Hurdle", "Seated Hip Hurdle", "Straight-Leg Lift over Roller"],
+  view: "front",
+  legsInFront: true,
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "fist" },
+  primary: ["hip_flexors", "abductors"],
+  secondary: ["quads", "abs", "glutes"],
+  still: 0.5,
+  scene: [{ draw: uprightRoller(-SQUARE.hipX - SRH_ROLLER, 30, 7), layer: "front" }],
+  motion: (p) => {
+    const lift = Math.sin(Math.PI * p);
+    let pose = base(v(0, -14), { torso: lift * 4, head: lift * 2 });
+    const h = hips(pose, "front");
+    // The hugged knee (right of the picture): thigh up toward the chest,
+    // foot flat by the hip.
+    const knee = add(h.N, v(8, -30));
+    const ankle = add(h.N, v(12, 6));
+    // The working leg (left of the picture), straight, ankle on a path.
+    const a = kfv(p, [[0, SRH_IN], [0.5, SRH_UP], [1, SRH_OUT]]);
+    const d = v(-a.x, a.y - h.F.y);
+    const k = Math.min(1, Math.hypot(d.x, d.y) / (LEN.thigh + LEN.shin));
+    const ang = dirAngle(d);
+    pose = {
+      ...pose,
+      legN: legAtPoints(h.N, knee, ankle, 0),
+      legF: { upper: ang, lower: ang, end: -180, ku: k, kl: k },
+    };
+    // Both hands wrapped round the hugged shin just below the knee.
+    const g = lerpV(knee, ankle, 0.3);
+    pose = hold(pose, "front", add(g, v(5, 0)), add(g, v(-5, 0)), -1, 1);
+    return { pose };
+  },
+};
+
+// Square-on, sitting in a pigeon: the front shin lies across in front (to
+// the left of the picture), the back leg straight out to the right. The
+// trunk folds down over the front shin, comes back up tall, then turns to
+// each side with the forearms stacked at the chest, and folds again.
+const pigeonFoldRotation: Spec = {
+  name: "Pigeon Fold to Rotation",
+  aka: ["Pigeon Fold and Twist", "Seated Pigeon Lean and Rotation", "Pigeon Forward Fold with Rotation", "Pigeon Thoracic Rotation"],
+  view: "front",
+  legsInFront: true,
+  mode: "loop",
+  seconds: 6,
+  samples: 48,
+  hands: { N: "fist" },
+  primary: ["glutes", "obliques"],
+  secondary: ["abductors", "hip_flexors", "adductors"],
+  still: 0.2,
+  motion: (p) => {
+    const fold = kf(p, [[0, 0], [0.12, 1], [0.32, 1], [0.44, 0], [1, 0]]);
+    const turn = kf(p, [[0, 0], [0.44, 0], [0.56, 1], [0.68, 1], [0.8, -1], [0.92, -1], [1, 0]]);
+    const torso = 68 * fold + 8 * turn;
+    let pose = base(v(4, -16), { torso, pelvis: torso * 0.25, head: torso * 0.8 + 10 * turn });
+    const h = hips(pose, "front");
+    // Front leg (left of the picture): knee just ahead of the hip, shin
+    // across, foot lying along it. Back leg: straight out to the right.
+    const kneeF = add(h.F, v(-8, 9));
+    const ankleF = add(h.F, v(-46, 10));
+    const dN = v(76, -7 - h.N.y);
+    const kN = Math.min(1, Math.hypot(dN.x, dN.y) / (LEN.thigh + LEN.shin));
+    pose = {
+      ...pose,
+      legF: legAtPoints(h.F, kneeF, ankleF, dirTo(kneeF, ankleF), 0.6),
+      legN: { upper: dirAngle(dN), lower: dirAngle(dN), end: 180, ku: kN, kl: kN },
+    };
+    // Forearms stacked in front of the chest; turning carries both fists
+    // round to one side, and in the fold they rest by the head.
+    const s = shoulders(pose, "front");
+    const chest = lerpV(s.N, s.F, 0.5);
+    const across = rot(v(1, 0), torso);
+    const down = rot(v(0, 1), torso);
+    const centre = add(chest, add(v(across.x * 30 * turn, across.y * 30 * turn), v(down.x * 12, down.y * 12)));
+    const gN = add(centre, v(across.x * 9, across.y * 9));
+    const gF = add(centre, v(-across.x * 9, -across.y * 9));
+    pose = hold(pose, "front", gN, gF, -1);
+    return { pose };
+  },
+};
 
 const frogStretch: Spec = {
   name: "Frog Stretch",
@@ -2167,6 +2371,11 @@ export const MOBILITY: Spec[] = [
   kbButterflyElevated,
   halfButterflyKneeLift,
   halfButterflyLegLift,
+  dbButterfly,
+  seatedDumbbellHipInternalRotation,
+  benchPigeonRock,
+  seatedRollerHurdle,
+  pigeonFoldRotation,
   frogStretch,
 ];
 
