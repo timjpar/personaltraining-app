@@ -107,6 +107,9 @@ const RULES: Rule[] = [
     ],
   },
 
+  // guard: "Reverse Nordic" is a quad lean-back, not the hamstring Nordic.
+  { archetype: "squat", match: ["reverse nordic"] },
+
   // guard: "Rack Pull" and "Cable Pull-Through" must beat the pull rules.
   {
     archetype: "hinge",
