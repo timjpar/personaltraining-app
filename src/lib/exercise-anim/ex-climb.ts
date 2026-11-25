@@ -244,18 +244,38 @@ function hangPose(lift = 0, shrug = 3): Pose {
   return { ...STAND, hip, shrug, armN: arm, armF: mirror(arm), legN: leg, legF: mirror(leg) };
 }
 
+// The belt and its load seen face-on: straps from the hips to a ring, a chain
+// down between the legs, and the plates on a loading pin, edges to the camera.
+function beltStack(): Drawing {
+  const edges = Array.from({ length: 9 }, (_, i) => `<path d="M${-16 + i * 4} 47V71" stroke="#232826" stroke-width=".6"/>`).join("");
+  return {
+    svg:
+      `<path d="M-9 -4L0 4L9 -4" fill="none" stroke="#2b2f2d" stroke-width="2"/>` +
+      `<circle cx="0" cy="5" r="2" fill="none" stroke="#5b6461" stroke-width="1"/>` +
+      `<path d="M0 7V44" stroke="#5b6461" stroke-width="1.2" stroke-dasharray="2 1"/>` +
+      `<rect class="iron" x="-19" y="45" width="38" height="28" rx="5"/>${edges}` +
+      `<rect x="-23" y="57" width="46" height="3" rx="1" fill="#9aa3a0"/>`,
+    box: [-23, -4, 23, 73],
+  };
+}
+
 function hang(o: {
   name: string;
   aka?: string[];
   weight?: boolean;
   repeaters?: boolean;
   bar?: boolean;
+  // Reel Dd6LG7mTsHN: a stack of plates on a hip belt, chained between the
+  // legs, the knees bent and turned out so the feet clear it.
+  belt?: boolean;
   primary?: Spec["primary"];
   secondary?: Spec["secondary"];
 }): Spec {
   const props: Prop[] = o.weight
     ? [{ id: "w", draw: { svg: `<path d="M-6 0L0 22L6 0" fill="none" stroke="#5b6461" stroke-width="1"/><rect class="iron" x="-14" y="20" width="28" height="9" rx="2"/>`, box: [-14, 0, 14, 29] }, layer: "front" }]
-    : [];
+    : o.belt
+      ? [{ id: "w", draw: beltStack(), layer: "front" }]
+      : [];
   return {
     name: o.name,
     aka: o.aka,
@@ -291,9 +311,13 @@ function hang(o: {
       } else {
         const breath = (1 - Math.cos(2 * Math.PI * p)) / 2;
         pose = hangPose(breath * 1.2, 3 - breath);
+        if (o.belt) {
+          const leg = limb(40, -24, -30);
+          pose = { ...pose, legN: leg, legF: mirror(leg) };
+        }
       }
       const props2: Record<string, PropState> = {};
-      if (o.weight) props2.w = at(add(pose.hip, v(0, 6)));
+      if (o.weight || o.belt) props2.w = at(add(pose.hip, v(0, 6)));
       return { pose, props: props2 };
     },
   };
@@ -594,6 +618,36 @@ const wristRoller: Spec = {
   },
 };
 
+// Reel Dd6LG7mTsHN: a tennis ball in one fist, squeezed hard and let go. The
+// elbow is bent at the side so the forearm and ball point at the viewer's
+// right; the ball flattens across the palm on each squeeze.
+const tennisBallSqueeze: Spec = {
+  name: "Tennis Ball Squeeze",
+  aka: ["Ball Squeeze", "Grip Ball Squeeze", "Stress Ball Squeeze"],
+  mode: "alternate",
+  seconds: 1.4,
+  hands: { N: "fist" },
+  primary: ["forearms"],
+  secondary: [],
+  still: 1,
+  props: [
+    {
+      id: "ball",
+      draw: {
+        svg: `<circle r="4.2" fill="#cfe03a" stroke="#8a9a1c" stroke-width=".7"/><path d="M-2.6 -3.2C-.6 -1 -.6 1 -2.6 3.2M2.6 -3.2C.6 -1 .6 1 2.6 3.2" fill="none" stroke="#f4f7e0" stroke-width=".6"/>`,
+        box: [-4.2, -4.2, 4.2, 4.2],
+      },
+      layer: "front",
+    },
+  ],
+  motion: (p) => {
+    let pose = stand(-94.4, { torso: -2, pelvis: -2, head: -2 });
+    pose = { ...pose, armN: limb(8, 92, 92 + 6 * p), armF: limb(4) };
+    // Squeezed flat across the palm, the knuckles closing over it.
+    return { pose, props: { ball: { at: add(grips(pose).N, v(0.6, -1.2)), angle: 90, scaleX: lerp(1, 0.7, p) } } };
+  },
+};
+
 const riceBucket: Spec = {
   name: "Rice Bucket Dig",
   aka: ["Rice Bucket"],
@@ -662,6 +716,7 @@ export const CLIMB: Spec[] = [
   climb({ name: "Campus Board Bumps", board: "campus", period: 24, seconds: 2.2, primary: ["forearms", "lats", "biceps"], secondary: ["upper_back", "abs"] }),
   limitBouldering,
   hang({ name: "Dead Hang", bar: true, primary: ["forearms"], secondary: ["lats", "upper_back", "traps"] }),
+  hang({ name: "Belt-Weighted Dead Hang", aka: ["Weighted Dead Hang", "Weighted Hang"], bar: true, belt: true, primary: ["forearms"], secondary: ["lats", "upper_back", "traps"] }),
   hang({ name: "Hangboard Max Hangs", aka: ["Max Hangs"], weight: true }),
   hang({ name: "Hangboard Repeaters", aka: ["Repeaters"], repeaters: true }),
   hang({ name: "Half-Crimp Hang", aka: ["Half Crimp Hang"] }),
@@ -673,6 +728,7 @@ export const CLIMB: Spec[] = [
   feetOnHangRamp,
   pinchBlockLift,
   wristRoller,
+  tennisBallSqueeze,
   riceBucket,
   offsetPullUp,
   assistedOneArm,
