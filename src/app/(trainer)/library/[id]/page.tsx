@@ -16,6 +16,7 @@ import { deleteTemplate, assignTemplate } from "../actions";
 import { toDateInput } from "@/lib/format";
 import { groupBySection, usesSections } from "@/lib/workout-form";
 import { getExerciseMedia } from "@/lib/exercise-catalog";
+import { demoFor } from "@/lib/exercise-demo";
 import { normalizeExerciseName } from "@/lib/exercise-presets";
 import { pathsThrough } from "@/lib/progressions";
 import { ProgressionGuide } from "@/components/ProgressionGuide";
@@ -106,10 +107,11 @@ export default async function TemplatePage({
                     name={ex.name}
                     metrics={exerciseMetrics(ex)}
                     notes={ex.notes}
-                    demo={(() => {
-                      const own = media.get(normalizeExerciseName(ex.name));
-                      return own ? { own: true, url: own.url } : undefined;
-                    })()}
+                    demo={demoFor(
+                      ex.name,
+                      media.get(normalizeExerciseName(ex.name)),
+                      { search: false },
+                    )}
                     footer={
                       // Checked here rather than left to the guide, which
                       // would hand the card an empty footer to pad.

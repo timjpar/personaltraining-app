@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui";
 import { ExerciseAnimation } from "@/components/ExerciseAnimation";
 import { VideoEmbed } from "@/components/VideoEmbed";
 import { setValuesFor, storedSetCount } from "@/lib/exercise-sets";
+import type { Demo } from "@/lib/exercise-demo";
 
 export type Metric = { label: string; value?: string | null };
 
@@ -142,23 +143,46 @@ export function exerciseMetrics(ex: {
   ];
 }
 
-// A movement demo. `own` is a link the trainer attached, which embeds in-app;
-// otherwise it's the generic YouTube search fallback, which can only link out.
-export type Demo = { own: boolean; url: string };
+// What the card offers for watching the movement: see demoFor.
+export type { Demo };
+
+// -ml-2 + padding: a real touch target without the text losing its left
+// alignment with the metrics above it.
+const OUT_LINK =
+  "-ml-2 inline-flex min-h-11 items-center gap-1 rounded-[var(--radius-sm)] px-2 text-sm text-ink-soft transition-colors hover:text-ink hover:underline sm:min-h-0 sm:py-1";
 
 function DemoMedia({ demo, name }: { demo: Demo; name: string }) {
-  if (demo.own) return <VideoEmbed url={demo.url} name={name} />;
   return (
-    <a
-      href={demo.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      // -ml-2 + padding: a real touch target without the text losing its
-      // left alignment with the metrics above it.
-      className="-ml-2 mt-1 inline-flex min-h-11 items-center gap-1 rounded-[var(--radius-sm)] px-2 text-sm text-ink-soft transition-colors hover:text-ink hover:underline sm:mt-2 sm:min-h-0 sm:py-1"
-    >
-      Search for a demo ↗
-    </a>
+    <>
+      {demo.own ? <VideoEmbed url={demo.own} name={name} /> : null}
+      {demo.reels.length ? (
+        <div className="mt-1 flex flex-wrap gap-x-3 sm:mt-2">
+          {demo.reels.map((url, i) => (
+            <a
+              key={url}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={OUT_LINK}
+            >
+              {demo.reels.length > 1
+                ? `Instagram video ${i + 1} ↗`
+                : "Watch the Instagram video ↗"}
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {!demo.own && !demo.reels.length && demo.search ? (
+        <a
+          href={demo.search}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(OUT_LINK, "mt-1 sm:mt-2")}
+        >
+          Search for a demo ↗
+        </a>
+      ) : null}
+    </>
   );
 }
 
@@ -179,7 +203,7 @@ export function PrescriptionCard({
   notes?: string | null;
   logged?: boolean;
   footer?: ReactNode;
-  // Only the client-facing views pass this; trainer pages render unchanged.
+  // The athlete views always pass this; coach views only when there's a video.
   demo?: Demo;
   // Live "crossed off the board" state while logging. Distinct from `logged`,
   // which is the saved, after-the-fact badge on a finished session.
