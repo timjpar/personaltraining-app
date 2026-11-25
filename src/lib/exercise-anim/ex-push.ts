@@ -1773,6 +1773,32 @@ const wallToePull: Spec = {
   },
 };
 
+// Reverse push-up (reel Dek2wr0AZ6e): flat on the back, legs long, palms
+// planted beside the ribs with the fingers toward the feet. The press lifts
+// the shoulders and upper back off the floor while the hips and heels stay
+// down, so the trunk hinges at the hip. Even strong people barely clear the
+// floor; the drawing tops out around 24 degrees of lift.
+// The palms press beside the hips, with the elbows staying close to the floor at the sides.
+const reversePushUp: Spec = {
+  name: "Reverse Push-Up",
+  aka: ["Reverse Push-up", "Supine Push-Up", "Lying Reverse Push-Up"],
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "palm" },
+  primary: ["triceps", "lats"],
+  secondary: ["delts_rear", "upper_back", "abs"],
+  still: 0,
+  motion: (p) => {
+    const t = (1 - Math.cos(p * Math.PI)) / 2;
+    const torso = lerp(90, 66, t);
+    let pose = supine(0, 0, { torso, pelvis: 90, head: torso + lerp(2, 10, t) });
+    pose = { ...pose, legN: limb(90), legF: limb(90) };
+    // Palms flat beside the hips, fingers to the feet. The arm is nearly
+    // straight at the bottom, so the elbow only softens as the chest rises.
+    return { pose: palms(pose, "side", v(-4, 0), v(-4, 0), 90, 1) };
+  },
+};
+
 export const PUSH: Spec[] = [
   benchPress({ name: "Bench Press", load: "barbell", primary: ["chest"], secondary: ["triceps", "delts_front"] }),
   benchPress({ name: "Incline Bench Press", load: "barbell", incline: 32, primary: ["chest", "delts_front"], secondary: ["triceps"] }),
@@ -1813,6 +1839,7 @@ export const PUSH: Spec[] = [
   koreanDip({ name: "Rear Support Hold", aka: ["Korean Dip Support Hold", "Straight-Bar Rear Support", "Reverse Support Hold"], hold: true, primary: ["triceps", "delts_front"], secondary: ["chest", "abs", "forearms"] }),
   koreanDip({ name: "Korean Dip", aka: ["Korean Dips", "Rear Support Dip"], primary: ["triceps", "chest", "delts_front"], secondary: ["abs", "forearms"] }),
   negative(koreanDip({ name: "Korean Dip", primary: ["triceps", "chest", "delts_front"], secondary: ["abs", "forearms"] }), "Korean Dip Negative", ["Negative Korean Dip"]),
+  reversePushUp,
   overheadPress({ name: "Overhead Press", primary: ["delts_front", "delts_side"], secondary: ["triceps", "traps", "abs"] }),
   overheadPress({ name: "Push Press", dip: true, primary: ["delts_front", "delts_side", "triceps"], secondary: ["quads", "glutes"] }),
   landminePress,
