@@ -126,7 +126,7 @@ const RULES: Rule[] = [
   // guard: "Overhead Squat" must not read as an overhead press.
   {
     archetype: "squat",
-    match: ["squat", "leg press", "leg extension", "hack", "pistol"],
+    match: ["squat", "cossack", "leg press", "leg extension", "hack", "pistol"],
   },
 
   // guard: "Push-Up" must be claimed before the generic press rules below.

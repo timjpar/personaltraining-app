@@ -1991,6 +1991,51 @@ export const PROGRESSION_PATHS: ProgressionPath[] = [
     ],
   },
   {
+    id: "cossack-squat",
+    goal: "Kettlebell Cossack Sit-Through",
+    family: "mobility",
+    blurb:
+      "Adductor and hip range side to side, then owning it. Build depth with support, keep it without, load it, and only then go deeper into the floor and back.",
+    steps: [
+      {
+        name: "Ring-Assisted Cossack Squat",
+        aka: ["Assisted Cossack Squat", "TRX Cossack Squat"],
+        how: "Hold rings or straps overhead and sink into one side, the other leg straight with the toes up. Let the arms take as much weight as you need to get deep with the heel down. 3 × 5–8 per side.",
+        when: "3 × 8 per side reaching full depth, heel flat, while barely pulling on the rings.",
+        target: reps(3, 8),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Assisted Cossack Transition",
+        aka: ["Assisted Cossack Transitions", "Supported Cossack Shift"],
+        how: "Hold a rack, post or bar in front and shift low from one side to the other without standing up in between. Slow, 3–4s across. 3 × 6–10 shifts.",
+        when: "3 × 10 shifts staying low the whole way, the hands only steadying.",
+        target: reps(3, 10),
+        weeks: "2–4 weeks",
+      },
+      {
+        name: "Cossack Squat",
+        aka: ["Bodyweight Cossack Squat", "Cossack Squats"],
+        how: "No support: fingertips may brush the floor in front. Shift side to side through the bottom, chest over the bent knee, straight leg locked with the toes up. 3 × 6–10 per side.",
+        when: "3 × 10 per side at full depth without the hands taking weight.",
+        target: reps(3, 10),
+        weeks: "3–6 weeks",
+      },
+      {
+        name: "Kettlebell Goblet Cossack Squat",
+        aka: ["Goblet Cossack Squat", "Kettlebell Cossack Squat"],
+        how: "Hold a kettlebell by the horns at the chest; sit into one side, stand through the middle, sit into the other. The bell is a counterweight, so many find the bottom easier. 3 × 5–8 per side, adding weight slowly.",
+        when: "3 × 8 per side with about a quarter of your bodyweight and the same depth as unloaded.",
+        weeks: "4–8 weeks",
+      },
+      {
+        name: "Kettlebell Cossack Sit-Through",
+        aka: ["Cossack Squat Sit-Through", "Cossack Sit-Through"],
+        how: "Goblet bell at the chest. From the bottom of one side, lower all the way to sit on the floor, then rise out of it into the bottom of the other side. Control both directions; no bouncing off the floor. 3 × 3–5 per side.",
+      },
+    ],
+  },
+  {
     id: "jefferson-curl",
     goal: "Zercher Jefferson Curl",
     family: "mobility",
