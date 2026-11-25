@@ -872,9 +872,14 @@ const tricepsPushdown: Spec = {
 };
 
 // Forearms along the thighs, the hands hinging at the wrist over the knees.
-function wristWork(o: { name: string; band?: boolean; twist?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+// `palmUp` is the one-arm wrist curl from reel Dd6LG7mTsHN: the bell sits in
+// the upturned palm, so it rides above the line of the hand, the hand drops
+// toward the floor at the bottom and curls up past level at the top. The other
+// forearm rests along its own thigh.
+function wristWork(o: { name: string; aka?: string[]; band?: boolean; twist?: boolean; palmUp?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
   return {
     name: o.name,
+    aka: o.aka,
     mode: "alternate",
     seconds: 2.2,
     hands: { N: "fist" },
@@ -894,11 +899,15 @@ function wristWork(o: { name: string; band?: boolean; twist?: boolean; primary: 
       const elbow = add(j.kneeN, v(-26, -9));
       const s = shoulders(pose).N;
       const up = ik2(s, elbow, LEN.upperArm, 0.01, -1);
-      const hand = o.twist ? 90 : lerp(150, 50, p);
-      pose = { ...pose, armN: limb(up.upper, 90, hand), armF: limb(up.upper, 90, hand) };
+      const hand = o.twist ? 90 : o.palmUp ? lerp(30, 140, p) : lerp(150, 50, p);
+      pose = { ...pose, armN: limb(up.upper, 90, hand), armF: limb(up.upper, 90, o.palmUp ? 96 : hand) };
       const g = grips(pose).N;
       const props: Record<string, PropState> = {};
-      if (o.band) props.band = line(v(j.ankleN.x + 6, -2), g);
+      if (o.palmUp) {
+        // Square to the hand, on the palm side (toward the head when level).
+        const a = (hand * Math.PI) / 180;
+        props.db = at(add(g, v(Math.cos(a) * 2.6, -Math.sin(a) * 2.6)));
+      } else if (o.band) props.band = line(v(j.ankleN.x + 6, -2), g);
       else if (o.twist) props.tool = { at: g, angle: 180, scaleX: 1 - 0.7 * p };
       else props.db = at(g);
       return { pose, props };
@@ -1019,6 +1028,7 @@ export const PULL: Spec[] = [
   overheadTricepsExtension,
   cableOverheadTricepsExtension,
   tricepsPushdown,
+  wristWork({ name: "Wrist Curl", aka: ["Dumbbell Wrist Curl", "Seated Wrist Curl", "Single-Arm Wrist Curl"], palmUp: true, primary: ["forearms"] }),
   wristWork({ name: "Reverse Wrist Curl", primary: ["forearms"] }),
   wristWork({ name: "Band Wrist Extension", band: true, primary: ["forearms"] }),
   wristWork({ name: "Pronator Twist", twist: true, primary: ["forearms"] }),

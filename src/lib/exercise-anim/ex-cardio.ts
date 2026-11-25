@@ -95,7 +95,7 @@ function plantLegFrom(pose: Pose, s: "N" | "F", dy: number) {
   return plantLeg(pose.hip, ankle, l.end, 1);
 }
 
-function carry(o: { name: string; load: "dumbbells" | "suitcase" | "rack"; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+function carry(o: { name: string; aka?: string[]; load: "dumbbells" | "suitcase" | "rack"; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
   const props: Prop[] =
     o.load === "dumbbells"
       ? [
@@ -110,6 +110,7 @@ function carry(o: { name: string; load: "dumbbells" | "suitcase" | "rack"; prima
           ];
   return {
     name: o.name,
+    aka: o.aka,
     mode: "loop",
     seconds: 1.6,
     samples: 16,
@@ -630,7 +631,7 @@ export const CARDIO: Spec[] = [
   gaitSpec({ name: "Sprint Intervals", aka: ["Sprint", "Sprints"], g: SPRINT, seconds: 0.62, primary: ["glutes", "hamstrings", "quads"], secondary: ["calves", "hip_flexors"] }),
   gaitSpec({ name: "Shuttle Run", g: SPRINT, seconds: 0.66, primary: ["quads", "glutes"], secondary: ["calves", "hamstrings", "adductors"] }),
   gaitSpec({ name: "Easy Walk", aka: ["Walk", "Walking"], g: WALK, seconds: 1.3, primary: ["calves"], secondary: ["quads", "glutes"] }),
-  carry({ name: "Farmer Carry", load: "dumbbells", primary: ["forearms", "traps"], secondary: ["abs", "glutes"] }),
+  carry({ name: "Farmer Carry", aka: ["Farmer's Walk", "Farmers Walk", "Farmer Walk"], load: "dumbbells", primary: ["forearms", "traps"], secondary: ["abs", "glutes"] }),
   carry({ name: "Suitcase Carry", load: "suitcase", primary: ["obliques", "forearms"], secondary: ["traps", "abs"] }),
   carry({ name: "Kettlebell Front Rack Carry", load: "rack", primary: ["abs", "upper_back"], secondary: ["biceps", "delts_front"] }),
   rower({ name: "Row (Erg)", aka: ["Rowing", "Rower", "Row Erg"], seconds: 2.2 }),
