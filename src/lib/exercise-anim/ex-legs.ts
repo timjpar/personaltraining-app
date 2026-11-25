@@ -777,6 +777,49 @@ const backExtension: Spec = {
   },
 };
 
+// Face down on the floor with a light barbell across the upper back, a
+// partner kneeling on the legs to pin them, and the chest raised off the
+// floor by extending the lower back. From reel DfwfjKJMa4_ (a weightlifter's
+// warm-up at the 2026 Worlds). The pad over the ankles stands in for the
+// partner. Small technique plates, so the bar clears the floor at the bottom.
+const FLOOR_BAR_PLATE = 13;
+const floorBarbellBackExtension: Spec = {
+  name: "Barbell Floor Back Extension",
+  aka: [
+    "Floor Back Extension with Barbell",
+    "Prone Barbell Back Extension",
+    "Partner-Held Back Extension",
+    "Partner Back Extension",
+    "Barbell Superman",
+  ],
+  mode: "alternate",
+  seconds: 3.4,
+  hands: { N: "fist" },
+  primary: ["lower_back"],
+  secondary: ["glutes", "hamstrings", "upper_back"],
+  still: 1,
+  depth: v(-3, -2),
+  props: [
+    { id: "pad", draw: { svg: `<circle class="pad" r="4.5"/>`, box: [-4.5, -4.5, 4.5, 4.5] }, layer: "front" },
+    { id: "bar", draw: barbellFar(FLOOR_BAR_PLATE), layer: "back" },
+    { id: "bar", draw: barbellNear(FLOOR_BAR_PLATE), layer: "front" },
+  ],
+  motion: (p) => {
+    // The chest rises about 35 degrees. The pelvis stays down; letting the
+    // hips ride up a touch keeps the rigid trunk from sinking into the floor
+    // as it pivots.
+    const hip = v(-40, lerp(-11, -15, p));
+    const torso = lerp(-90, -56, p);
+    let pose = base(hip, { pelvis: lerp(-90, -84, p), torso, head: torso - lerp(4, 10, p) });
+    pose = { ...pose, legN: limb(-90, -90, -172), legF: limb(-90, -90, -172) };
+    const bar = onTrunk(pose, BAR_ON_BACK);
+    pose = hold(pose, "side", add(bar, v(0.5, 0.5)), undefined, 1);
+    const j = joints(pose);
+    const calf = lerpV(j.kneeN, j.ankleN, 0.55);
+    return { pose, props: { bar: at(bar), pad: at(add(calf, v(0, -11))) } };
+  },
+};
+
 const PULL_THROUGH_PULLEY = v(-82, -12);
 const cablePullThrough: Spec = {
   name: "Cable Pull-Through",
@@ -1328,6 +1371,7 @@ export const LEGS: Spec[] = [
   lyingLegCurl,
   seatedLegCurl,
   backExtension,
+  floorBarbellBackExtension,
   cablePullThrough,
   nordic({ name: "Nordic Hamstring Curl" }),
   nordic({ name: "Band-Assisted Nordic Curl", aka: ["Band Assisted Nordic Curl"], band: true }),
