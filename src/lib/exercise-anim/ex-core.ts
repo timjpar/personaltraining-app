@@ -41,7 +41,7 @@ import {
   type Spec,
   type V,
 } from "./kit";
-import type { Drawing } from "./render";
+import type { Drawing, Prop } from "./render";
 
 const breathe = (p: number, amount = 1) => (wave(p) - 0.5) * amount;
 
@@ -341,7 +341,22 @@ const sitUp: Spec = {
 
 const HANG_BAR = v(4, -236);
 
-function hangingRaise(o: { name: string; aka?: string[]; kind: "knee" | "leg" | "toes"; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
+// A dowel laid across the back of the neck, inside the arms. Seen truly
+// end-on it would be a dot hidden by the arms, so it is drawn a little turned,
+// as if the camera stood off to the side: a short rod through the nape.
+// From reel DfXSJuLtCNK: it pins the head and shoulders so the legs have to
+// do the work instead of a kip.
+const DOWEL_ON_NECK = v(-5, -48);
+const dowelEnd: Prop = {
+  id: "dowel",
+  draw: {
+    svg: `<rect class="wood" x="-15" y="-1.7" width="30" height="3.4" rx="1.7"/><ellipse fill="#b0844f" stroke="#8d6539" stroke-width=".5" cx="15" rx="1.1" ry="1.7"/>`,
+    box: [-15, -2, 16, 2],
+  },
+  layer: "front",
+};
+
+function hangingRaise(o: { name: string; aka?: string[]; kind: "knee" | "leg" | "toes"; dowel?: boolean; primary: Spec["primary"]; secondary?: Spec["secondary"] }): Spec {
   return {
     name: o.name,
     aka: o.aka,
@@ -352,12 +367,14 @@ function hangingRaise(o: { name: string; aka?: string[]; kind: "knee" | "leg" | 
     secondary: o.secondary,
     still: 1,
     scene: [{ draw: pullUpBar(HANG_BAR), layer: "back" }],
+    props: o.dowel ? [dowelEnd] : undefined,
     motion: (p) => {
       const swing = o.kind === "toes" ? lerp(0, 26, p) : lerp(0, 6, p);
       const pose = hangSide(HANG_BAR, { torso: swing, head: swing - 6, reach: 180 + swing * 0.8 });
       const lift = o.kind === "knee" ? lerp(2, 100, p) : o.kind === "leg" ? lerp(2, 94, p) : lerp(2, 168, p);
       const shin = o.kind === "knee" ? lerp(0, 4, p) : lift;
-      return { pose: { ...pose, legN: limb(lift, shin, shin + 26), legF: limb(lift - 2, shin - 2, shin + 24) } };
+      const out = { ...pose, legN: limb(lift, shin, shin + 26), legF: limb(lift - 2, shin - 2, shin + 24) };
+      return { pose: out, props: o.dowel ? { dowel: { at: onTrunk(out, DOWEL_ON_NECK), angle: out.torso + 28 } } : undefined };
     },
   };
 }
@@ -1456,6 +1473,14 @@ export const CORE: Spec[] = [
   hangingRaise({ name: "Hanging Knee Raise", kind: "knee", primary: ["abs", "hip_flexors"], secondary: ["obliques", "forearms"] }),
   hangingRaise({ name: "Hanging Leg Raise", kind: "leg", primary: ["abs", "hip_flexors"], secondary: ["obliques", "forearms"] }),
   hangingRaise({ name: "Toes-to-Bar", aka: ["Toes to Bar"], kind: "toes", primary: ["abs", "hip_flexors"], secondary: ["lats", "obliques", "forearms"] }),
+  hangingRaise({
+    name: "Dowel Toes-to-Bar",
+    aka: ["Toes-to-Bar with Dowel", "Stick Toes-to-Bar", "Dowel Behind Neck Toes-to-Bar", "Strict Toes-to-Bar with Stick"],
+    kind: "toes",
+    dowel: true,
+    primary: ["abs", "hip_flexors"],
+    secondary: ["lats", "obliques", "forearms"],
+  }),
   frontLeverTuck,
   lever({ name: "Advanced Tuck Front Lever", tuck: 0.68 }),
   lever({ name: "Straddle Front Lever", tuck: 0, straddle: true }),

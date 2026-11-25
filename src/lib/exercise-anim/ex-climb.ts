@@ -7,7 +7,7 @@
 // arrives exactly where the reach ends, and one loop moves the wall by exactly
 // one repeat of its pattern.
 
-import { box, pullUpBar, pullUpBarAcross } from "./equipment";
+import { box, plateFace, pullUpBar, pullUpBarAcross } from "./equipment";
 import {
   add,
   at,
@@ -594,27 +594,36 @@ const pinchBlockLift: Spec = {
   },
 };
 
+// Standing, arms straight out at shoulder height, a plate hanging from a
+// strap tied to the middle of a short stick. The wrists take turns rolling
+// the stick over so the strap winds on and the plate climbs to the hands,
+// then unroll it under control back down. As drilled by the soldiers in reel
+// DdrWPKwMAH8.
+const WR_PLATE = 9;
 const wristRoller: Spec = {
   name: "Wrist Roller",
+  aka: ["Standing Wrist Roller", "Forearm Roller", "Wrist Roller with Plate", "Forearm Wrist Roller"],
   mode: "alternate",
-  seconds: 3,
-  samples: 12,
+  seconds: 3.4,
+  samples: 14,
   hands: { N: "fist" },
   primary: ["forearms"],
   secondary: ["delts_front"],
   still: 0.5,
   props: [
     { id: "roller", draw: { svg: `<circle class="wood" r="3.2"/>`, box: [-3.2, -3.2, 3.2, 3.2] }, layer: "front" },
-    { id: "cord", draw: { svg: `<path d="M0 0H1" fill="none" stroke="#5b6461" stroke-width="1" style="vector-effect:non-scaling-stroke"/>`, box: [0, -1, 1, 1] }, layer: "front" },
-    { id: "weight", draw: { svg: `<rect class="iron" x="-11" y="0" width="22" height="9" rx="2"/>`, box: [-11, 0, 11, 9] }, layer: "front" },
+    { id: "cord", draw: { svg: `<path d="M0 0H1" fill="none" stroke="#5b6461" stroke-width="1.6" style="vector-effect:non-scaling-stroke"/>`, box: [0, -1, 1, 1] }, layer: "front" },
+    { id: "weight", draw: plateFace(WR_PLATE), layer: "front" },
   ],
   motion: (p) => {
     let pose = stand(-94.4, { torso: -2 });
     const roll = Math.sin(p * Math.PI * 6) * 24;
     pose = { ...pose, armN: limb(84, 88, 88 + roll), armF: limb(84, 88, 88 - roll) };
     const g = grips(pose).N;
-    const w = v(g.x, lerp(-14, g.y + 22, p));
-    return { pose, props: { roller: at(g), cord: line(g, w), weight: at(w) } };
+    // The strap's end: the plate starts just off the floor and climbs until
+    // its rim nearly meets the stick.
+    const end = v(g.x, lerp(-2 * WR_PLATE - 3, g.y + 6, p));
+    return { pose, props: { roller: at(g), cord: line(g, end), weight: at(add(end, v(0, WR_PLATE))) } };
   },
 };
 

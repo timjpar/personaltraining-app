@@ -1082,6 +1082,51 @@ const lateralAustralianPullUp: Spec = {
   },
 };
 
+// Ring Y-pull (reel DfiL5UBuyAR): lean back under the rings with the heels
+// planted, elbows bent and hands by the forehead, then pull the body up by
+// driving the arms long overhead into a Y. Seen from the side the Y reads as
+// arms straight overhead in line with the trunk. The rings swing on their
+// straps through the rep (as in the reel), so the hands lead and the straps
+// follow from a fixed anchor.
+const Y_PULL_HEEL = v(40, -8);
+const Y_PULL_ANCHOR = v(-62, -262);
+function leanBack(t: number): Pose {
+  const body = 90 - t;
+  const hip = sub(Y_PULL_HEEL, rot(v(0, 87), body));
+  return { ...base(hip, { torso: body, pelvis: body, head: body + 4 }), legN: limb(body), legF: limb(body) };
+}
+const ringYPull: Spec = {
+  name: "Ring Y-Pull",
+  aka: ["Ring Y Raise", "Ring Y", "TRX Y Pull", "TRX Y Raise", "Suspension Y Pull", "Y-Pull", "Ring Y Fly"],
+  mode: "alternate",
+  seconds: 2.8,
+  hands: { N: "fist" },
+  primary: ["delts_side", "delts_rear", "upper_back"],
+  secondary: ["lats", "triceps", "abs", "glutes"],
+  still: 0.9,
+  props: [
+    { id: "sN", draw: strap(), layer: "back" },
+    { id: "rN", draw: ring(), layer: "front" },
+  ],
+  motion: (p) => {
+    const t = smooth(p);
+    let pose = leanBack(lerp(45, 70, t));
+    const s = shoulders(pose).N;
+    const up = rot(v(0, -1), pose.torso);
+    const front = rot(v(0, -1), pose.torso - 90);
+    // Bottom: hands just above and in front of the forehead, elbows bent.
+    // Top: arm's length overhead, a touch in front of the trunk line.
+    const bottom = add(add(s, v(up.x * 31, up.y * 31)), v(front.x * 13, front.y * 13));
+    const reach = LEN.upperArm + LEN.forearm + LEN.grip - 1;
+    const topDir = rot(v(0, -1), pose.torso - 8);
+    const top = add(s, v(topDir.x * reach, topDir.y * reach));
+    const g = lerpV(bottom, top, t);
+    pose = hold(pose, "side", g, undefined, -1);
+    const hand = grips(pose).N;
+    return { pose, props: { rN: at(hand), sN: line(Y_PULL_ANCHOR, hand) } };
+  },
+};
+
 export const PULL: Spec[] = [
   barbellRow({ name: "Barbell Row", aka: ["Bent-Over Row"], torso: -52, primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "lower_back"] }),
   barbellRow({ name: "Pendlay Row", torso: -82, fromFloor: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "lower_back"] }),
@@ -1091,6 +1136,7 @@ export const PULL: Spec[] = [
   invertedRow({ name: "Inverted Row", primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear"] }),
   invertedRow({ name: "Ring Row", rings: true, primary: ["upper_back", "lats"], secondary: ["biceps", "delts_rear", "abs"] }),
   lateralAustralianPullUp,
+  ringYPull,
   ringRowPress,
   pullUpBack({ name: "Pull-Up", aka: ["Pull Up"], primary: ["lats", "upper_back"], secondary: ["biceps", "delts_rear", "forearms"] }),
   pullUpBack({ name: "Weighted Pull-Up", plate: true, primary: ["lats", "upper_back"], secondary: ["biceps", "forearms", "abs"] }),
