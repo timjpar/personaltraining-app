@@ -19,9 +19,12 @@ import {
   legPressSled,
   mat,
   plateEdge,
+  pullUpBarAcross,
+  ring,
   roller,
   seat,
   step,
+  strap,
   wall,
 } from "./equipment";
 import {
@@ -60,7 +63,8 @@ import {
   type Spec,
   type V,
 } from "./kit";
-import type { Prop } from "./render";
+import type { Frame, Prop } from "./render";
+import { smooth, SQUARE } from "./rig";
 
 const barbell = (): Prop[] => [
   { id: "bar", draw: barbellFar(), layer: "back" },
@@ -1189,6 +1193,211 @@ const boxSumoSquat: Spec = {
   },
 };
 
+// Cossack squats, the five levels of reel DdHZJ5XtSd1: square-on, feet wide
+// and planted, the hips shifting from one side to the other. The working leg
+// folds deep with the knee out over the toes; the other leg goes straight,
+// heel down and toes up. The hips sit back (away from the viewer) as they go
+// down. Legs are solved in 3D like the deficit sumo squat, so the feet never
+// slide. p runs one full cycle: 0 is the bottom over the right foot, 0.5 the
+// bottom over the left.
+const COSSACK_ANKLE = 50;
+const COSSACK_TOE_OUT = 35;
+const LEG_REACH = LEN.thigh + LEN.shin - 0.6;
+
+type CossackKind = "rings" | "bar" | "floor" | "goblet" | "sit";
+
+type CossackKey = { hx: number; hy: number; hz: number; bow: number; feetUp: [number, number]; seat?: boolean };
+
+// The bottom over one side (+1 right, -1 left), or part way there (m < 1),
+// at hip height hy. The hips travel only as far as the straight leg allows.
+function cossackKey(side: number, m: number, hy: number, hz: number, bow: number): CossackKey {
+  const dy = -8 - hy;
+  const reach = Math.sqrt(Math.max(0, LEG_REACH ** 2 - dy ** 2 - hz ** 2));
+  const hxMax = Math.max(0, reach - COSSACK_ANKLE + SQUARE.hipX);
+  const hx = side * hxMax * Math.pow(m, 0.8);
+  const up = 150 * smooth(Math.max(0, Math.min(1, (m - 0.45) / 0.55)));
+  return { hx, hy, hz, bow, feetUp: side > 0 ? [0, up] : [up, 0] };
+}
+
+function cossackPose(k: CossackKey): Pose {
+  let pose: Pose = { ...base(v(k.hx, k.hy)), bow: k.bow };
+  const turn = (COSSACK_TOE_OUT * Math.PI) / 180;
+  const legFor = (s: 1 | -1, up: number): Limb => {
+    const lift = (up / 150) * 3;
+    const pole = k.seat ? v3(0.7 * s, -1, 0.4) : v3(Math.sin(turn) * s, 0, Math.cos(turn));
+    const l = leg3(v3(k.hx + SQUARE.hipX * s, k.hy, k.hz), v3(COSSACK_ANKLE * s, -8 + lift, 0), pole);
+    return { ...l, end: up * s };
+  };
+  pose = { ...pose, legN: legFor(1, k.feetUp[0]), legF: legFor(-1, k.feetUp[1]) };
+  return pose;
+}
+
+const COSSACK_RING = v(28, -146);
+
+// A straight arm reaching from the shoulder toward the viewer to `to`,
+// foreshortened so the hand lands there: the bar held in front, or the
+// fingertips on the floor ahead of the feet.
+function reachArm(shoulder: V, to: V, tip: number): Limb {
+  const d = sub(to, shoulder);
+  const a = dirAngle(d);
+  const k = Math.min(1, Math.hypot(d.x, d.y) / (LEN.upperArm + LEN.forearm + tip));
+  return { upper: a, lower: a, end: a, ku: k, kl: k, ke: k };
+}
+const COSSACK_BAR = -58;
+
+function cossack(o: {
+  name: string;
+  aka?: string[];
+  kind: CossackKind;
+  bottom: number; // hip height at the bottom
+  mid: number; // hip height crossing the middle
+  bow: [number, number]; // trunk lean toward the viewer: middle, bottom
+  seconds: number;
+  primary: Spec["primary"];
+  secondary?: Spec["secondary"];
+}): Spec {
+  const loaded = o.kind === "goblet" || o.kind === "sit";
+  const key = (q: number): CossackKey => {
+    const c = Math.cos(q * 2 * Math.PI);
+    const m = Math.abs(c);
+    const e = smooth(m);
+    return cossackKey(Math.sign(c) || 1, m, lerp(o.mid, o.bottom, e), lerp(-2, -12, e), lerp(o.bow[0], o.bow[1], e));
+  };
+  // The sit-through drops from each bottom to the floor and rises to the
+  // other side: hips on the floor between the feet, knees up and out.
+  const SEAT: CossackKey = { hx: 0, hy: -13, hz: -16, bow: 24, feetUp: [0, 0], seat: true };
+  const sitKey = (q: number): CossackKey => {
+    const right = cossackKey(1, 1, o.bottom, -12, o.bow[1]);
+    const left = cossackKey(-1, 1, o.bottom, -12, o.bow[1]);
+    const keys: [number, CossackKey][] = [[0, right], [0.1, right], [0.25, SEAT], [0.4, left], [0.6, left], [0.75, SEAT], [0.9, right], [1, right]];
+    let i = 1;
+    while (i < keys.length - 1 && q > keys[i][0]) i++;
+    const [t0, a] = keys[i - 1];
+    const [t1, b] = keys[i];
+    const t = smooth(Math.max(0, Math.min(1, (q - t0) / (t1 - t0))));
+    const L = (x: number, y: number) => lerp(x, y, t);
+    return {
+      hx: L(a.hx, b.hx),
+      hy: L(a.hy, b.hy),
+      hz: L(a.hz, b.hz),
+      bow: L(a.bow, b.bow),
+      feetUp: [L(a.feetUp[0], b.feetUp[0]), L(a.feetUp[1], b.feetUp[1])],
+      seat: t > 0.5 ? b.seat : a.seat,
+    };
+  };
+  const scene =
+    o.kind === "bar" ? [{ draw: pullUpBarAcross(COSSACK_BAR, 40), layer: "front" as const }] : [];
+  const props: Prop[] =
+    o.kind === "rings"
+      ? [
+          { id: "sN", draw: strap(), layer: "back" },
+          { id: "sF", draw: strap(), layer: "back" },
+          { id: "rN", draw: ring(), layer: "front" },
+          { id: "rF", draw: ring(), layer: "front" },
+        ]
+      : loaded
+        ? [{ id: "kb", draw: kettlebellGoblet(), layer: "front" }]
+        : [];
+  return {
+    name: o.name,
+    aka: o.aka,
+    view: "front",
+    mode: "loop",
+    seconds: o.seconds,
+    hands: { N: o.kind === "floor" ? "hand" : "fist" },
+    primary: o.primary,
+    secondary: o.secondary,
+    still: 0,
+    scene,
+    props,
+    motion: (p): Frame => {
+      let pose = cossackPose(o.kind === "sit" ? sitKey(p) : key(p));
+      const j = frontJoints(pose);
+      if (o.kind === "rings") {
+        const rN = COSSACK_RING;
+        const rF = v(-COSSACK_RING.x, COSSACK_RING.y);
+        pose = hold(pose, "front", add(rN, v(0, 2)), add(rF, v(0, 2)), -1);
+        return { pose, props: { rN: at(rN), rF: at(rF), sN: line(v(rN.x, -250), rN), sF: line(v(rF.x, -250), rF) } };
+      }
+      if (o.kind === "bar") {
+        const sh = shoulders(pose, "front");
+        pose = { ...pose, armN: reachArm(sh.N, v(21, COSSACK_BAR), LEN.grip), armF: reachArm(sh.F, v(-21, COSSACK_BAR), LEN.grip) };
+        return { pose };
+      }
+      if (o.kind === "floor") {
+        // Fingertips on the floor in front, under the shoulders' midline,
+        // following the hips a little.
+        const c = pose.hip.x * 0.45;
+        const sh = shoulders(pose, "front");
+        pose = { ...pose, armN: reachArm(sh.N, v(c + 10, -1), 8), armF: reachArm(sh.F, v(c - 10, -1), 8) };
+        return { pose };
+      }
+      // Goblet: the bell held by the horns at the chest, elbows down.
+      const g = add(lerpV(j.lumbar, j.neck, 0.5), v(0, 2));
+      pose = hold(pose, "front", add(g, v(3.2, 0)), add(g, v(-3.2, 0)), 1);
+      return { pose, props: { kb: at(g) } };
+    },
+  };
+}
+
+const cossacks: Spec[] = [
+  cossack({
+    name: "Ring-Assisted Cossack Squat",
+    aka: ["Assisted Cossack Squat", "TRX Cossack Squat", "Suspension Cossack Squat", "Ring Cossack Squat"],
+    kind: "rings",
+    bottom: -44,
+    mid: -70,
+    bow: [6, 14],
+    seconds: 5,
+    primary: ["adductors", "glutes", "quads"],
+    secondary: ["hamstrings", "lats"],
+  }),
+  cossack({
+    name: "Assisted Cossack Transition",
+    aka: ["Assisted Cossack Transitions", "Supported Cossack Shift", "Rack-Assisted Cossack Squat", "Assisted Cossack Shift"],
+    kind: "bar",
+    bottom: -42,
+    mid: -52,
+    bow: [22, 26],
+    seconds: 4.4,
+    primary: ["adductors", "glutes", "quads"],
+    secondary: ["hamstrings"],
+  }),
+  cossack({
+    name: "Cossack Squat",
+    aka: ["Bodyweight Cossack Squat", "Cossack Squats", "Hands-Down Cossack Squat", "Side-to-Side Cossack Squat"],
+    kind: "floor",
+    bottom: -36,
+    mid: -44,
+    bow: [70, 72],
+    seconds: 4.4,
+    primary: ["adductors", "glutes", "quads"],
+    secondary: ["hamstrings", "calves"],
+  }),
+  cossack({
+    name: "Kettlebell Goblet Cossack Squat",
+    aka: ["Goblet Cossack Squat", "Kettlebell Cossack Squat", "Weighted Cossack Squat", "Loaded Cossack Squat"],
+    kind: "goblet",
+    bottom: -46,
+    mid: -84,
+    bow: [14, 26],
+    seconds: 4.4,
+    primary: ["adductors", "glutes", "quads"],
+    secondary: ["hamstrings", "abs", "upper_back"],
+  }),
+  cossack({
+    name: "Kettlebell Cossack Sit-Through",
+    aka: ["Cossack Squat Sit-Through", "Cossack Sit-Through", "Goblet Cossack Sit-Through", "Cossack Squat to Floor"],
+    kind: "sit",
+    bottom: -44,
+    mid: -60,
+    bow: [20, 26],
+    seconds: 6,
+    primary: ["adductors", "glutes", "quads"],
+    secondary: ["hamstrings", "hip_flexors", "abs"],
+  }),
+];
+
 const stepUp: Spec = {
   name: "Step-Up",
   mode: "alternate",
@@ -1293,6 +1502,7 @@ export const LEGS: Spec[] = [
   figure4({ name: "Figure-4 Squat", aka: ["Figure-4 Single-Leg Squat", "Figure Four Squat", "Crossed-Leg Squat"] }),
   figure4({ name: "Box Figure-4 Squat", box: true }),
   boxSumoSquat,
+  ...cossacks,
   legPress,
   lunge({ name: "Reverse Lunge", kind: "reverse", load: "dumbbells", primary: ["quads", "glutes"], secondary: ["adductors", "hamstrings"] }),
   lunge({ name: "Walking Lunge", kind: "forward", load: "dumbbells", primary: ["quads", "glutes"], secondary: ["adductors", "hamstrings", "calves"] }),
